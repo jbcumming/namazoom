@@ -246,9 +246,9 @@ body.panel-closed .panel { display: none; }
 @media (max-width: 760px) {
   body { overflow: auto; }
   .topbar .source { display: none; }
-  .app { display: flex; flex-direction: column; }
+  .app { display: flex; flex-direction: column; flex: none; min-height: auto; }
   .map-area { height: 72vh; flex: none; }
-  .panel { border-left: none; border-top: 1px solid var(--border); }
+  .panel { border-left: none; border-top: 1px solid var(--border); flex: none; min-height: auto; }
   .pane { overflow: visible; }
   .bottom-left { bottom: 10px; }
   .map-legend { font-size: 0.68rem; padding: 4px 8px; }
