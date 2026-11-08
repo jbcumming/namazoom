@@ -9,7 +9,8 @@
     "preview": "vite preview --host 0.0.0.0",
     "test": "vitest run",
     "data": "node scripts/coast.mjs",
-    "screenshots": "vite build && node scripts/screenshots.mjs"
+    "screenshots": "vite build && node scripts/screenshots.mjs",
+    "serve": "vite preview --host 0.0.0.0 --port 4173"
   },
   "dependencies": {
     "@observablehq/plot": "^0.6.19",

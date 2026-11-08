@@ -3,8 +3,8 @@
 A static website visualising the Japan Meteorological Agency's historical
 earthquake catalogue (地震月報 カタログ編), 1919 onwards.
 
-**Status: phase 2.** All JMA files (1919-2024) parse and are stored as
-Parquet in `data/interim/`, with completeness estimates. No site yet.
+**Status:** all JMA files (1919-2024) are parsed and checked; the map app
+runs locally (`./run.sh`). Hosting and further analysis: see TODO.md.
 
 Full pipeline:
 
@@ -59,52 +59,71 @@ uv run pytest                      # unit tests + full 2019 checks (skipped if d
 uv run python -m pipeline.summary data/raw/h2019.zip data/raw/i2019.zip data/raw/code_p.zip
 ```
 
+## Running the site
+
+```bash
+./run.sh          # build whatever is missing, then serve on http://0.0.0.0:4173
+./run.sh build    # build only;  ./run.sh serve  serves the existing build
+REBUILD=1 ./run.sh  # redo pipeline steps even if their outputs exist
+```
+
+A first run downloads the JMA catalogue (~185 MB), plate boundaries, USGS Slab2
+(140 MB) and an OpenStreetMap basemap extract (~200 MB), parses everything
+(~3 min) and builds `site/dist` (~325 MB, mostly the basemap). Later runs only
+rebuild the site. Inside the sandbox, publish the port from the host with
+`sbx ports <sandbox-name> --publish 4173:4173`. Hosting is not set up yet (see
+TODO.md); the server must support HTTP range requests for the basemap file.
+
 ## Site
 
 `site/` is a static, map-driven app (Vite + TypeScript, MapLibre GL, Observable
-Plot): a full-screen map of quakes with a timeline, and a right-hand panel of
-tabs that follow the map's visible area and time range. Its data is generated,
-not committed:
+Plot). Everything shown is pre-built from the pipeline; the browser never loads
+the catalogue as a whole.
 
-```bash
-uv run python -m pipeline.build.site_data   # -> site/public/data/gr.json, quakes/
-uv run python -m pipeline.build.overlays    # -> site/public/data/overlays/ (plates, slabs)
-cd site && npm install && npm run data      # -> public/data/coast.json (fallback basemap)
-scripts/basemap.sh                          # -> public/tiles/japan.pmtiles + fonts/sprites (~215 MB)
-npm test                                    # includes Mc parity with the Python pipeline
-npm run dev                                 # or: npm run build -> site/dist/
-npm run screenshots -- <dir>                # headless-Chromium screenshots for visual checks
-```
+**Map.** Quakes coloured by depth (0-40, 40-100, 100-200, 200-300, 300+ km),
+sized by magnitude. M5+ for all years loads at start; M3-5 per year, drawn at
+once for ranges of up to 10 years or year by year during playback. Smaller
+quakes appear only in the magnitude counts. Timeline: year range, play/pause
+(pause holds the frame), minimum magnitude, trail. Overlays: plate boundaries
+(Bird 2003 PB2002, ODC-By; trenches heavier) and depth to the top of the sinking
+plate (USGS Slab2, Hayes 2018), contoured at the quake colour boundaries.
+Views are shareable: years, filter, tab, selected quake and map position are
+kept in the URL hash.
 
-What it shows:
-- **Map.** Quakes coloured by depth (0-40, 40-100, 100-200, 200-300, 300+ km) and
-  sized by magnitude. M5+ for all years loads at start; M3-5 loads per year
-  (`quakes/m3/{year}.json`) and is drawn at once only for ranges of up to 10
-  years, or year by year during playback. Smaller quakes are never sent
-  individually.
-- **Timeline.** Year range, play/pause (pause holds the frame, Esc leaves
-  playback), minimum magnitude, trail length.
-- **Overlays** (toggle in the legend):
-  plate boundaries from Bird (2003) PB2002 (ODC-By), trenches drawn heavier,
-  hover says which plate sinks beneath which; and depth to the top of the
-  sinking plate from USGS Slab2 (Hayes 2018, no use constraints), contoured at
-  the same depths as the quake colour classes.
-- **Tabs.** Magnitudes (Gutenberg-Richter for the visible area and period, Mc and
-  b estimated in the browser by a port of the pipeline's estimator, checked
-  against Python in `gr.test.ts`); Quake (details of the clicked quake). Depth
-  section and My location are planned.
-- **Basemap.** Self-hosted Protomaps extract of OpenStreetMap (zoom 0-11,
-  bbox 120-150E, 22-47N; © OpenStreetMap contributors), served as one PMTiles
-  file (the host must support HTTP range requests). Without it the app falls
-  back to a Natural Earth coastline.
+**Tabs** (follow the visible map area and the timeline's years):
+- *Magnitudes* - Gutenberg-Richter curves with Mc and b estimated in the browser
+  (a port of the pipeline estimator, parity-tested against Python); era
+  comparison as yearly rates.
+- *Depth* - cross-section along a drawn line or preset, with the Slab2 plate top
+  and trench crossings; true scale where it fits.
+- *Quake* - the selected quake: details; shindo footprint (stations coloured
+  by intensity, intensity vs distance, strongest readings); replay of the
+  shaking at recorded station times beside model P/S wave fronts; aftershocks
+  for M5.5+ (window from Wells & Coppersmith rupture length, Omori p fit,
+  Båth's law, foreshocks).
+- *My location* - quakes felt near a point (city presets, map pick or browser
+  location): per year by strongest nearby intensity, stations operating
+  nearby, strongest shakings, their epicentres on the map.
+- *History* - energy released per year and its concentration in a few great
+  quakes; destructive quakes (damage class 3+ or damaging tsunami), ringed on
+  the map.
 
-Raw overlay inputs live in `data/raw/plates/` (PB2002 GeoJSON) and
-`data/raw/slab2/` (Slab2 release tarball; the three Japan-region depth
-contour files are extracted from it).
+Shindo colours run yellow (1) to purple (7): a multi-hue scale with evenly
+falling lightness, validated separately for light and dark mode.
 
-Event selection for every page lives in `pipeline/selection.py`: epicentre in
-24-46°N, 122-148°E or felt in Japan; artificial events never; non-JMA
-hypocentres only if felt in Japan.
+**Data notes.** Footprints use only readings attributable to one quake (type
+B/D groups share readings). Station 5399999, the 1995 Kobe shindo-7 survey
+area, has no position (recorded as 0,0) and is shown as an area-wide note.
+My location uses every reading, including felt reports without a located
+hypocentre.
+
+**Build pieces:** `pipeline/build/site_data.py` (quakes, footprints, felt
+history, G-R counts), `pipeline/build/overlays.py` (plates, slabs),
+`site/scripts/coast.mjs` (fallback coastline), `site/scripts/basemap.sh`
+(Protomaps extract + fonts/sprites), `site/scripts/screenshots.mjs` (headless
+checks). Event selection for every view: `pipeline/selection.py`.
+
+Raw overlay inputs live in `data/raw/plates/` and `data/raw/slab2/`.
 
 ## Layout
 

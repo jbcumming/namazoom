@@ -1,16 +1,18 @@
 # TODO
 
-Current priority: get the site running end to end (build, host, deploy). New
-features below wait until that's done.
+Current priority: the site runs locally with `./run.sh`; hosting comes later.
+New features below wait until that's settled.
 
-## Site: get it working
-- [ ] Update README for everything added since the map app (footprint, depth
-      section, my location, aftershocks, replay, history, links, colours).
-- [ ] Choose hosting. The PMTiles basemap is 199 MB, over per-file limits of
-      GitHub Pages (100 MB) and Cloudflare Pages / Netlify (25 MB), so it
-      needs object storage that supports HTTP range requests (e.g. Cloudflare
-      R2, S3) or a smaller extract (lower max zoom).
-- [ ] One-command build: pipeline -> site data -> overlays -> basemap -> `npm run build`.
+## Site
+- [x] Update README for the map app features.
+- [x] One-command build and local serve (`./run.sh`).
+- [ ] Choose hosting (deferred). First option to check: Fastmail's static
+      website hosting (Files): storage quota on the plan, per-file size limit,
+      and whether it serves HTTP range requests (needed for the basemap).
+      The PMTiles basemap is 199 MB, over the per-file limits of GitHub Pages
+      (100 MB) and Cloudflare Pages / Netlify (25 MB). Fallbacks: object
+      storage with range requests (Cloudflare R2, S3) for the tiles, or a
+      smaller extract (lower max zoom).
 - [ ] Deploy and check in a real browser (desktop and phone), including
       gzip/brotli on the JSON and range requests on the tiles.
 
