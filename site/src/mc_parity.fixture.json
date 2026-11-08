@@ -1,0 +1,112 @@
+[
+ {
+  "name": "all 2019",
+  "from": 2019,
+  "to": 2019,
+  "cells": null,
+  "expected": {
+   "n_events": 198326,
+   "mc": 1.0,
+   "b_value": 0.59,
+   "n_above_mc": 80543,
+   "method": "gft90",
+   "fit_pct": 91.2
+  }
+ },
+ {
+  "name": "all 1925-1934",
+  "from": 1925,
+  "to": 1934,
+  "cells": null,
+  "expected": {
+   "n_events": 5484,
+   "mc": 3.7,
+   "b_value": 0.48,
+   "n_above_mc": 3684,
+   "method": "maxc+0.2",
+   "fit_pct": null
+  }
+ },
+ {
+  "name": "all 1965-1974",
+  "from": 1965,
+  "to": 1974,
+  "cells": null,
+  "expected": {
+   "n_events": 10398,
+   "mc": 4.5,
+   "b_value": 0.9,
+   "n_above_mc": 3133,
+   "method": "gft90",
+   "fit_pct": 91.5
+  }
+ },
+ {
+  "name": "all 1997-2015",
+  "from": 1997,
+  "to": 2015,
+  "cells": null,
+  "expected": {
+   "n_events": 2357910,
+   "mc": 2.8,
+   "b_value": 0.74,
+   "n_above_mc": 171598,
+   "method": "gft95",
+   "fit_pct": 95.2
+  }
+ },
+ {
+  "name": "central Honshu 2010-2020",
+  "from": 2010,
+  "to": 2020,
+  "cells": [
+   62,
+   63,
+   75,
+   76
+  ],
+  "expected": {
+   "n_events": 455713,
+   "mc": 0.9,
+   "b_value": 0.77,
+   "n_above_mc": 145251,
+   "method": "gft95",
+   "fit_pct": 96.0
+  }
+ },
+ {
+  "name": "central Honshu 1980-1984",
+  "from": 1980,
+  "to": 1984,
+  "cells": [
+   62,
+   63,
+   75,
+   76
+  ],
+  "expected": {
+   "n_events": 4529,
+   "mc": 2.7,
+   "b_value": 0.72,
+   "n_above_mc": 1954,
+   "method": "maxc+0.2",
+   "fit_pct": null
+  }
+ },
+ {
+  "name": "tiny",
+  "from": 1919,
+  "to": 1919,
+  "cells": [
+   0
+  ],
+  "expected": {
+   "n_events": 1,
+   "mc": null,
+   "b_value": null,
+   "n_above_mc": null,
+   "method": null,
+   "fit_pct": null
+  }
+ }
+]

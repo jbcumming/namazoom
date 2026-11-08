@@ -8,3 +8,7 @@ __pycache__/
 .pytest_cache/
 # Claude Code local files
 .claude/settings.local.json
+# Site: dependencies, build output, generated data (rebuild with the pipeline + `npm run data`)
+site/node_modules/
+site/dist/
+site/public/data/

@@ -59,6 +59,31 @@ uv run pytest                      # unit tests + full 2019 checks (skipped if d
 uv run python -m pipeline.summary data/raw/h2019.zip data/raw/i2019.zip data/raw/code_p.zip
 ```
 
+## Site
+
+`site/` is a static site (Vite + TypeScript, Observable Plot, d3). Its data is
+generated, not committed:
+
+```bash
+uv run python -m pipeline.build.site_data   # -> site/public/data/gr.json
+cd site && npm install && npm run data      # -> public/data/coast.json (Natural Earth, cut to the region)
+npm test                                    # includes Mc parity with the Python pipeline
+npm run dev                                 # or: npm run build -> site/dist/
+npm run screenshots -- <dir>                # headless-Chromium screenshots for visual checks
+```
+
+Pages so far:
+- **Magnitude-frequency (Gutenberg-Richter).** Cumulative counts on a log
+  scale for any year range and any set of 2° squares, with Mc and b estimated
+  in the browser by a port of the pipeline's estimator (`site/src/gr.ts`,
+  checked against Python in `gr.test.ts`). "Compare eras" overlays 1919-74,
+  1975-96, 1997-2015 and 2016-24 as yearly rates, because the eras differ
+  in length.
+
+Event selection for every page lives in `pipeline/selection.py`: epicentre in
+24-46°N, 122-148°E or felt in Japan; artificial events never; non-JMA
+hypocentres only if felt in Japan.
+
 ## Layout
 
 ```

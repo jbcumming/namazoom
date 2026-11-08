@@ -16,9 +16,10 @@ national Mc is the Mc of the best-covered areas. Above it the offshore
 catalogue is still incomplete and the national b-value comes out ~0.5-0.7,
 where well-covered regions give the expected ~0.9-1.0.
 
-Selection: JMA-located natural earthquakes (event class 1 or 2) with a
-magnitude. Low-frequency, artificial and eruption-related events are excluded
-because they don't follow the same magnitude-frequency law.
+Selection: pipeline.selection.GR_SELECTION - JMA-located natural earthquakes
+(event class 1 or 2) with a magnitude, epicentre inside the Japan box.
+Low-frequency, artificial and eruption-related events are excluded because
+they don't follow the same magnitude-frequency law.
 
 Mc method: goodness-of-fit (Wiemer & Wyss 2000) - the lowest Mc at which a
 Gutenberg-Richter law explains >= 95% (else >= 90%) of the observed counts;
@@ -39,6 +40,8 @@ import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from ..selection import GR_SELECTION
+
 BIN = 0.1
 CELL_DEG = 2
 WINDOW_YEARS = 5
@@ -46,7 +49,6 @@ FIRST_YEAR = 1919
 MIN_EVENTS = 200
 MIN_ABOVE_MC = 50
 MAXC_CORRECTION = 0.2
-SELECTION = "agency = 'J' AND event_class IN ('1', '2') AND mag1 IS NOT NULL"
 
 
 def aki_b(counts: dict[float, int], mc: float) -> tuple[float | None, int]:
@@ -109,7 +111,7 @@ def build(interim: Path) -> dict[str, pa.Table]:
         SELECT year::SMALLINT AS year,
                floor(lat)::SMALLINT AS cell_lat, floor(lon)::SMALLINT AS cell_lon,
                round(mag1, 1) AS mag, count(*)::INTEGER AS n
-        FROM read_parquet('{events}') WHERE {SELECTION}
+        FROM read_parquet('{events}') WHERE {GR_SELECTION}
         GROUP BY ALL ORDER BY ALL
     """).to_arrow_table()
     pq.write_table(mag_counts, interim / "mag_counts.parquet", compression="zstd")
