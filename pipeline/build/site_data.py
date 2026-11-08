@@ -12,7 +12,8 @@ map, columnar, tiered so the browser only loads what it shows:
   Smaller events are never sent individually; they appear only in gr.json.
 
 stations.json, shindo/{YYYY-MM}.json - station readings for felt quakes
-(see build_shindo). felt/{lat}_{lon}.json - every reading by place, for the
+(see build_shindo). station_counts.json - felt counts per station, year and
+intensity, for the shaking map (see build_station_counts). felt/{lat}_{lon}.json - every reading by place, for the
 "My location" tab (see build_felt).
 
 gr.json - everything the magnitude-frequency tab needs, pre-aggregated:
@@ -274,6 +275,41 @@ def build_felt(interim: Path, out: Path) -> dict:
     return {"cells": len(cells), "readings": len(rows), "bytes": size}
 
 
+def build_station_counts(interim: Path, out: Path) -> dict:
+    """Felt counts per station, year and intensity class, for the shaking map.
+
+    station_counts.json, columnar:
+      st  station index into stations.json
+      y   year (JST) of the quake
+      k   intensity class 0-8 (shindo 1, 2, 3, 4, 5-, 5+, 6-, 6+, 7; old-scale
+          5/6 with 5-/6-), or -1 for "felt, intensity unknown"
+      n   number of readings
+    Every reading counts (shared and unlocated groups too): the question is how
+    often the ground shook at the station, whichever quake caused it.
+    """
+    con = duckdb.connect()
+    station_index = {sid: i for i, (sid,) in enumerate(
+        con.execute(f"SELECT id FROM read_parquet('{interim / 'stations.parquet'}') ORDER BY id").fetchall())}
+    rows = con.execute(f"""
+        WITH g AS (
+            SELECT group_id, year FROM read_parquet('{interim / 'shindo_headers' / '*.parquet'}') WHERE header_index = 0
+        )
+        SELECT o.station_id,
+               g.year,
+               CASE o.shindo WHEN '1' THEN 0 WHEN '2' THEN 1 WHEN '3' THEN 2 WHEN '4' THEN 3
+                             WHEN 'A' THEN 4 WHEN '5' THEN 4 WHEN 'B' THEN 5 WHEN 'C' THEN 6
+                             WHEN '6' THEN 6 WHEN 'D' THEN 7 WHEN '7' THEN 8 ELSE -1 END AS k,
+               count(*)::INTEGER AS n
+        FROM read_parquet('{interim / 'shindo_obs' / '*.parquet'}') o JOIN g USING (group_id)
+        GROUP BY ALL ORDER BY 1, 2, 3
+    """).fetchall()
+    data = {"st": [station_index[r[0]] for r in rows], "y": [r[1] for r in rows],
+            "k": [r[2] for r in rows], "n": [r[3] for r in rows]}
+    path = out / "station_counts.json"
+    path.write_text(json.dumps(data, separators=(",", ":")))
+    return {"rows": len(rows), "readings": sum(data["n"]), "bytes": path.stat().st_size}
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--interim", type=Path, default=Path("data/interim"))
@@ -286,6 +322,9 @@ def main(argv: list[str] | None = None) -> int:
     sh = build_shindo(args.interim, args.out)
     print(f"shindo: {sh['events']:,} quakes, {sh['readings']:,} readings in {sh['months']} monthly files "
           f"({sh['bytes'] / 1e6:.1f} MB); {sh['stations']:,} stations")
+    sc = build_station_counts(args.interim, args.out)
+    print(f"station counts: {sc['readings']:,} readings in {sc['rows']:,} station-year-level rows "
+          f"({sc['bytes'] / 1e6:.1f} MB)")
     fe = build_felt(args.interim, args.out)
     print(f"felt: {fe['readings']:,} readings in {fe['cells']} cell files ({fe['bytes'] / 1e6:.1f} MB)")
     return 0

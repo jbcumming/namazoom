@@ -172,6 +172,23 @@ await shot("18-location-hover", {
     await p.mouse.move(box.x + pt.x, box.y + pt.y);
   },
 });
+for (const [name, hash, level] of [
+  ["19-shaking-1997-felt", "#y=1997-2024&tab=shaking", null],
+  ["20-shaking-1997-4plus", "#y=1997-2024&tab=shaking", "2"],
+  ["21-shaking-1919-1996", "#y=1919-1996&tab=shaking", null],
+]) {
+  await shot(name, {
+    hash,
+    act: async (p) => {
+      await p.waitForSelector("#pane-shaking .hot-legend", { timeout: 30000 });
+      if (level) {
+        await p.selectOption("#pane-shaking select", level);
+        await p.waitForFunction((l) => document.querySelector("#pane-shaking select")?.value === l, level);
+      }
+      await p.waitForTimeout(1200);
+    },
+  });
+}
 await shot("05-dark", { dark: true });
 await shot("06-mobile", { width: 390, height: 844 });
 

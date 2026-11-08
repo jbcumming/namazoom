@@ -32,6 +32,14 @@
   --shindo-7: #74043b; /* 6- */
   --shindo-8: #520347; /* 6+ */
   --shindo-9: #300148; /* 7 */
+  /* shaking hotspots: one-hue green ramp, log rate classes (validated, light surface) */
+  --hot-1: #a3b738;
+  --hot-2: #82a429;
+  --hot-3: #61911c;
+  --hot-4: #3f7e11;
+  --hot-5: #106b07;
+  --hot-6: #05541f;
+  --hot-7: #013e1f;
   /* fallback basemap */
   --map-sea: #dde5ec;
   --map-land: #f6f5f1;
@@ -70,6 +78,14 @@
     --shindo-7: #c44275;
     --shindo-8: #9e368c;
     --shindo-9: #722f9a;
+    /* hotspots: same hue stepped for the dark surface (validated separately) */
+    --hot-1: #e6fc82;
+    --hot-2: #c3e873;
+    --hot-3: #a0d466;
+    --hot-4: #7ec05b;
+    --hot-5: #59ac51;
+    --hot-6: #2e9848;
+    --hot-7: #0d8147;
     --map-sea: #121416;
     --map-land: #24241f;
     --map-coast: #4a4a46;
@@ -106,6 +122,14 @@
   --shindo-7: #c44275;
   --shindo-8: #9e368c;
   --shindo-9: #722f9a;
+  /* hotspots: same hue stepped for the dark surface (validated separately) */
+  --hot-1: #e6fc82;
+  --hot-2: #c3e873;
+  --hot-3: #a0d466;
+  --hot-4: #7ec05b;
+  --hot-5: #59ac51;
+  --hot-6: #2e9848;
+  --hot-7: #0d8147;
   --map-sea: #121416;
   --map-land: #24241f;
   --map-coast: #4a4a46;
@@ -211,7 +235,7 @@ body.panel-closed .panel { display: none; }
 /* ---- panel ---- */
 .tabs { display: flex; border-bottom: 1px solid var(--border); flex: none; overflow-x: auto; }
 .tabs [role="tab"] {
-  border: none; border-radius: 0; background: none; padding: 10px 12px; color: var(--text-secondary);
+  border: none; border-radius: 0; background: none; padding: 10px 8px; font-size: 0.82rem; color: var(--text-secondary);
   border-bottom: 2px solid transparent; white-space: nowrap;
 }
 .tabs [role="tab"][aria-selected="true"] { color: var(--text-primary); font-weight: 600; border-bottom-color: var(--text-primary); }
@@ -308,3 +332,7 @@ tr.clickable:hover td { background: var(--page); }
 .lead { font-size: 0.95rem; color: var(--text-primary); margin: 6px 0 10px; }
 .table-scroll { max-height: 360px; overflow: auto; }
 .mini td:nth-child(3) { text-transform: capitalize; }
+.hot-legend { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 4px 10px; font-size: 0.78rem;
+  color: var(--text-secondary); font-variant-numeric: tabular-nums; margin-bottom: 8px; }
+.hot-key { display: flex; align-items: center; gap: 6px; }
+.hot-swatch { width: 14px; height: 14px; border-radius: 3px; flex: none; }

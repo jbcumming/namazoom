@@ -12,6 +12,8 @@ import { DAY, FORESHOCK_DAYS, MIN_MAINSHOCK, WINDOW_DAYS, sequence, type Shock }
 import { PRESETS, renderDepth } from "./panel-depth";
 import { PLACES, renderLocation, type Place } from "./panel-location";
 import { renderHistory } from "./panel-history";
+import { HOT_STEPS, hotColors, renderShaking, scaleRange } from "./panel-shaking";
+import { CELL_DEG, grid, LEVELS, logClass, stationRates, type Cell, type StationCounts } from "./hotspots";
 import { formatHash, parseHash, yearFromId } from "./urlstate";
 import { LocationStore, type FeltQuake, type NearbyStation } from "./location";
 import { swath, type LonLat, type Section } from "./section";
@@ -39,7 +41,7 @@ const store = new QuakeStore();
 const [grData] = await Promise.all([fetch("./data/gr.json").then((r) => r.json() as Promise<GrData>), store.init()]);
 [state.from, state.to] = store.index.years;
 // A shared link may set the view; applied before the first render.
-const fromUrl = parseHash(location.hash, ["magnitudes", "depth", "quake", "location", "history"], store.index.years);
+const fromUrl = parseHash(location.hash, ["magnitudes", "depth", "quake", "location", "history", "shaking"], store.index.years);
 if (fromUrl.from !== undefined) { state.from = fromUrl.from; state.to = fromUrl.to!; }
 if (fromUrl.minMag !== undefined) state.minMag = fromUrl.minMag;
 
@@ -109,6 +111,7 @@ function addQuakeLayers() {
   addFootprintLayer();
   addSectionLayers();
   addLocationLayers();
+  addHotspotLayer();
   // Rings round destructive quakes (damage class 3+ or a damaging tsunami), on the History tab.
   map.addLayer({
     id: "destructive", type: "circle", source: "quakes",
@@ -126,6 +129,7 @@ function addQuakeLayers() {
   showFootprint(); // after a style change the source starts empty
   drawSection();
   drawLocation();
+  drawHotspots();
 }
 
 const fitJapan = () => map.fitBounds([[box.lon_min, box.lat_min], [box.lon_max, box.lat_max]], { padding: 20, duration: 0 });
@@ -519,6 +523,72 @@ function drawSection() {
   if (b) markers.b.setLngLat(b).addTo(map); else markers.b.remove();
 }
 
+// ------------------------------------------------------------- hotspots ---
+
+const hot = {
+  level: 0,
+  counts: null as StationCounts | null,
+  cells: [] as Cell[],
+  range: [0.1, 1] as [number, number],
+  key: "",
+};
+let countsPromise: Promise<StationCounts> | null = null;
+
+function addHotspotLayer() {
+  map.addSource("hotspots", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  const colors = hotColors();
+  const m: (number | string)[] = [];
+  colors.forEach((c, i) => m.push(i, c));
+  map.addLayer({
+    id: "hotspots", type: "fill", source: "hotspots",
+    paint: { "fill-color": ["match", ["get", "c"], ...m, colors[0]] as unknown as ExpressionSpecification,
+      "fill-opacity": 0.8, "fill-outline-color": theme().surface },
+  }, "quakes");
+}
+
+/** Recompute cells when the period or level changes, then draw them (only on the Shaking tab). */
+async function drawHotspots() {
+  const src = map.getSource("hotspots") as GeoJSONSource | undefined;
+  if (!src) return;
+  if (state.tab !== "shaking") { src.setData({ type: "FeatureCollection", features: [] }); return; }
+  countsPromise ??= fetch("./data/station_counts.json").then((r) => r.json());
+  const [counts, stations] = await Promise.all([countsPromise, shindo.loadStations()]);
+  hot.counts = counts;
+  const key = `${state.from}-${state.to}-${hot.level}`;
+  if (key !== hot.key) {
+    hot.cells = grid(stationRates(counts, stations, state.from, state.to, LEVELS[hot.level].minClass), stations);
+    hot.range = scaleRange(hot.cells);
+    hot.key = key;
+    renderPanel();
+  }
+  if (state.tab !== "shaking") return;
+  const [lo, hi] = hot.range;
+  src.setData({
+    type: "FeatureCollection",
+    features: hot.cells.map((c, i) => ({
+      type: "Feature", properties: { c: logClass(c.rate, lo, hi, HOT_STEPS), i },
+      geometry: { type: "Polygon", coordinates: [[[c.lon, c.lat], [c.lon + CELL_DEG, c.lat], [c.lon + CELL_DEG, c.lat + CELL_DEG],
+        [c.lon, c.lat + CELL_DEG], [c.lon, c.lat]]] },
+    })),
+  });
+}
+
+map.on("mousemove", "hotspots", (e) => {
+  const f = e.features?.[0];
+  const c = f ? hot.cells[Number((f.properties as { i: number }).i)] : undefined;
+  const st = shindo.stations;
+  if (!c || !st) return;
+  const busiest = c.stations.reduce((a, b) => (b.rate > a.rate ? b : a));
+  showTooltip(e.originalEvent.clientX, e.originalEvent.clientY, (tip) => {
+    tip.append(el("div", "t-head", `${LEVELS[hot.level].label}, ${state.from === state.to ? state.from : `${state.from}–${state.to}`}`));
+    const row = (k: string, v: string) => { const r = el("div", "t-row"); r.append(el("span", "", k), el("strong", "", v)); tip.append(r); };
+    row("Per year (average)", c.rate >= 10 ? fmt(Math.round(c.rate)) : c.rate.toPrecision(2));
+    row("Stations", String(c.stations.length));
+    row("Busiest", `${st.name[busiest.station] || st.id[busiest.station]} (${busiest.rate.toPrecision(2)}/yr)`);
+  });
+});
+map.on("mouseleave", "hotspots", hideTooltip);
+
 // ------------------------------------------------------------ my location ---
 
 const locStore = new LocationStore();
@@ -654,7 +724,7 @@ function applyTimeFilter() {
     map.setPaintProperty("quakes", "circle-opacity", ["interpolate", ["linear"], ["get", "t"], lo, 0.08, hi, 0.95]);
   } else {
     map.setFilter("quakes", null);
-    const dim = footprint.status === "ok" || (state.tab === "location" && loc.place !== null);
+    const dim = footprint.status === "ok" || (state.tab === "location" && loc.place !== null) || state.tab === "shaking";
     map.setPaintProperty("quakes", "circle-opacity", dim ? 0.15 : 0.7);
   }
 }
@@ -772,7 +842,7 @@ document.addEventListener("keydown", (e) => {
 
 // ---------------------------------------------------------------- panel ---
 
-const TABS = ["magnitudes", "depth", "quake", "location", "history"];
+const TABS = ["magnitudes", "depth", "quake", "location", "history", "shaking"];
 
 function setTab(tab: string) {
   state.tab = tab;
@@ -787,6 +857,8 @@ function setTab(tab: string) {
   renderPanel();
   drawSection();
   drawLocation();
+  drawHotspots();
+  if (map.getLayer("quakes")) applyTimeFilter();
   if (map.getLayer("destructive")) map.setLayoutProperty("destructive", "visibility", tab === "history" ? "visible" : "none");
   map.resize();
 }
@@ -849,6 +921,16 @@ function renderPanel() {
       },
       onSelect: (f) => select({ props: f.properties, coords: f.geometry.coordinates as [number, number] }),
     });
+  } else if (state.tab === "shaking") {
+    renderShaking($("pane-shaking"), {
+      status: hot.key === `${state.from}-${state.to}-${hot.level}` ? "ok" : "loading",
+      level: hot.level, from: state.from, to: state.to, years: store.index.years,
+      cells: hot.cells, range: hot.range, stations: shindo.stations,
+      onLevel: (i) => { hot.level = i; renderPanel(); drawHotspots(); },
+      onInstrumentalEra: () => { state.from = 1997; state.to = store.index.years[1]; syncTimeline(); refreshData(); drawHotspots(); renderPanel(); },
+      onCell: (c) => map.flyTo({ center: [c.lon + CELL_DEG / 2, c.lat + CELL_DEG / 2], zoom: 8 }),
+    });
+    if (hot.key !== `${state.from}-${state.to}-${hot.level}`) drawHotspots();
   } else if (state.tab === "history") {
     const b = map.getBounds();
     const cells = visibleCells();
