@@ -25,7 +25,7 @@ async function shot(name, { width = 1440, height = 900, dark = false, act } = {}
   page.on("pageerror", (e) => errors.push(`${name}: ${e.message}`));
   await page.goto(url);
   await idle(page);
-  if (act) { await act(page); await idle(page); }
+  if (act) { await act(page); if (!name.includes("replay")) await idle(page); }
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${out}/${name}.png` });
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -54,6 +54,20 @@ await shot("13-aftershocks-kumamoto", {
     await clickAt(p, 130.763, 32.7545);
     await p.waitForSelector("#pane-quake .aftershocks svg", { timeout: 30000 });
     await p.evaluate(() => { document.getElementById("pane-quake").scrollTop = 99999; });
+  },
+});
+await shot("14-replay-kumamoto", {
+  act: async (p) => {
+    await p.evaluate(() => {
+      const set = (id, v) => { const e = document.getElementById(id); e.value = v; e.dispatchEvent(new Event("input")); };
+      set("range-from", "2016"); set("range-to", "2016");
+      window.quakeMap.jumpTo({ center: [131.5, 33.5], zoom: 5.6 });
+    });
+    await p.waitForTimeout(800);
+    await clickAt(p, 130.763, 32.7545);
+    await p.waitForSelector("text=Replay the shaking", { timeout: 30000 });
+    await p.click("text=Replay the shaking");
+    await p.waitForTimeout(3500);
   },
 });
 await shot("08-kobe-1995", {

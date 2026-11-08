@@ -151,6 +151,8 @@ def build_shindo(interim: Path, out: Path) -> dict:
       sh     one character per reading: the station intensity code
              (1-7, A=5-, B=5+, C=6-, D=6+, 9=felt but unknown)
       iv     instrumental intensity x10, or -1 if not measured
+      ot     observation time at the station, in tenths of a second after the
+             origin time; null if not recorded
     Only readings that belong to a single quake are exported: in type B/D
     groups the readings are shared by several quakes and are left out.
     """
@@ -171,21 +173,23 @@ def build_shindo(interim: Path, out: Path) -> dict:
             WHERE event_id IS NOT NULL AND is_event AND NOT shares_readings
         )
         SELECT ev.ym, ev.event_id, o.station_id, o.shindo,
-               CAST(round(coalesce(o.instrumental, -0.1) * 10) AS INTEGER) AS iv
+               CAST(round(coalesce(o.instrumental, -0.1) * 10) AS INTEGER) AS iv,
+               CAST(round((epoch(o.obs_time_jst) - epoch(ev.origin_jst)) * 10) AS INTEGER) AS ot
         FROM read_parquet('{interim / 'shindo_obs' / '*.parquet'}') o JOIN ev USING (group_id)
         ORDER BY ev.ym, ev.origin_jst, ev.event_id, iv DESC
     """).fetchall()
     sdir = out / "shindo"
     sdir.mkdir(parents=True, exist_ok=True)
     months: dict[str, dict] = {}
-    for ym, eid, sid, sh, iv in rows:
-        m = months.setdefault(ym, {"ids": [], "start": [], "st": [], "sh": [], "iv": []})
+    for ym, eid, sid, sh, iv, ot in rows:
+        m = months.setdefault(ym, {"ids": [], "start": [], "st": [], "sh": [], "iv": [], "ot": []})
         if not m["ids"] or m["ids"][-1] != eid:
             m["ids"].append(eid)
             m["start"].append(len(m["st"]))
         m["st"].append(index[sid])
         m["sh"].append(sh)
         m["iv"].append(iv)
+        m["ot"].append(ot)
     for ym, m in months.items():
         m["sh"] = "".join(m["sh"])
         (sdir / f"{ym}.json").write_text(json.dumps(m, separators=(",", ":")))

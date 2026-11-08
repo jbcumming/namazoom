@@ -99,6 +99,7 @@ function addQuakeLayers() {
     layout: { "circle-sort-key": ["coalesce", ["get", "mag"], 0] },
   }, before);
   addPlateLayers(before);
+  addWavefrontLayer();
   addFootprintLayer();
   addSectionLayers();
   addLocationLayers();
@@ -278,14 +279,73 @@ function showFootprint() {
     type: "FeatureCollection",
     features: st ? r.filter((x) => x.distanceKm !== null).map((x) => ({
       type: "Feature", geometry: { type: "Point", coordinates: [st.lon[x.station]!, st.lat[x.station]!] },
-      properties: { k: classOf(x.code), name: st.name[x.station] || st.id[x.station], code: x.code, iv: x.instrumental ?? -1, dist: Math.round(x.distanceKm!) },
+      properties: { k: classOf(x.code), name: st.name[x.station] || st.id[x.station], code: x.code, iv: x.instrumental ?? -1,
+        dist: Math.round(x.distanceKm!), ot: x.obsSec ?? -1 },
     })) : [],
   });
   applyTimeFilter();
   renderLegend();
 }
 
+// ------------------------------------------------------- shaking replay ---
+
+const P_KMS = 6.0, S_KMS = 3.5; // typical crustal wave speeds, for the model rings only
+let replayRaf = 0;
+
+function addWavefrontLayer() {
+  map.addSource("wavefront", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  map.addLayer({ id: "wavefront", type: "line", source: "wavefront",
+    paint: { "line-color": theme().text, "line-width": ["match", ["get", "wave"], "S", 2, 1], "line-opacity": 0.7,
+      "line-dasharray": [3, 2] } });
+}
+
+function stopReplay() {
+  cancelAnimationFrame(replayRaf);
+  replayRaf = 0;
+  (map.getSource("wavefront") as GeoJSONSource | undefined)?.setData({ type: "FeatureCollection", features: [] });
+  if (map.getLayer("footprint")) {
+    map.setFilter("footprint", null);
+    map.setPaintProperty("footprint", "circle-radius", ["interpolate", ["linear"], ["zoom"], 4, 2.4, 7, 4.5, 10, 7]);
+  }
+  if (!state.anim) $("playhead").hidden = true;
+}
+
+function replay() {
+  if (footprint.status !== "ok" || !state.selected) return;
+  stopReplay();
+  const timed = footprint.readings!.filter((r) => r.obsSec !== null && r.obsSec >= 0 && r.distanceKm !== null);
+  if (!timed.length) return;
+  const last = Math.min(600, Math.max(...timed.map((r) => r.obsSec!)));
+  const speed = Math.max(1, Math.ceil(last / 12)); // finish in about 12 s
+  const { coords } = state.selected;
+  const depth = state.selected.props.depth ?? 10;
+  const start = performance.now();
+  const ring = (v: number, tSec: number, wave: string): GeoJSON.Feature | null => {
+    const surf = (v * tSec) ** 2 - depth ** 2;
+    if (surf <= 0) return null;
+    return { type: "Feature", properties: { wave }, geometry: { type: "LineString", coordinates: circle(coords, Math.sqrt(surf), 96) } };
+  };
+  const frame = (now: number) => {
+    const tSec = ((now - start) / 1000) * speed;
+    map.setFilter("footprint", ["all", [">=", ["get", "ot"], 0], ["<=", ["get", "ot"], tSec]]);
+    // Stations that have just started shaking are drawn larger.
+    map.setPaintProperty("footprint", "circle-radius", ["interpolate", ["linear"], ["zoom"],
+      4, ["interpolate", ["linear"], ["-", tSec, ["get", "ot"]], 0, 6, 3 * speed, 2.4],
+      7, ["interpolate", ["linear"], ["-", tSec, ["get", "ot"]], 0, 10, 3 * speed, 4.5],
+      10, ["interpolate", ["linear"], ["-", tSec, ["get", "ot"]], 0, 14, 3 * speed, 7]]);
+    (map.getSource("wavefront") as GeoJSONSource).setData({ type: "FeatureCollection",
+      features: [ring(P_KMS, tSec, "P"), ring(S_KMS, tSec, "S")].filter((f): f is GeoJSON.Feature => f !== null) });
+    const ph = $("playhead");
+    ph.hidden = false;
+    ph.textContent = `+${tSec.toFixed(tSec < 100 ? 1 : 0)} s  (×${speed})`;
+    if (tSec < last + 2 * speed) replayRaf = requestAnimationFrame(frame);
+    else { replayRaf = 0; setTimeout(() => { if (!replayRaf) stopReplay(); }, 1500); }
+  };
+  replayRaf = requestAnimationFrame(frame);
+}
+
 async function select(sel: typeof state.selected) {
+  stopReplay();
   const token = ++selectToken;
   state.selected = sel;
   map.setFilter("selected", ["==", ["get", "id"], sel?.props.id ?? ""]);
@@ -728,6 +788,18 @@ function renderPanel() {
     clear.type = "button";
     clear.addEventListener("click", () => select(null));
     const extra = el("div");
+    if (state.selected && footprint.status === "ok") {
+      const timed = footprint.readings!.filter((r) => r.obsSec !== null && r.distanceKm !== null).length;
+      if (timed) {
+        const rb = el("button", "primary", "▶ Replay the shaking") as HTMLButtonElement;
+        rb.type = "button";
+        rb.addEventListener("click", replay);
+        const missing = footprint.readings!.length - timed;
+        extra.append(el("h2", "", "Replay"), el("p", "sub",
+          "Stations light up at the time they recorded the shaking. The dashed rings are model P and S wave fronts " +
+          `(${P_KMS} and ${S_KMS} km/s) for comparison.` + (missing ? ` ${fmt(missing)} readings have no recorded time and are left out.` : "")), rb);
+      }
+    }
     if (state.selected) extra.append(renderAftershocks(aftershocks, $("pane-quake").clientWidth), clear);
     renderQuake($("pane-quake-body"), state.selected?.props ?? null, state.selected?.coords, footprint,
       state.selected ? extra : undefined);

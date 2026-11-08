@@ -16,6 +16,7 @@ interface MonthFile {
   st: number[];
   sh: string;
   iv: number[];
+  ot: (number | null)[]; // tenths of a second after origin
 }
 
 export interface Reading {
@@ -23,6 +24,7 @@ export interface Reading {
   code: string; // station intensity code
   instrumental: number | null;
   distanceKm: number | null; // hypocentral distance; null when the station has no position
+  obsSec: number | null; // recorded observation time, seconds after the origin time
 }
 
 // Intensity classes in order. Old-scale 5/6 (until Sep 1996) sit with 5-/6-.
@@ -87,6 +89,7 @@ export class ShindoStore {
         code: m.sh[i],
         instrumental: m.iv[i] < 0 ? null : m.iv[i] / 10,
         distanceKm: sLat === null || sLon === null ? null : Math.hypot(haversineKm(lat, lon, sLat, sLon), depthKm ?? 0),
+        obsSec: m.ot[i] === null || m.ot[i] === undefined ? null : m.ot[i]! / 10,
       });
     }
     return out;
