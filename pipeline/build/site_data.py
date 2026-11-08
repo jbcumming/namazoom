@@ -13,7 +13,8 @@ map, columnar, tiered so the browser only loads what it shows:
 
 stations.json, shindo/{YYYY-MM}.json - station readings for felt quakes
 (see build_shindo). station_counts.json - felt counts per station, year and
-intensity, for the shaking map (see build_station_counts). felt/{lat}_{lon}.json - every reading by place, for the
+intensity, for the shaking map (see build_station_counts). lfe.json - low-frequency
+earthquakes for the slow-slip tab (see build_lfe). felt/{lat}_{lon}.json - every reading by place, for the
 "My location" tab (see build_felt).
 
 gr.json - everything the magnitude-frequency tab needs, pre-aggregated:
@@ -310,6 +311,30 @@ def build_station_counts(interim: Path, out: Path) -> dict:
     return {"rows": len(rows), "readings": sum(data["n"]), "bytes": path.stat().st_size}
 
 
+def build_lfe(interim: Path, out: Path) -> dict:
+    """Low-frequency earthquakes (event class 5), for the slow-slip tab.
+
+    lfe.json, columnar, time order:
+      t      seconds since the Unix epoch (UTC)
+      lat, lon, depth, mag
+      mf     located by the matched-filter (template matching) method, used
+             widely from 2018; its arrival multiplies the counts, so the site
+             shows the two detection methods separately.
+    """
+    con = duckdb.connect()
+    rows = con.execute(f"""
+        SELECT CAST(epoch(origin_utc) AS BIGINT), round(lat, 3), round(lon, 3), round(depth_km, 1), mag1,
+               location_precision = 'M'
+        FROM read_parquet('{interim / 'events' / '*.parquet'}')
+        WHERE agency = 'J' AND event_class = '5' AND lat IS NOT NULL
+        ORDER BY origin_utc
+    """).fetchall()
+    names = ("t", "lat", "lon", "depth", "mag", "mf")
+    path = out / "lfe.json"
+    path.write_text(json.dumps({n: [r[i] for r in rows] for i, n in enumerate(names)}, separators=(",", ":")))
+    return {"events": len(rows), "bytes": path.stat().st_size}
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--interim", type=Path, default=Path("data/interim"))
@@ -325,6 +350,8 @@ def main(argv: list[str] | None = None) -> int:
     sc = build_station_counts(args.interim, args.out)
     print(f"station counts: {sc['readings']:,} readings in {sc['rows']:,} station-year-level rows "
           f"({sc['bytes'] / 1e6:.1f} MB)")
+    lf = build_lfe(args.interim, args.out)
+    print(f"low-frequency events: {lf['events']:,} ({lf['bytes'] / 1e6:.1f} MB)")
     fe = build_felt(args.interim, args.out)
     print(f"felt: {fe['readings']:,} readings in {fe['cells']} cell files ({fe['bytes'] / 1e6:.1f} MB)")
     return 0

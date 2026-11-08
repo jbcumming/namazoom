@@ -189,6 +189,14 @@ for (const [name, hash, level] of [
     },
   });
 }
+await shot("22-slow-slip", {
+  hash: "#y=2004-2017&tab=slow&v=33.80,134.50,6.0",
+  act: async (p) => { await p.waitForSelector("#pane-slow svg", { timeout: 30000 }); await p.waitForTimeout(1500); },
+});
+await shot("23-slow-slip-shikoku-2019", {
+  hash: "#y=2019-2020&tab=slow&v=33.50,132.60,7.5",
+  act: async (p) => { await p.waitForSelector("#pane-slow svg", { timeout: 30000 }); await p.waitForTimeout(1500); },
+});
 await shot("05-dark", { dark: true });
 await shot("06-mobile", { width: 390, height: 844 });
 

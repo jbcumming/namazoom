@@ -107,6 +107,14 @@ kept in the URL hash.
 - *History* - energy released per year and its concentration in a few great
   quakes; destructive quakes (damage class 3+ or damaging tsunami), ringed on
   the map.
+- *Shaking* - hotspots of felt shaking: each station's yearly rate at a chosen
+  intensity (shindo 1+ to 5-+), averaged on a 0.2° grid so dense networks don't
+  look hotter; temporary (臨時) stations left out.
+- *Slow slip* - the 182k low-frequency earthquakes (event class 5): the Nankai
+  tremor belt and volcanic clusters on the map, weekly counts split by
+  detection method (template matching from 2018 multiplies the counts), and a
+  space-time density plot along the belt where episodic tremor-and-slip bursts
+  show as streaks.
 
 Shindo colours run yellow (1) to purple (7): a multi-hue scale with evenly
 falling lightness, validated separately for light and dark mode.

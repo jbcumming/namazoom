@@ -13,6 +13,8 @@ import { PRESETS, renderDepth } from "./panel-depth";
 import { PLACES, renderLocation, type Place } from "./panel-location";
 import { renderHistory } from "./panel-history";
 import { HOT_STEPS, hotColors, renderShaking, scaleRange } from "./panel-shaking";
+import { renderLfe } from "./panel-lfe";
+import type { LfeColumns } from "./lfe";
 import { CELL_DEG, grid, LEVELS, logClass, stationRates, type Cell, type StationCounts } from "./hotspots";
 import { formatHash, parseHash, yearFromId } from "./urlstate";
 import { LocationStore, type FeltQuake, type NearbyStation } from "./location";
@@ -41,7 +43,7 @@ const store = new QuakeStore();
 const [grData] = await Promise.all([fetch("./data/gr.json").then((r) => r.json() as Promise<GrData>), store.init()]);
 [state.from, state.to] = store.index.years;
 // A shared link may set the view; applied before the first render.
-const fromUrl = parseHash(location.hash, ["magnitudes", "depth", "quake", "location", "history", "shaking"], store.index.years);
+const fromUrl = parseHash(location.hash, ["magnitudes", "depth", "quake", "location", "history", "shaking", "slow"], store.index.years);
 if (fromUrl.from !== undefined) { state.from = fromUrl.from; state.to = fromUrl.to!; }
 if (fromUrl.minMag !== undefined) state.minMag = fromUrl.minMag;
 
@@ -112,6 +114,7 @@ function addQuakeLayers() {
   addSectionLayers();
   addLocationLayers();
   addHotspotLayer();
+  addLfeLayer();
   // Rings round destructive quakes (damage class 3+ or a damaging tsunami), on the History tab.
   map.addLayer({
     id: "destructive", type: "circle", source: "quakes",
@@ -130,6 +133,7 @@ function addQuakeLayers() {
   drawSection();
   drawLocation();
   drawHotspots();
+  drawLfe();
 }
 
 const fitJapan = () => map.fitBounds([[box.lon_min, box.lat_min], [box.lon_max, box.lat_max]], { padding: 20, duration: 0 });
@@ -589,6 +593,57 @@ map.on("mousemove", "hotspots", (e) => {
 });
 map.on("mouseleave", "hotspots", hideTooltip);
 
+// ----------------------------------------------------------- slow slip ---
+
+let lfeData: LfeColumns | null = null;
+let lfeKey = ""; // years currently drawn on the map
+let lfePromise: Promise<LfeColumns> | null = null;
+
+function addLfeLayer() {
+  map.addSource("lfe", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  map.addLayer({
+    id: "lfe", type: "circle", source: "lfe",
+    paint: {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 1.2, 8, 2.5, 11, 4],
+      "circle-color": theme().series[1], "circle-opacity": 0.45,
+    },
+  });
+}
+
+/** Load the events once; draw those in the timeline's years while the tab is open. */
+async function drawLfe() {
+  const src = map.getSource("lfe") as GeoJSONSource | undefined;
+  if (!src) return;
+  if (state.tab !== "slow") { src.setData({ type: "FeatureCollection", features: [] }); lfeKey = ""; return; }
+  lfePromise ??= fetch("./data/lfe.json").then((r) => r.json());
+  const c = (lfeData = await lfePromise);
+  if (state.tab !== "slow") return;
+  lfeKey = `${state.from}-${state.to}`;
+  const lo = yearStart(state.from), hi = yearEnd(state.to);
+  const features: GeoJSON.Feature<GeoJSON.Point>[] = [];
+  for (let i = 0; i < c.t.length; i++) {
+    if (c.t[i] < lo || c.t[i] > hi) continue;
+    features.push({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [c.lon[i], c.lat[i]] } });
+  }
+  src.setData({ type: "FeatureCollection", features });
+  renderPanel();
+}
+
+/** Indices of low-frequency events in the visible area and the timeline's years. */
+function lfeInView(): number[] {
+  if (!lfeData) return [];
+  const b = map.getBounds();
+  const lo = yearStart(state.from), hi = yearEnd(state.to);
+  const out: number[] = [];
+  const c = lfeData;
+  for (let i = 0; i < c.t.length; i++) {
+    if (c.t[i] < lo || c.t[i] > hi) continue;
+    if (c.lon[i] < b.getWest() || c.lon[i] > b.getEast() || c.lat[i] < b.getSouth() || c.lat[i] > b.getNorth()) continue;
+    out.push(i);
+  }
+  return out;
+}
+
 // ------------------------------------------------------------ my location ---
 
 const locStore = new LocationStore();
@@ -724,7 +779,7 @@ function applyTimeFilter() {
     map.setPaintProperty("quakes", "circle-opacity", ["interpolate", ["linear"], ["get", "t"], lo, 0.08, hi, 0.95]);
   } else {
     map.setFilter("quakes", null);
-    const dim = footprint.status === "ok" || (state.tab === "location" && loc.place !== null) || state.tab === "shaking";
+    const dim = footprint.status === "ok" || (state.tab === "location" && loc.place !== null) || state.tab === "shaking" || state.tab === "slow";
     map.setPaintProperty("quakes", "circle-opacity", dim ? 0.15 : 0.7);
   }
 }
@@ -842,7 +897,7 @@ document.addEventListener("keydown", (e) => {
 
 // ---------------------------------------------------------------- panel ---
 
-const TABS = ["magnitudes", "depth", "quake", "location", "history", "shaking"];
+const TABS = ["magnitudes", "depth", "quake", "location", "history", "shaking", "slow"];
 
 function setTab(tab: string) {
   state.tab = tab;
@@ -858,6 +913,7 @@ function setTab(tab: string) {
   drawSection();
   drawLocation();
   drawHotspots();
+  drawLfe();
   if (map.getLayer("quakes")) applyTimeFilter();
   if (map.getLayer("destructive")) map.setLayoutProperty("destructive", "visibility", tab === "history" ? "visible" : "none");
   map.resize();
@@ -920,6 +976,13 @@ function renderPanel() {
         drawSection(); renderPanel();
       },
       onSelect: (f) => select({ props: f.properties, coords: f.geometry.coordinates as [number, number] }),
+    });
+  } else if (state.tab === "slow") {
+    if (!lfeData || lfeKey !== `${state.from}-${state.to}`) drawLfe();
+    renderLfe($("pane-slow"), {
+      status: lfeData ? "ok" : "loading", data: lfeData, idx: lfeInView(),
+      from: Math.max(yearStart(state.from), yearStart(1997)), to: yearEnd(state.to),
+      years: state.from === state.to ? `${state.from}` : `${Math.max(1997, state.from)}–${state.to}`,
     });
   } else if (state.tab === "shaking") {
     renderShaking($("pane-shaking"), {

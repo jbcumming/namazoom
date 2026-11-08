@@ -43,6 +43,16 @@ New features below wait until that's settled.
 - [ ] Onland active faults (AIST Active Fault Database or GSI): needs network
       approval for gbank.gsj.jp / www.gsi.go.jp and a check of redistribution terms.
 
+## Done since this list was written
+- [x] Shaking hotspots tab (felt rate per station, gridded average).
+- [x] Slow slip tab (low-frequency earthquakes, episodic tremor and slip).
+- [x] Hover/click on felt-quake epicentres in My location.
+
+## More ideas discussed
+- [ ] Seismic quiescence / gaps: areas unusually quiet compared with their own
+      past (needs a careful false-alarm discussion).
+- [ ] Recurrence along the Nankai and Japan trenches (segment timeline).
+
 ## Smaller ideas
 - [ ] Density heatmap of quakes below M3 (currently only in the Magnitudes counts).
 - [ ] M3–5 for ranges over 10 years outside playback (binary format or tiling).
