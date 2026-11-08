@@ -275,3 +275,6 @@ label.inline { font-size: 0.85rem; color: var(--text-secondary); }
 .place-marker { width: 16px; height: 16px; border-radius: 50%; background: var(--text-primary); border: 3px solid var(--surface-1); box-shadow: 0 1px 4px rgba(0,0,0,0.35); }
 tr.clickable { cursor: pointer; }
 tr.clickable:hover td { background: var(--page); }
+.lead { font-size: 0.95rem; color: var(--text-primary); margin: 6px 0 10px; }
+.table-scroll { max-height: 360px; overflow: auto; }
+.mini td:nth-child(3) { text-transform: capitalize; }

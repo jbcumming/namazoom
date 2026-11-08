@@ -11,7 +11,10 @@ export interface QuakeColumns {
   shindo: string[];
   cls: string[];
   felt: boolean[];
+  dmg: string[]; // damage class code (pipeline/jma/codes.DAMAGE_CLASS), "" if none
+  tsu: string[]; // tsunami class code, "" if none
   id: string[];
+  region?: string[]; // English region name; m5.json only
 }
 
 export interface QuakeIndex {
@@ -29,6 +32,9 @@ export interface QuakeProps {
   cls: string;
   felt: boolean;
   id: string;
+  dmg?: string;
+  tsu?: string;
+  region?: string;
 }
 
 /** Longest year range for which M3+ events are drawn all at once. */
@@ -97,7 +103,8 @@ export class QuakeStore {
         out.push({
           type: "Feature",
           geometry: { type: "Point", coordinates: [c.lon[i], c.lat[i]] },
-          properties: { t, mag: m, depth: c.depth[i], shindo: c.shindo[i], cls: c.cls[i], felt: c.felt[i], id: c.id[i] },
+          properties: { t, mag: m, depth: c.depth[i], shindo: c.shindo[i], cls: c.cls[i], felt: c.felt[i], id: c.id[i],
+            dmg: c.dmg[i], tsu: c.tsu[i], region: c.region?.[i] },
         });
       }
     };

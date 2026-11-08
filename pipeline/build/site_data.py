@@ -95,8 +95,12 @@ QUAKE_COLUMNS = {
     "shindo": "coalesce(max_shindo, '')",  # code, see pipeline/jma/codes.MAX_SHINDO
     "cls": "coalesce(event_class, '')",  # 1 natural, 2 few JMA stations, 4 volcanic/other, 5 low-frequency
     "felt": "felt",  # has intensity readings in Japan
+    "dmg": "coalesce(damage_class, '')",  # pipeline/jma/codes.DAMAGE_CLASS
+    "tsu": "coalesce(tsunami_class, '')",  # pipeline/jma/codes.TSUNAMI_CLASS
     "id": "id",
 }
+# Only in m5.json (keeps the yearly files small).
+M5_EXTRA = {"region": "region_name"}
 
 
 def build_quakes(interim: Path, out: Path) -> dict:
@@ -111,17 +115,18 @@ def build_quakes(interim: Path, out: Path) -> dict:
         FROM read_parquet('{interim / 'events' / '*.parquet'}') e LEFT JOIN felt_ids f ON f.event_id = e.id
     """)
     con.execute(f"DELETE FROM q WHERE NOT ({shown('felt')})")
-    cols = ", ".join(f"{expr} AS {name}" for name, expr in QUAKE_COLUMNS.items())
 
-    def write(where: str, path: Path) -> int:
-        rows = con.execute(f"SELECT {cols} FROM q WHERE {where} ORDER BY origin_utc").fetchall()
-        data = {name: [r[i] for r in rows] for i, name in enumerate(QUAKE_COLUMNS)}
+    def write(where: str, path: Path, extra: dict[str, str] | None = None) -> int:
+        columns = {**QUAKE_COLUMNS, **(extra or {})}
+        sel = ", ".join(f"{expr} AS {name}" for name, expr in columns.items())
+        rows = con.execute(f"SELECT {sel} FROM q WHERE {where} ORDER BY origin_utc").fetchall()
+        data = {name: [r[i] for r in rows] for i, name in enumerate(columns)}
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, separators=(",", ":")))
         return len(rows)
 
     qdir = out / "quakes"
-    n5 = write("mag1 >= 5", qdir / "m5.json")
+    n5 = write("mag1 >= 5", qdir / "m5.json", M5_EXTRA)
     years = [y for (y,) in con.execute("SELECT DISTINCT year FROM q ORDER BY 1").fetchall()]
     per_year = {}
     for y in years:

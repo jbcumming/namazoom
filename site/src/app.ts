@@ -11,6 +11,7 @@ import { renderAftershocks, type AftershockState } from "./panel-aftershocks";
 import { DAY, FORESHOCK_DAYS, MIN_MAINSHOCK, WINDOW_DAYS, sequence, type Shock } from "./aftershocks";
 import { PRESETS, renderDepth } from "./panel-depth";
 import { PLACES, renderLocation, type Place } from "./panel-location";
+import { renderHistory } from "./panel-history";
 import { LocationStore, type FeltQuake, type NearbyStation } from "./location";
 import { swath, type LonLat, type Section } from "./section";
 import { Marker } from "maplibre-gl";
@@ -103,6 +104,14 @@ function addQuakeLayers() {
   addFootprintLayer();
   addSectionLayers();
   addLocationLayers();
+  // Rings round destructive quakes (damage class 3+ or a damaging tsunami), on the History tab.
+  map.addLayer({
+    id: "destructive", type: "circle", source: "quakes",
+    filter: ["any", ["in", ["get", "dmg"], ["literal", ["3", "4", "5", "6", "7"]]],
+      ["in", ["get", "tsu"], ["literal", ["2", "3", "4", "5", "6", "T"]]]],
+    layout: { visibility: state.tab === "history" ? "visible" : "none" },
+    paint: { "circle-radius": radiusPlus(3), "circle-color": "transparent", "circle-stroke-color": theme().text, "circle-stroke-width": 1.5 },
+  });
   map.addLayer({
     id: "selected", type: "circle", source: "quakes", filter: ["==", ["get", "id"], ""],
     paint: { "circle-radius": radiusPlus(4), "circle-color": "transparent", "circle-stroke-color": theme().text, "circle-stroke-width": 2 },
@@ -686,7 +695,7 @@ document.addEventListener("keydown", (e) => {
 
 // ---------------------------------------------------------------- panel ---
 
-const TABS = ["magnitudes", "depth", "quake", "location"];
+const TABS = ["magnitudes", "depth", "quake", "location", "history"];
 
 function setTab(tab: string) {
   state.tab = tab;
@@ -700,6 +709,7 @@ function setTab(tab: string) {
   renderPanel();
   drawSection();
   drawLocation();
+  if (map.getLayer("destructive")) map.setLayoutProperty("destructive", "visibility", tab === "history" ? "visible" : "none");
   map.resize();
 }
 for (const t of TABS) $(`tab-${t}`).addEventListener("click", () => setTab(t));
@@ -759,6 +769,18 @@ function renderPanel() {
         if (sectionState.section) sectionState.section = { ...sectionState.section, halfWidthKm: km };
         drawSection(); renderPanel();
       },
+      onSelect: (f) => select({ props: f.properties, coords: f.geometry.coordinates as [number, number] }),
+    });
+  } else if (state.tab === "history") {
+    const b = map.getBounds();
+    const cells = visibleCells();
+    const quakes = store.features(yearStart(state.from), yearEnd(state.to), 5).features.filter((f) => {
+      const [lon, lat] = f.geometry.coordinates;
+      return lon >= b.getWest() && lon <= b.getEast() && lat >= b.getSouth() && lat <= b.getNorth();
+    });
+    renderHistory($("pane-history"), {
+      quakes, from: state.from, to: state.to,
+      areaLabel: cells === null ? "all of Japan" : "the visible map area",
       onSelect: (f) => select({ props: f.properties, coords: f.geometry.coordinates as [number, number] }),
     });
   } else if (state.tab === "location") {

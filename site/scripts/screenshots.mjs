@@ -148,6 +148,9 @@ for (const [n, city] of [["11", "Sendai"], ["12", "Tokyo"]]) {
     },
   });
 }
+await shot("15-history", {
+  act: async (p) => { await p.click("#tab-history"); await p.waitForSelector("#pane-history svg", { timeout: 20000 }); },
+});
 await shot("05-dark", { dark: true });
 await shot("06-mobile", { width: 390, height: 844 });
 
