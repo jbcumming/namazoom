@@ -52,6 +52,13 @@ New features below wait until that's settled.
 - [ ] Seismic quiescence / gaps: areas unusually quiet compared with their own
       past (needs a careful false-alarm discussion).
 - [ ] Recurrence along the Nankai and Japan trenches (segment timeline).
+- [ ] Slow slip burst intervals per segment over time (Slow slip tab): detect
+      ETS episodes per tremor segment (western Shikoku, Kii, Tōkai), chart the
+      interval between bursts and their along-dip/along-strike position, and flag
+      changes (shortening intervals, up-dip migration, merging or quiet segments).
+      Descriptive only: no great Nankai quake since 1946, so it can't be
+      validated as a precursor. Mind the 2018 matched-filter jump when
+      detecting episodes (threshold per method or per era).
 
 ## Smaller ideas
 - [ ] Density heatmap of quakes below M3 (currently only in the Magnitudes counts).
