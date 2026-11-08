@@ -3,90 +3,106 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Japan Quake Magnitudes</title>
-    <meta name="description" content="How many earthquakes of each magnitude JMA recorded in Japan since 1919, and how completely." />
+    <title>Japan Quake Map</title>
+    <meta name="description" content="A century of earthquakes recorded by the Japan Meteorological Agency, on a map." />
     <link rel="stylesheet" href="./src/style.css" />
   </head>
   <body>
-    <main class="viz-root">
-      <header class="page-head">
-        <h1>How many earthquakes of each size?</h1>
-        <p class="lede">
-          Every earthquake the Japan Meteorological Agency catalogued, counted by magnitude. Small quakes vastly
-          outnumber large ones, roughly ten times more for each step down in magnitude (the Gutenberg–Richter law).
-          Where the curve bends away from that straight line at the small end, the network was missing quakes, not
-          the earth.
-        </p>
-      </header>
+    <header class="topbar">
+      <h1>Japan earthquakes, 1919–2024</h1>
+      <span class="source" id="source"></span>
+      <button type="button" id="panel-toggle" aria-controls="panel" aria-expanded="true">Panel</button>
+    </header>
 
-      <section class="controls" aria-label="Filters">
-        <div class="seg" role="radiogroup" aria-label="Mode">
-          <label><input type="radio" name="mode" value="single" checked /> One period</label>
-          <label><input type="radio" name="mode" value="eras" /> Compare eras</label>
+    <div class="app">
+      <section class="map-area" aria-label="Map of earthquakes">
+        <div class="map-frame">
+          <div id="map"></div>
+          <div class="map-overlay top-right">
+            <div id="playhead" class="playhead" hidden></div>
+            <div id="loading" class="pill" hidden>Loading…</div>
+          </div>
+          <div class="map-overlay bottom-left">
+            <div id="map-legend" class="map-legend"></div>
+            <p id="basemap-note" class="pill muted" hidden>Coastline-only basemap (map tiles not installed).</p>
+          </div>
         </div>
-        <div class="period" id="period">
-          <label>From <input type="number" id="from" inputmode="numeric" /></label>
-          <label>to <input type="number" id="to" inputmode="numeric" /></label>
-          <span class="presets" id="presets"></span>
-        </div>
-        <div class="region">
-          <span id="region-label">All of Japan</span>
-          <button type="button" id="region-reset">Reset region</button>
+
+        <div class="timeline" aria-label="Time range">
+          <button type="button" id="play" class="play" aria-label="Play through the period">▶</button>
+          <div class="range">
+            <div class="range-track"><div id="range-fill" class="range-fill"></div><div id="progress" class="progress" hidden></div></div>
+            <input type="range" id="range-from" step="1" aria-label="Start year" />
+            <input type="range" id="range-to" step="1" aria-label="End year" />
+          </div>
+          <strong id="range-label" class="range-label"></strong>
+          <label>Show
+            <select id="min-mag">
+              <option value="5" selected>M5+</option>
+              <option value="4">M4+</option>
+              <option value="3">M3+</option>
+            </select>
+          </label>
+          <label>Trail
+            <select id="trail">
+              <option value="2592000">1 month</option>
+              <option value="7776000">3 months</option>
+              <option value="31536000" selected>1 year</option>
+              <option value="157680000">5 years</option>
+            </select>
+          </label>
+          <span id="status" class="status"></span>
+          <p id="mag-note" class="mag-note" hidden></p>
         </div>
       </section>
 
-      <div class="layout">
-        <section class="chart-card" aria-labelledby="chart-title">
-          <h2 id="chart-title">Earthquakes at or above each magnitude</h2>
-          <p class="sub" id="chart-sub"></p>
-          <div class="legend" id="legend"></div>
-          <div class="chart" id="chart"></div>
-          <div class="readout" id="readout" aria-live="polite"></div>
-          <details class="table-view">
-            <summary>Show as a table</summary>
-            <div id="table"></div>
+      <aside class="panel" id="panel" aria-label="Data">
+        <div class="tabs" role="tablist" id="tabs">
+          <button role="tab" id="tab-magnitudes" aria-controls="pane-magnitudes">Magnitudes</button>
+          <button role="tab" id="tab-depth" aria-controls="pane-depth">Depth</button>
+          <button role="tab" id="tab-quake" aria-controls="pane-quake">Quake</button>
+          <button role="tab" id="tab-location" aria-controls="pane-location">My location</button>
+        </div>
+
+        <section role="tabpanel" id="pane-magnitudes" aria-labelledby="tab-magnitudes" class="pane">
+          <div class="seg" role="radiogroup" aria-label="Magnitude view">
+            <label><input type="radio" name="mag-mode" value="single" checked /> This period</label>
+            <label><input type="radio" name="mag-mode" value="eras" /> Compare eras</label>
+          </div>
+          <div id="mag-body"></div>
+          <details class="notes">
+            <summary>Reading this honestly</summary>
+            <p>Counts cover the map area you're looking at and the years on the timeline.</p>
+            <p><strong>Mc</strong>, the magnitude of completeness, is the smallest magnitude above which essentially
+              every quake was recorded, estimated from the data (where a Gutenberg–Richter line fits 95% or 90% of the
+              counts; failing that, the most common magnitude + 0.2). Below Mc, counts say more about the instruments
+              than about the earth.</p>
+            <p><strong>b</strong> is the slope above Mc. Well-covered areas over short periods give values near 1;
+              mixing land and sea, or periods with different detection, gives lower values.</p>
+            <p>Eras split at visible steps in JMA's processing: the 1975–76 jump in recorded events, the October 1997
+              unified catalogue, and 2016, when automatic solutions start appearing in large numbers.</p>
+            <p>JMA-located natural earthquakes with a magnitude, epicentre in 24–46°N, 122–148°E. Magnitudes are JMA's
+              own; for the largest quakes that is the moment magnitude (e.g. 2011 Tōhoku, M9.0).</p>
           </details>
         </section>
 
-        <aside class="map-card" aria-labelledby="map-title">
-          <h2 id="map-title">Region</h2>
-          <p class="sub">
-            Click 2° squares to narrow the count to them; shading shows how many quakes each square recorded in the
-            period. Detection is far better on land than at sea, so regions differ a lot.
-          </p>
-          <div id="map"></div>
-        </aside>
-      </div>
+        <section role="tabpanel" id="pane-depth" aria-labelledby="tab-depth" class="pane" hidden>
+          <h2>Depth section</h2>
+          <p class="sub">Planned next: draw a line across the map to see quakes along it by depth, showing the
+            subducting plates.</p>
+        </section>
 
-      <section class="notes">
-        <h2>Reading this honestly</h2>
-        <ul id="notes">
-          <li>
-            <strong>Mc, the magnitude of completeness,</strong> is the smallest magnitude above which essentially
-            every quake in the selection was recorded. It's estimated from the data: the lowest magnitude at which a
-            Gutenberg–Richter line explains at least 95% (or 90%) of the counts; failing that, the most common
-            magnitude plus 0.2. Below Mc, counts say more about the instruments than about the earth.
-          </li>
-          <li>
-            <strong>b</strong> is the slope of the line above Mc. Well-covered regions over a short period give values
-            near 1. Mixing well- and poorly-covered areas (such as all of Japan), or periods with different detection
-            (such as 1919–2024), gives lower values, because some quakes above the overall Mc were still being missed.
-          </li>
-          <li>
-            Eras are split at visible steps in JMA's processing: the 1975–76 jump in recorded events, the
-            October 1997 start of the unified catalogue (when low-frequency events first appear), and 2016, when
-            automatic solutions start appearing in large numbers.
-          </li>
-          <li>
-            Counts are JMA-located natural earthquakes with a magnitude whose epicentre lies in 24–46°N, 122–148°E.
-            Low-frequency, artificial and volcanic events are left out. Magnitudes are JMA's own; for the very largest
-            quakes that is the moment magnitude (e.g. 2011 Tōhoku, M9.0).
-          </li>
-        </ul>
-        <p class="source" id="source"></p>
-      </section>
-    </main>
+        <section role="tabpanel" id="pane-quake" aria-labelledby="tab-quake" class="pane" hidden>
+          <div id="pane-quake-body"></div>
+        </section>
+
+        <section role="tabpanel" id="pane-location" aria-labelledby="tab-location" class="pane" hidden>
+          <h2>My location</h2>
+          <p class="sub">Planned: choose a point to see the quakes felt there, from the station records.</p>
+        </section>
+      </aside>
+    </div>
     <div class="tooltip" id="tooltip" role="status" hidden></div>
-    <script type="module" src="./src/main.ts"></script>
+    <script type="module" src="./src/app.ts"></script>
   </body>
 </html>

@@ -61,24 +61,46 @@ uv run python -m pipeline.summary data/raw/h2019.zip data/raw/i2019.zip data/raw
 
 ## Site
 
-`site/` is a static site (Vite + TypeScript, Observable Plot, d3). Its data is
-generated, not committed:
+`site/` is a static, map-driven app (Vite + TypeScript, MapLibre GL, Observable
+Plot): a full-screen map of quakes with a timeline, and a right-hand panel of
+tabs that follow the map's visible area and time range. Its data is generated,
+not committed:
 
 ```bash
-uv run python -m pipeline.build.site_data   # -> site/public/data/gr.json
-cd site && npm install && npm run data      # -> public/data/coast.json (Natural Earth, cut to the region)
+uv run python -m pipeline.build.site_data   # -> site/public/data/gr.json, quakes/
+uv run python -m pipeline.build.overlays    # -> site/public/data/overlays/ (plates, slabs)
+cd site && npm install && npm run data      # -> public/data/coast.json (fallback basemap)
+scripts/basemap.sh                          # -> public/tiles/japan.pmtiles + fonts/sprites (~215 MB)
 npm test                                    # includes Mc parity with the Python pipeline
 npm run dev                                 # or: npm run build -> site/dist/
 npm run screenshots -- <dir>                # headless-Chromium screenshots for visual checks
 ```
 
-Pages so far:
-- **Magnitude-frequency (Gutenberg-Richter).** Cumulative counts on a log
-  scale for any year range and any set of 2° squares, with Mc and b estimated
-  in the browser by a port of the pipeline's estimator (`site/src/gr.ts`,
-  checked against Python in `gr.test.ts`). "Compare eras" overlays 1919-74,
-  1975-96, 1997-2015 and 2016-24 as yearly rates, because the eras differ
-  in length.
+What it shows:
+- **Map.** Quakes coloured by depth (0-40, 40-100, 100-200, 200-300, 300+ km) and
+  sized by magnitude. M5+ for all years loads at start; M3-5 loads per year
+  (`quakes/m3/{year}.json`) and is drawn at once only for ranges of up to 10
+  years, or year by year during playback. Smaller quakes are never sent
+  individually.
+- **Timeline.** Year range, play/pause (pause holds the frame, Esc leaves
+  playback), minimum magnitude, trail length.
+- **Overlays** (toggle in the legend):
+  plate boundaries from Bird (2003) PB2002 (ODC-By), trenches drawn heavier,
+  hover says which plate sinks beneath which; and depth to the top of the
+  sinking plate from USGS Slab2 (Hayes 2018, no use constraints), contoured at
+  the same depths as the quake colour classes.
+- **Tabs.** Magnitudes (Gutenberg-Richter for the visible area and period, Mc and
+  b estimated in the browser by a port of the pipeline's estimator, checked
+  against Python in `gr.test.ts`); Quake (details of the clicked quake). Depth
+  section and My location are planned.
+- **Basemap.** Self-hosted Protomaps extract of OpenStreetMap (zoom 0-11,
+  bbox 120-150E, 22-47N; © OpenStreetMap contributors), served as one PMTiles
+  file (the host must support HTTP range requests). Without it the app falls
+  back to a Natural Earth coastline.
+
+Raw overlay inputs live in `data/raw/plates/` (PB2002 GeoJSON) and
+`data/raw/slab2/` (Slab2 release tarball; the three Japan-region depth
+contour files are extracted from it).
 
 Event selection for every page lives in `pipeline/selection.py`: epicentre in
 24-46°N, 122-148°E or felt in Japan; artificial events never; non-JMA
@@ -95,6 +117,8 @@ pipeline/jma/stations.py   station list -> Station
 pipeline/jma/link.py       link intensity events to catalogue events; view selection rules
 pipeline/known_quakes.py   independently documented quakes for sanity checks
 pipeline/summary.py        sanity-check report for one year
+pipeline/selection.py      which events the site shows (one definition)
+pipeline/build/            ingest, completeness, overview, site_data, overlays
 tests/                     pytest; fixtures/ holds real records cut from the 2019 files
 ```
 
