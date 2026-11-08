@@ -12,7 +12,8 @@ map, columnar, tiered so the browser only loads what it shows:
   Smaller events are never sent individually; they appear only in gr.json.
 
 stations.json, shindo/{YYYY-MM}.json - station readings for felt quakes
-(see build_shindo).
+(see build_shindo). felt/{lat}_{lon}.json - every reading by place, for the
+"My location" tab (see build_felt).
 
 gr.json - everything the magnitude-frequency tab needs, pre-aggregated:
   counts        columnar: year, cell index, magnitude x10, event count
@@ -193,6 +194,77 @@ def build_shindo(interim: Path, out: Path) -> dict:
             "readings": len(rows), "bytes": size}
 
 
+FELT_CELL_DEG = 1
+
+
+def build_felt(interim: Path, out: Path) -> dict:
+    """Felt history per place, for the "My location" tab.
+
+    felt/{lat}_{lon}.json, one file per 1° cell (south-west corner), holding
+    every reading at stations in the cell:
+      events  columnar: t (s, UTC), lat, lon, depth, mag, id - the quake each
+              reading belongs to. Readings are grouped as in the JMA file: for
+              groups of several close quakes (type B/D) this is the first; for
+              felt reports without a located hypocentre lat/lon/depth/mag are
+              null and id is "".
+      st      station index into stations.json
+      ev      event index into `events`
+      sh      one character per reading (station intensity code)
+      iv      instrumental intensity x10, or -1
+    """
+    con = duckdb.connect()
+    station_index = {sid: i for i, (sid,) in enumerate(
+        con.execute(f"SELECT id FROM read_parquet('{interim / 'stations.parquet'}') ORDER BY id").fetchall())}
+    rows = con.execute(f"""
+        WITH g AS (  -- one row per group: its first header, with the catalogue values when linked
+            SELECT h.group_id, h.origin_jst, h.located, h.event_id,
+                   coalesce(e.lat, h.lat) AS lat, coalesce(e.lon, h.lon) AS lon,
+                   coalesce(e.depth_km, h.depth_km) AS depth, coalesce(e.mag1, h.mag1) AS mag
+            FROM read_parquet('{interim / 'shindo_headers' / '*.parquet'}') h
+            LEFT JOIN read_parquet('{interim / 'events' / '*.parquet'}') e ON e.id = h.event_id
+            WHERE h.header_index = 0
+        )
+        SELECT floor(s.lat)::INTEGER AS clat, floor(s.lon)::INTEGER AS clon,
+               g.group_id, CAST(epoch(g.origin_jst) - 9 * 3600 AS BIGINT) AS t,
+               CASE WHEN g.located THEN round(g.lat, 3) END AS lat,
+               CASE WHEN g.located THEN round(g.lon, 3) END AS lon,
+               CASE WHEN g.located THEN round(g.depth, 1) END AS depth,
+               CASE WHEN g.located THEN g.mag END AS mag,
+               coalesce(g.event_id, '') AS id,
+               o.station_id, o.shindo,
+               CAST(round(coalesce(o.instrumental, -0.1) * 10) AS INTEGER) AS iv
+        FROM read_parquet('{interim / 'shindo_obs' / '*.parquet'}') o
+        JOIN g USING (group_id)
+        JOIN read_parquet('{interim / 'stations.parquet'}') s ON s.id = o.station_id
+        WHERE s.lat IS NOT NULL
+        ORDER BY clat, clon, t, g.group_id
+    """).fetchall()
+    fdir = out / "felt"
+    fdir.mkdir(parents=True, exist_ok=True)
+    cells: dict[tuple[int, int], dict] = {}
+    event_pos: dict[tuple[int, int], dict[str, int]] = {}
+    for clat, clon, gid, t, lat, lon, depth, mag, eid, sid, sh, iv in rows:
+        key = (clat, clon)
+        c = cells.setdefault(key, {"events": {"t": [], "lat": [], "lon": [], "depth": [], "mag": [], "id": []},
+                                   "st": [], "ev": [], "sh": [], "iv": []})
+        pos = event_pos.setdefault(key, {})
+        if gid not in pos:
+            pos[gid] = len(c["events"]["t"])
+            for k, v in (("t", t), ("lat", lat), ("lon", lon), ("depth", depth), ("mag", mag), ("id", eid)):
+                c["events"][k].append(v)
+        c["st"].append(station_index[sid])
+        c["ev"].append(pos[gid])
+        c["sh"].append(sh)
+        c["iv"].append(iv)
+    for (clat, clon), c in cells.items():
+        c["sh"] = "".join(c["sh"])
+        (fdir / f"{clat}_{clon}.json").write_text(json.dumps(c, separators=(",", ":")))
+    (fdir / "index.json").write_text(json.dumps(
+        {"cellDeg": FELT_CELL_DEG, "cells": sorted(f"{a}_{b}" for a, b in cells)}, separators=(",", ":")))
+    size = sum(f.stat().st_size for f in fdir.glob("*.json"))
+    return {"cells": len(cells), "readings": len(rows), "bytes": size}
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--interim", type=Path, default=Path("data/interim"))
@@ -205,6 +277,8 @@ def main(argv: list[str] | None = None) -> int:
     sh = build_shindo(args.interim, args.out)
     print(f"shindo: {sh['events']:,} quakes, {sh['readings']:,} readings in {sh['months']} monthly files "
           f"({sh['bytes'] / 1e6:.1f} MB); {sh['stations']:,} stations")
+    fe = build_felt(args.interim, args.out)
+    print(f"felt: {fe['readings']:,} readings in {fe['cells']} cell files ({fe['bytes'] / 1e6:.1f} MB)")
     return 0
 
 

@@ -57,7 +57,7 @@ export class ShindoStore {
 
   constructor(private base = "./data") {}
 
-  private loadStations(): Promise<Stations> {
+  loadStations(): Promise<Stations> {
     if (this.stations) return Promise.resolve(this.stations);
     return fetch(`${this.base}/stations.json`).then((r) => r.json()).then((s) => (this.stations = s));
   }

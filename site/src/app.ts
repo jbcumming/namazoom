@@ -8,6 +8,8 @@ import type { GrData } from "./gr";
 import { cellsInBounds, renderMagnitudes, type MagSelection } from "./panel-magnitudes";
 import { renderQuake, type Footprint } from "./panel-quake";
 import { PRESETS, renderDepth } from "./panel-depth";
+import { PLACES, renderLocation, type Place } from "./panel-location";
+import { LocationStore, type FeltQuake, type NearbyStation } from "./location";
 import { swath, type LonLat, type Section } from "./section";
 import { Marker } from "maplibre-gl";
 import { CLASSES, CLASS_COLORS, classOf, ShindoStore } from "./shindo";
@@ -97,6 +99,7 @@ function addQuakeLayers() {
   addPlateLayers(before);
   addFootprintLayer();
   addSectionLayers();
+  addLocationLayers();
   map.addLayer({
     id: "selected", type: "circle", source: "quakes", filter: ["==", ["get", "id"], ""],
     paint: { "circle-radius": radiusPlus(4), "circle-color": "transparent", "circle-stroke-color": theme().text, "circle-stroke-width": 2 },
@@ -105,6 +108,7 @@ function addQuakeLayers() {
   refreshData();
   showFootprint(); // after a style change the source starts empty
   drawSection();
+  drawLocation();
 }
 
 const fitJapan = () => map.fitBounds([[box.lon_min, box.lat_min], [box.lon_max, box.lat_max]], { padding: 20, duration: 0 });
@@ -225,7 +229,7 @@ map.on("mousemove", "quakes", (e) => {
 });
 map.on("mouseleave", "quakes", () => { map.getCanvas().style.cursor = ""; hideTooltip(); });
 map.on("click", "quakes", (e) => {
-  if (sectionState.drawing) return; // clicks place section points instead
+  if (sectionState.drawing || loc.picking) return; // clicks place points instead
   const f = e.features?.[0];
   if (!f) return;
   const props = f.properties as unknown as QuakeProps;
@@ -387,6 +391,82 @@ function drawSection() {
   if (b) markers.b.setLngLat(b).addTo(map); else markers.b.remove();
 }
 
+// ------------------------------------------------------------ my location ---
+
+const locStore = new LocationStore();
+const loc = {
+  place: null as Place | null,
+  radiusKm: 25,
+  picking: false,
+  status: "idle" as "idle" | "loading" | "ok",
+  quakes: [] as FeltQuake[],
+  stations: [] as NearbyStation[],
+};
+const placeMarker = new Marker({ element: el("div", "place-marker") });
+let locToken = 0;
+
+function circle([lon, lat]: [number, number], km: number, n = 72): [number, number][] {
+  const out: [number, number][] = [];
+  for (let i = 0; i <= n; i++) {
+    const a = (i / n) * 2 * Math.PI;
+    out.push([lon + (km / (111.2 * Math.cos((lat * Math.PI) / 180))) * Math.sin(a), lat + (km / 111.2) * Math.cos(a)]);
+  }
+  return out;
+}
+
+function addLocationLayers() {
+  map.addSource("place", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  map.addLayer({ id: "place-radius", type: "line", source: "place", filter: ["==", ["geometry-type"], "Polygon"],
+    paint: { "line-color": theme().text, "line-width": 1.5, "line-dasharray": [2, 1] } });
+  map.addLayer({ id: "place-felt", type: "circle", source: "place", filter: ["==", ["geometry-type"], "Point"],
+    paint: {
+      "circle-radius": radius, "circle-color": footprintColor(), "circle-opacity": 0.85,
+      "circle-stroke-color": theme().text, "circle-stroke-width": 0.4,
+    },
+    layout: { "circle-sort-key": ["get", "k"] } });
+}
+
+function drawLocation() {
+  const src = map.getSource("place") as GeoJSONSource | undefined;
+  const visible = state.tab === "location" && loc.place !== null;
+  if (src) {
+    src.setData({
+      type: "FeatureCollection",
+      features: visible ? [
+        { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [circle(loc.place!.lonlat, loc.radiusKm)] } },
+        ...loc.quakes.filter((q) => q.lat !== null && q.cls >= 0).map((q) => ({
+          type: "Feature" as const, properties: { k: q.cls, mag: q.mag },
+          geometry: { type: "Point" as const, coordinates: [q.lon!, q.lat!] },
+        })),
+      ] : [],
+    });
+  }
+  if (visible) placeMarker.setLngLat(loc.place!.lonlat).addTo(map); else placeMarker.remove();
+  if (map.getLayer("quakes")) applyTimeFilter();
+  renderLegend();
+}
+
+async function setPlace(place: Place | null) {
+  const token = ++locToken;
+  loc.place = place;
+  loc.picking = false;
+  map.getCanvas().style.cursor = "";
+  loc.status = place ? "loading" : "idle";
+  loc.quakes = []; loc.stations = [];
+  drawLocation(); renderPanel();
+  if (!place) return;
+  const stations = await shindo.loadStations();
+  const r = await locStore.query(stations, place.lonlat[0], place.lonlat[1], loc.radiusKm);
+  if (token !== locToken) return;
+  Object.assign(loc, { status: "ok", quakes: r.quakes, stations: r.stations });
+  drawLocation(); renderPanel();
+}
+
+map.on("click", (e) => {
+  if (!loc.picking) return;
+  setPlace({ name: `${e.lngLat.lat.toFixed(2)}°N, ${e.lngLat.lng.toFixed(2)}°E`, lonlat: [e.lngLat.lng, e.lngLat.lat] });
+});
+
 map.on("click", (e) => {
   if (!sectionState.drawing) return;
   const p: LonLat = [e.lngLat.lng, e.lngLat.lat];
@@ -411,7 +491,8 @@ function applyTimeFilter() {
     map.setPaintProperty("quakes", "circle-opacity", ["interpolate", ["linear"], ["get", "t"], lo, 0.08, hi, 0.95]);
   } else {
     map.setFilter("quakes", null);
-    map.setPaintProperty("quakes", "circle-opacity", footprint.status === "ok" ? 0.15 : 0.7);
+    const dim = footprint.status === "ok" || (state.tab === "location" && loc.place !== null);
+    map.setPaintProperty("quakes", "circle-opacity", dim ? 0.15 : 0.7);
   }
 }
 
@@ -539,6 +620,7 @@ function setTab(tab: string) {
   }
   renderPanel();
   drawSection();
+  drawLocation();
   map.resize();
 }
 for (const t of TABS) $(`tab-${t}`).addEventListener("click", () => setTab(t));
@@ -599,6 +681,28 @@ function renderPanel() {
         drawSection(); renderPanel();
       },
       onSelect: (f) => select({ props: f.properties, coords: f.geometry.coordinates as [number, number] }),
+    });
+  } else if (state.tab === "location") {
+    renderLocation($("pane-location"), {
+      ...loc,
+      allStations: shindo.stations,
+      years: store.index.years,
+      onPlace: (p) => { setPlace(p); map.flyTo({ center: p.lonlat, zoom: 7 }); },
+      onPick: () => { loc.picking = !loc.picking; map.getCanvas().style.cursor = loc.picking ? "crosshair" : ""; renderPanel(); },
+      onGeolocate: () => {
+        navigator.geolocation?.getCurrentPosition(
+          (pos) => { const p: Place = { name: "your location", lonlat: [pos.coords.longitude, pos.coords.latitude] }; setPlace(p); map.flyTo({ center: p.lonlat, zoom: 7 }); },
+          () => { $("pane-location").append(el("p", "note", "Location unavailable: the browser didn't share it.")); },
+          { maximumAge: 600000, timeout: 10000 },
+        );
+      },
+      onRadius: (km) => { loc.radiusKm = km; setPlace(loc.place); },
+      onSelectQuake: (q) => {
+        const f = shownQuakes.find((x) => x.properties.id === q.id);
+        const props: QuakeProps = f ? f.properties
+          : { t: q.t, mag: q.mag, depth: q.depth, shindo: "", cls: "", felt: true, id: q.id };
+        select({ props, coords: [q.lon!, q.lat!] });
+      },
     });
   } else if (state.tab === "quake") {
     const clear = el("button", "clear-btn", "Clear selection (Esc)") as HTMLButtonElement;
@@ -662,7 +766,7 @@ function renderLegend() {
     size.append(k);
   }
   const rows = [depth, size, layers];
-  if (footprint.status === "ok") {
+  if (footprint.status === "ok" || (state.tab === "location" && loc.place !== null)) {
     const fr = el("div", "lg-row");
     fr.append(el("span", "lg-title", "Shindo"));
     CLASSES.forEach((c, i) => {

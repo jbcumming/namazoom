@@ -111,6 +111,16 @@ await shot("10-depth-kanto", {
     await p.waitForSelector("#pane-depth svg", { timeout: 20000 });
   },
 });
+for (const [n, city] of [["11", "Sendai"], ["12", "Tokyo"]]) {
+  await shot(`${n}-location-${city.toLowerCase()}`, {
+    act: async (p) => {
+      await p.click("#tab-location");
+      await p.click(`#pane-location >> text=${city}`);
+      await p.waitForSelector("#pane-location svg", { timeout: 30000 });
+      await p.waitForTimeout(1500); // flyTo
+    },
+  });
+}
 await shot("05-dark", { dark: true });
 await shot("06-mobile", { width: 390, height: 844 });
 
