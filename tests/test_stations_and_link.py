@@ -7,7 +7,7 @@ import pytest
 from pipeline.jma.archive import RawRecord
 from pipeline.jma.fields import ParseError
 from pipeline.jma.hypo import parse_hypo_record
-from pipeline.jma.link import include_in_views, link_shindo
+from pipeline.jma.link import candidates, include_in_views, link_shindo
 from pipeline.jma.shindo import iter_shindo_groups
 from pipeline.jma.stations import parse_stations, partial_datetime
 
@@ -57,15 +57,15 @@ def test_link_exact_and_nearest():
     # Perturb one catalogue record so only the nearest-match fallback can find it.
     o = hypos[0].origin
     hypos[0] = replace(hypos[0], origin=replace(o, origin_jst=o.origin_jst + timedelta(seconds=0.5), key=b"changed"))
-    r = link_shindo(hypos, groups)
-    assert (r.exact, r.nearest, r.unmatched) == (len(headers) - 1, 1, [])
+    r = link_shindo(candidates(hypos), groups)
+    assert (r.count("exact"), r.count("nearest"), r.count(None)) == (len(headers) - 1, 1, 0)
 
 
 def test_link_reports_unmatched():
     groups = list(iter_shindo_groups(FIXTURE))
     r = link_shindo([], groups)
-    assert r.exact == r.nearest == 0
-    assert len(r.unmatched) == sum(len(g.events) for g in groups)
+    assert r.count("exact") == r.count("nearest") == 0
+    assert r.count(None) == sum(len(g.events) for g in groups)
 
 
 def _raw_headers() -> list[bytes]:

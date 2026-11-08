@@ -47,29 +47,28 @@ def signed_int(raw: bytes) -> int | None:
 def implied_decimal(raw: bytes, decimals: int) -> float | None:
     """Fortran F field with an implied decimal point, e.g. F4.2 '4752' -> 47.52.
 
-    JMA leaves the digits after the decimal point blank when the value was
-    fixed rather than solved for (e.g. seconds of a fixed hypocentre: '41  ').
-    Those blanks are read as 'no further digits', giving 41.0.
+    Blanks inside the field are read as zeros (Fortran's BZ mode). This is
+    the one rule that fits every variant in the catalogue:
+      '41  '  -> 41.00  seconds of a fixed hypocentre (documented: blank after the point)
+      '530 '  -> 53.00  low-precision minutes in early records
+      '  0 4' -> 0.04   whole and fractional parts written separately (h2016 depths)
+      '   0'  -> 0.00   (h1955 standard error)
+    An all-blank field is missing (None), not zero. '/' marks an unknown
+    digit and is read like a blank: station seconds '26/' -> 26.0.
     """
     if is_missing(raw):
         return None
-    s = _text(raw)
+    s = _text(raw).replace("/", " ").lstrip()
     if "." in s:
         try:
             return float(s.replace(" ", ""))
         except ValueError as e:
             raise ParseError(f"bad decimal field {raw!r}") from e
-    whole, frac = s[:-decimals], s[-decimals:].rstrip()
-    if " " in frac or (frac and not frac.isdigit()):
+    neg = s.startswith("-")
+    digits = (s[1:] if neg else s).replace(" ", "0")
+    if not digits.isdigit():
         raise ParseError(f"bad decimal field {raw!r}")
-    if whole.strip() and whole != whole.rstrip():  # numbers are right-aligned
-        raise ParseError(f"bad decimal field {raw!r}")
-    whole = whole.strip()
-    neg = whole.startswith("-")
-    whole = whole[1:].strip() if neg else whole
-    if whole and not whole.isdigit():
-        raise ParseError(f"bad decimal field {raw!r}")
-    value = int(whole or 0) + (int(frac) / 10 ** len(frac) if frac else 0.0)
+    value = int(digits) / 10**decimals
     return round(-value if neg else value, decimals)
 
 
@@ -104,7 +103,9 @@ def degrees_minutes(deg_raw: bytes, min_raw: bytes, min_decimals: int) -> float 
     neg = _text(deg_raw).strip().startswith("-")
     deg = abs(signed_int(deg_raw))  # type: ignore[arg-type]
     minutes = implied_decimal(min_raw, min_decimals) or 0.0
-    if not 0 <= minutes < 60:
+    # Exactly 60 minutes occurs in two 'details unknown' intensity headers
+    # (1967, 1974) and means the next whole degree.
+    if not 0 <= minutes <= 60:
         raise ParseError(f"minutes out of range: {min_raw!r}")
     value = deg + minutes / 60
     return -value if neg else value

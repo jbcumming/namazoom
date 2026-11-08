@@ -31,15 +31,25 @@ def _split(source: str, payload: bytes) -> Iterator[RawRecord]:
         yield RawRecord(source, n, line.ljust(RECORD_LENGTH, b" "))
 
 
-def iter_raw_records(path: str | Path) -> Iterator[RawRecord]:
-    """Yield every record from a .zip (all members, in name order) or a plain file."""
+def iter_members(path: str | Path) -> Iterator[tuple[str, bytes]]:
+    """(source name, contents) for each member of a .zip, in name order, or a plain file."""
     path = Path(path)
     if zipfile.is_zipfile(path):
         with zipfile.ZipFile(path) as zf:
             for name in sorted(n for n in zf.namelist() if not n.endswith("/")):
-                yield from _split(f"{path.name}:{name}", zf.read(name))
+                yield f"{path.name}:{name}", zf.read(name)
     else:
-        yield from _split(path.name, path.read_bytes())
+        yield path.name, path.read_bytes()
+
+
+def split_records(source: str, payload: bytes) -> Iterator[RawRecord]:
+    return _split(source, payload)
+
+
+def iter_raw_records(path: str | Path) -> Iterator[RawRecord]:
+    """Yield every record from a .zip (all members, in name order) or a plain file."""
+    for source, payload in iter_members(path):
+        yield from _split(source, payload)
 
 
 def read_member_bytes(path: str | Path) -> bytes:

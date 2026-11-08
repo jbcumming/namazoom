@@ -3,7 +3,10 @@ name = "quaketracker"
 version = "0.1.0"
 description = "Pipeline and static site visualising the JMA historical earthquake catalogue"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "duckdb>=2.0.0",
+    "pyarrow>=26.0.1",
+]
 
 [dependency-groups]
 dev = ["pytest>=8"]

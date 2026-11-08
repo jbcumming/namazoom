@@ -49,8 +49,8 @@ def test_magnitudes(year):
 
 
 def test_every_intensity_event_links_exactly(year):
-    assert year.link.exact == 1_580
-    assert year.link.nearest == 0 and year.link.unmatched == []
+    assert year.link.count("exact") == 1_580
+    assert year.link.count("nearest") == 0 and year.link.count(None) == 0
 
 
 def test_all_reporting_stations_are_in_station_list(year):

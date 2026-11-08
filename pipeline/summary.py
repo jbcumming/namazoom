@@ -14,7 +14,7 @@ from pathlib import Path
 from .jma import codes
 from .jma.codes import SHINDO_RANK, shindo_class_from_instrumental
 from .jma.hypo import Hypocentre, iter_hypocentres
-from .jma.link import LinkResult, include_in_views, link_shindo
+from .jma.link import LinkResult, candidates, include_in_views, link_shindo
 from .jma.shindo import ShindoGroup, iter_shindo_groups
 from .jma.stations import Station, parse_stations
 from .known_quakes import KNOWN_QUAKES
@@ -31,7 +31,7 @@ class YearData:
 def load(hypo_path: Path, shindo_path: Path, stations_path: Path) -> YearData:
     hypos = list(iter_hypocentres(hypo_path))
     groups = list(iter_shindo_groups(shindo_path))
-    return YearData(hypos, groups, parse_stations(stations_path), link_shindo(hypos, groups))
+    return YearData(hypos, groups, parse_stations(stations_path), link_shindo(candidates(hypos), groups))
 
 
 def _fmt_counter(c: Counter, labels: dict[str, str] | None = None) -> str:
@@ -84,9 +84,10 @@ def report(d: YearData) -> tuple[str, bool]:
     p(f"  groups           {len(d.groups):,}  ({sum(g.record_type != 'A' for g in d.groups)} with shared data, type B/D)")
     p(f"  events           {sum(len(g.events) for g in d.groups):,}")
     p(f"  station readings {len(obs):,}")
-    p(f"  linked exactly   {link.exact:,}   by nearest match {link.nearest:,}   unmatched {len(link.unmatched):,}")
-    if link.unmatched:
-        ok = False
+    unmatched = link.count(None, located=True)
+    p(f"  linked exactly   {link.count('exact'):,}   by nearest match {link.count('nearest'):,}   "
+      f"unmatched {unmatched:,}   no hypocentre {link.count(None, located=False):,}")
+    ok &= unmatched == 0
     foreign = [i for i in link.linked if not i.startswith("J")]
     p(f"  non-JMA hypocentres with readings in Japan: {len(foreign)}  {foreign}")
     unknown = {o.station_id for o in obs} - d.stations.keys()
@@ -100,7 +101,8 @@ def report(d: YearData) -> tuple[str, bool]:
     # The event's max shindo should equal its strongest reading. In B/D groups
     # JMA gives the max shindo to the first event only; the others are blank.
     agree, disagree, secondary = 0, 0, 0
-    for hdr, g in link.linked.values():
+    for l in link.linked.values():
+        hdr, g = l.header, l.group
         if g.record_type != "A" and hdr is not g.headers[0]:
             secondary += hdr.origin.max_shindo is None
             disagree += hdr.origin.max_shindo is not None

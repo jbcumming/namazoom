@@ -41,6 +41,8 @@ LOCATION_PRECISION = {
     "8": "undetermined or not accepted",
     "9": "fixed at nearest station",
     "M": "matched filter",
+    # Not in the docs; seen once (USGS record, h1961.zip, 1964-12-07).
+    "0": "undocumented code 0",
 }
 
 # Column 61. Code 4 is "eruption earthquake and others" in the hypocentre doc

@@ -40,13 +40,18 @@ def test_magnitude_rejects_undocumented(raw):
         (b"415 ", 2, 41.5),
         (b"479", 1, 47.9),
         (b"    ", 2, None),
+        # blanks inside read as zeros (Fortran BZ), as found in real files
+        (b"  0 4", 2, 0.04),  # h2016 shallow depths
+        (b"   0", 2, 0.0),  # h1951 standard error
+        (b"0   ", 2, 0.0),  # h1919 ISC minutes
+        (b"-1 5", 2, -1.05),
     ],
 )
 def test_implied_decimal(raw, decimals, expected):
     assert implied_decimal(raw, decimals) == expected
 
 
-@pytest.mark.parametrize("raw", [b"4 52", b"x123"])
+@pytest.mark.parametrize("raw", [b"x123", b"1-23", b"--12"])
 def test_implied_decimal_rejects_garbage(raw):
     with pytest.raises(ParseError):
         implied_decimal(raw, 2)
@@ -66,9 +71,9 @@ def test_degrees_minutes_sign_applies_to_minutes():
     assert degrees_minutes(b"- 0", b"3000", 2) == pytest.approx(-0.5)
 
 
-def test_degrees_minutes_rejects_60_minutes():
+def test_degrees_minutes_rejects_over_60_minutes():
     with pytest.raises(ParseError):
-        degrees_minutes(b" 35", b"6000", 2)
+        degrees_minutes(b" 35", b"6001", 2)
 
 
 def test_code_rejects_undocumented():

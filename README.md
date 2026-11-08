@@ -3,8 +3,32 @@
 A static website visualising the Japan Meteorological Agency's historical
 earthquake catalogue (地震月報 カタログ編), 1919 onwards.
 
-**Status: phase 1.** Parsers for the JMA files, validated against the 2019
-sample. No site yet.
+**Status: phase 2.** All JMA files (1919-2024) parse and are stored as
+Parquet in `data/interim/`, with completeness estimates. No site yet.
+
+Full pipeline:
+
+```bash
+uv run python -m pipeline.fetch                 # download everything listed on JMA's index pages
+uv run python -m pipeline.build.ingest          # -> data/interim/*.parquet (~3 min)
+uv run python -m pipeline.build.completeness    # Mc / b-value per 2°x2° cell per 5 years
+uv run python -m pipeline.build.overview        # checks + data/interim/overview.txt
+```
+
+Phase 2 format findings (all handled, all tested in `tests/test_format_variants.py`):
+- Numeric fields are read with blanks as zeros (Fortran BZ): `'  0 4'` = 0.04 km.
+- Intensity files are EUC-JP from 2023 (Shift-JIS before); detected per file.
+- 89,975 intensity headers are 'details unknown' (詳細不明): felt reports with
+  no hypocentre; their position is the reporting station's. 135 more have
+  unknown time. Both are kept with `located = false`.
+- The link key leaves out column 62 (max shindo): the catalogue says 'F'
+  (felt) for 1977-84 where the intensity file gives the number.
+- 291 located felt events are not in the catalogue; 1 header is duplicated
+  (i1976); 1 erratum applied (`pipeline/jma/errata.py`).
+- A single national Mc per year misleads (b ≈ 0.5-0.7 from mixing dense land
+  and sparse sea coverage); completeness is computed per region instead.
+- The catalogue includes JMA-located distant events (Taiwan, Marianas, far
+  field); views will need a spatial filter.
 
 ## Data sources
 

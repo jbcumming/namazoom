@@ -14,6 +14,7 @@ from pathlib import Path
 
 from . import codes
 from .archive import RawRecord, iter_raw_records
+from .errata import apply_hypo_errata
 from .fields import (
     ParseError,
     code,
@@ -33,9 +34,9 @@ class Origin:
 
     origin_jst: datetime  # JMA publishes Japan Standard Time (UTC+9)
     time_se: float | None  # seconds
-    lat: float  # decimal degrees, north positive
+    lat: float | None  # decimal degrees, north positive; None only in intensity headers
     lat_se_min: float | None  # standard error in arc-minutes, as published
-    lon: float  # decimal degrees, east positive
+    lon: float | None  # decimal degrees, east positive
     lon_se_min: float | None
     depth_km: float | None
     depth_whole_km: bool  # True when written as I3,2X (depth-slice / fixed depth)
@@ -52,7 +53,11 @@ class Origin:
     tsunami_class: str | None
     district: int | None
     region_code: int | None
-    key: bytes  # raw columns 2-68, used to link intensity records to catalogue events
+    # Raw columns 2-61 + 63-68, used to link intensity records to catalogue
+    # events. Column 62 (max intensity) is left out: the two files legitimately
+    # disagree on it (e.g. 'F' = felt in the catalogue for 1977-84, where the
+    # intensity file has the numeric value).
+    key: bytes
 
     @property
     def origin_utc(self) -> datetime:
@@ -65,7 +70,8 @@ class Origin:
         different regions)."""
         t = self.origin_jst
         cs = t.microsecond // 10_000
-        return f"{agency}{t:%Y%m%d%H%M%S}{cs:02d}_{round(self.lat * 100)}_{round(self.lon * 100)}"
+        pos = "x_x" if self.lat is None or self.lon is None else f"{round(self.lat * 100)}_{round(self.lon * 100)}"
+        return f"{agency}{t:%Y%m%d%H%M%S}{cs:02d}_{pos}"
 
 
 def parse_origin(rec: bytes) -> Origin:
@@ -83,8 +89,8 @@ def parse_origin(rec: bytes) -> Origin:
 
     lat = degrees_minutes(col(rec, 22, 24), col(rec, 25, 28), 2)
     lon = degrees_minutes(col(rec, 33, 36), col(rec, 37, 40), 2)
-    if lat is None or lon is None:
-        raise ParseError("missing latitude/longitude")
+    if (lat is None) != (lon is None):
+        raise ParseError("only one of latitude/longitude present")
 
     depth_raw = col(rec, 45, 49)
     depth_whole_km = depth_raw[3:] == b"  " and depth_raw[:3].strip() != b""
@@ -112,7 +118,7 @@ def parse_origin(rec: bytes) -> Origin:
         tsunami_class=code(col(rec, 64), codes.TSUNAMI_CLASS, "tsunami class"),
         district=signed_int(col(rec, 65)),
         region_code=signed_int(col(rec, 66, 68)),
-        key=col(rec, 2, 68),
+        key=col(rec, 2, 61) + col(rec, 63, 68),
     )
 
 
@@ -125,6 +131,7 @@ class Hypocentre:
     flag: str | None  # K/S/k/s/A/a/N/F
     source: str
     line_no: int
+    corrections: tuple[str, ...] = ()  # errata applied, see errata.py
 
     @property
     def id(self) -> str:
@@ -132,19 +139,23 @@ class Hypocentre:
 
 
 def parse_hypo_record(raw: RawRecord) -> Hypocentre:
-    rec = raw.data
+    rec, corrections = apply_hypo_errata(raw.data)
     try:
         agency = code(col(rec, 1), codes.AGENCY, "record type")
         if agency is None:
             raise ParseError("blank record type")
+        origin = parse_origin(rec)
+        if origin.lat is None:
+            raise ParseError("missing latitude/longitude")
         return Hypocentre(
             agency=agency,
-            origin=parse_origin(rec),
+            origin=origin,
             region_name=col(rec, 69, 92).decode("ascii").rstrip(),
             n_stations=signed_int(col(rec, 93, 95)),
             flag=code(col(rec, 96), codes.HYPO_FLAG, "hypocentre flag"),
             source=raw.source,
             line_no=raw.line_no,
+            corrections=corrections,
         )
     except (ParseError, UnicodeDecodeError) as e:
         raise ParseError(f"{raw.source}:{raw.line_no}: {e}\n  {rec!r}") from e
