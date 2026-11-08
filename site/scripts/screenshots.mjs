@@ -43,6 +43,19 @@ await shot("01-map");
 await shot("02-quake-tohoku", {
   act: async (p) => { await clickAt(p, 142.861, 38.1035); await p.waitForSelector("#pane-quake .chart-title", { timeout: 20000 }); },
 });
+await shot("13-aftershocks-kumamoto", {
+  act: async (p) => {
+    await p.evaluate(() => {
+      const set = (id, v) => { const e = document.getElementById(id); e.value = v; e.dispatchEvent(new Event("input")); };
+      set("range-from", "2016"); set("range-to", "2016");
+      window.quakeMap.jumpTo({ center: [130.8, 32.8], zoom: 7 });
+    });
+    await p.waitForTimeout(800);
+    await clickAt(p, 130.763, 32.7545);
+    await p.waitForSelector("#pane-quake .aftershocks svg", { timeout: 30000 });
+    await p.evaluate(() => { document.getElementById("pane-quake").scrollTop = 99999; });
+  },
+});
 await shot("08-kobe-1995", {
   act: async (p) => {
     await p.evaluate(() => {

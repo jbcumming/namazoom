@@ -7,6 +7,8 @@ import { basemapStyle } from "./basemap";
 import type { GrData } from "./gr";
 import { cellsInBounds, renderMagnitudes, type MagSelection } from "./panel-magnitudes";
 import { renderQuake, type Footprint } from "./panel-quake";
+import { renderAftershocks, type AftershockState } from "./panel-aftershocks";
+import { DAY, FORESHOCK_DAYS, MIN_MAINSHOCK, WINDOW_DAYS, sequence, type Shock } from "./aftershocks";
 import { PRESETS, renderDepth } from "./panel-depth";
 import { PLACES, renderLocation, type Place } from "./panel-location";
 import { LocationStore, type FeltQuake, type NearbyStation } from "./location";
@@ -245,6 +247,7 @@ map.on("click", "quakes", (e) => {
 
 const shindo = new ShindoStore();
 let footprint: Footprint = { status: "none" };
+let aftershocks: AftershockState = { status: "small" };
 let selectToken = 0;
 
 function footprintColor(): ExpressionSpecification {
@@ -289,12 +292,28 @@ async function select(sel: typeof state.selected) {
   footprint = sel?.props.felt ? { status: "loading" } : { status: "none" };
   showFootprint();
   setTab("quake");
+  if (sel) loadAftershocks(sel, token);
   if (!sel || !sel.props.felt) return;
   const { props, coords } = sel;
   const readings = await shindo.readings(props.id, props.t, coords[1], coords[0], props.depth);
   if (token !== selectToken) return;
   footprint = readings && readings.length ? { status: "ok", readings, stations: shindo.stations! } : { status: "none" };
   showFootprint();
+  renderPanel();
+}
+
+async function loadAftershocks(sel: NonNullable<typeof state.selected>, token: number) {
+  const { props, coords } = sel;
+  if (props.mag === null || props.mag < MIN_MAINSHOCK) { aftershocks = { status: "small" }; return; }
+  aftershocks = { status: "loading" };
+  const lo = props.t - FORESHOCK_DAYS * DAY, hi = props.t + WINDOW_DAYS * DAY;
+  await store.ensureYears(yearsNeeded(lo, hi, 3));
+  if (token !== selectToken) return;
+  const shocks: Shock[] = store.features(lo, hi, 3).features
+    .filter((f) => f.properties.mag !== null)
+    .map((f) => ({ t: f.properties.t, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0], mag: f.properties.mag!, id: f.properties.id }));
+  const main: Shock = { t: props.t, lat: coords[1], lon: coords[0], mag: props.mag, id: props.id };
+  aftershocks = { status: "ok", main, seq: sequence(main, shocks), dataEnd: yearEnd(store.index.years[1]) };
   renderPanel();
 }
 
@@ -708,8 +727,10 @@ function renderPanel() {
     const clear = el("button", "clear-btn", "Clear selection (Esc)") as HTMLButtonElement;
     clear.type = "button";
     clear.addEventListener("click", () => select(null));
+    const extra = el("div");
+    if (state.selected) extra.append(renderAftershocks(aftershocks, $("pane-quake").clientWidth), clear);
     renderQuake($("pane-quake-body"), state.selected?.props ?? null, state.selected?.coords, footprint,
-      state.selected ? clear : undefined);
+      state.selected ? extra : undefined);
   }
 }
 
