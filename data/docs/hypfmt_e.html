@@ -1,0 +1,212 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html lang="en" xml:lang="en" xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    <title>Japan Meteorological Agency | Hypocenter record format</title>
+    <meta content="Japan Meteorological Agency" name="Author" />
+    <meta content="Japan Meteorological Agency" name="keywords" />
+    <meta content="Website provided by the Japan Meteorological Agency (the national weather service of Japan)" name="description" />
+    <meta content="text/css" http-equiv="Content-Style-Type" />
+    <link href="/eqev/data/bulletin/css/en.css" rel="stylesheet" type="text/css" />
+    <style media="all" type="text/css"><!-- @import url(//www.jma.go.jp/jma/en/default.css); --></style> </head>
+  <body> <!--header start -->
+    <div id="logo"><a href="//www.jma.go.jp/jma/indexe.html"> <img alt="Japan Meteorological Agency" height="47" src="//www.jma.go.jp/jma/en/common/logo.gif" width="120" /> </a> </div>
+    <div id="head_lang"><a href="//www.jma.go.jp/jma/index.html">Japanese</a> </div>
+    <div id="head_link"><a href="#contents">Skip Navigation</a> <a href="//www.jma.go.jp/jma/en/AboutUs/indexe_aboutus.html">About Us</a> <a href="//www.jma.go.jp/jma/en/Access/indexe_acs.html">Access</a> <a href="//www.jma.go.jp/jma/en/Links/indexe_lnk.html">Links</a> <a href="//www.jma.go.jp/jma/en/SiteMap/indexe_smp.html">Site Map</a> </div>
+    <div id="menu"><a href="//www.jma.go.jp/jma/indexe.html">Home</a> <a href="//www.jma.go.jp/jma/en/menu.html">Weather/Earthquakes</a> <a href="//www.jma.go.jp/jma/en/Services/indexe_services.html">Services</a> <a class="here" href="//www.jma.go.jp/jma/en/Publications/publications.html">Publications/Periodicals</a> <a href="//www.jma.go.jp/jma/en/News/indexe_news.html">News Releases</a> <a href="//www.jma.go.jp/jma/en/NMHS/indexe_nmhs.html">For NMHSs</a> </div> <!--header end --> <!--  breadcrumb navigation start -->
+    <div id="pan"><a href="//www.jma.go.jp/jma/indexe.html">Home</a> &gt; <a href="//www.jma.go.jp/jma/en/Publications/publications.html">Publications/Periodicals</a> &gt; <a href="../../index_e.html">The Seismological Bulletin of Japan</a> &gt; <a href="../../hypo_e.html">Hypocenter file</a> &gt; <a href="fmthyp_e.html">Hypocenter file format</a> &gt; Hypocenter record format </div> <!-- // breadcrumb navigation end --> <!-- contents start -->
+    <div id="contents">
+      <h1>Hypocenter record format</h1>
+      <br />
+      <table class="data2">
+        <tr>
+          <th>Col.</th>
+          <th>Type</th>
+          <th>Item</th>
+          <th>Description</th> </tr>
+        <tr>
+          <td><tt>01</tt></td>
+          <td><tt>A1</tt></td>
+          <td>Record type identifier</td>
+          <td>Agency codes:<br /> J: Hypocenter record determined by JMA<br /> U: Hypocenter record determined by USGS<br /> I: Hypocenter record determined by other international organizations (ISC, IASPEI, etc.)</td> </tr>
+        <tr>
+          <td><tt>02 &ndash; 05</tt></td>
+          <td><tt>I4</tt></td>
+          <td>Year</td>
+          <td>Year of origin time (Japan Standard Time = UTC + 9 h; the same applies below.)</td> </tr>
+        <tr>
+          <td><tt>06 &ndash; 07</tt></td>
+          <td><tt>I2</tt></td>
+          <td>Month</td>
+          <td>Month of origin time</td> </tr>
+        <tr>
+          <td><tt>08 &ndash; 09</tt></td>
+          <td><tt>I2</tt></td>
+          <td>Day</td>
+          <td>Day of origin time</td> </tr>
+        <tr>
+          <td><tt>10 &ndash; 11</tt></td>
+          <td><tt>I2</tt></td>
+          <td>Hour</td>
+          <td>Hour of origin time</td> </tr>
+        <tr>
+          <td><tt>12 &ndash; 13</tt></td>
+          <td><tt>I2</tt></td>
+          <td>Minute</td>
+          <td>Minute of origin time</td> </tr>
+        <tr>
+          <td><tt>14 &ndash; 17</tt></td>
+          <td><tt>F4.2</tt></td>
+          <td>Second</td>
+          <td>Second of origin time<br />blank after the decimal point in case of fixed hypocenter</td> </tr>
+        <tr>
+          <td><tt>18 &ndash; 21</tt></td>
+          <td><tt>F4.2</tt></td>
+          <td>Standard error (seconds)</td>
+          <td>Standard error for origin time (seconds)<br />Blank when hypocenter is fixed, or when hypocenter of template event is adopted in the Matched filter method.</td> </tr>
+        <tr>
+          <td><tt>22 &ndash; 24</tt></td>
+          <td><tt>I3</tt></td>
+          <td>Latitude (degrees)</td>
+          <td>Latitude of hypocenter (degrees)</td> </tr>
+        <tr>
+          <td><tt>25 &ndash; 28</tt></td>
+          <td><tt>F4.2</tt></td>
+          <td>Latitude (minutes)</td>
+          <td>Latitude of hypocenter (minutes)<br />blank after the decimal point in case of fixed hypocenter</td> </tr>
+        <tr>
+          <td><tt>29 &ndash; 32</tt></td>
+          <td><tt>F4.2</tt></td>
+          <td>Standard error (minutes)</td>
+          <td>Standard error for latitude (minutes)<br />Blank when hypocenter is fixed, or when hypocenter of template event is adopted in the Matched filter method.</td> </tr>
+        <tr>
+          <td><tt>33 &ndash; 36</tt></td>
+          <td><tt>I4</tt></td>
+          <td>Longitude (degrees)</td>
+          <td>Longitude of hypocenter (degrees)</td> </tr>
+        <tr>
+          <td><tt>37 &ndash; 40</tt></td>
+          <td><tt>F4.2</tt></td>
+          <td>Longitude (minutes)</td>
+          <td>Longitude of hypocenter (minutes)<br />blank after the decimal point in case of fixed hypocenter</td> </tr>
+        <tr>
+          <td><tt>41 &ndash; 44</tt></td>
+          <td><tt>F4.2</tt></td>
+          <td>Standard error (minutes)</td>
+          <td>Standard error for longitude (minutes)<br />Blank when hypocenter is fixed, or when hypocenter of template event is adopted in the Matched filter method.</td> </tr>
+        <tr>
+          <td rowspan="2"><tt>45 &ndash; 49</tt></td>
+          <td><tt>F5.2</tt></td>
+          <td rowspan="2">Depth (kilometers)</td>
+          <td>Depth in kilometers (depth-free method)<br /> The depth of focus is treated as an unknown variable.</td> </tr>
+        <tr>
+          <td><tt>I3, 2X</tt></td>
+          <td>Depth in kilometers (depth-slice method)<br /> The optimal solution is sought with different source depths.<br /> Width of change: 10 km (1926 &ndash; 1960, 1967 &ndash; 1982)<br /> Width of change: 20 km (1961 &ndash; 1966)<br /> Width of change: 1 km (1983 &ndash; )<br /> Hypocenters from before 1982 are being re-examined and relocated based on calculation<br /> using the depth-free method or the 1 km-width depth-slice method.</td> </tr>
+        <tr>
+          <td><tt>50 &ndash; 52</tt></td>
+          <td><tt>F3.2</tt></td>
+          <td>Standard error (kilometers)</td>
+          <td>Standard error for depth (kilometers)<br /> Blank when depth is determined using the depth-slice method, or when hypocenter of template event is adopted in the Matched filter method.</td> </tr>
+        <tr>
+          <td><tt>53 &ndash; 54</tt></td>
+          <td><tt>F2.1</tt></td>
+          <td>Magnitude 1</td>
+          <td>See magnitude type 1<br /> When the magnitude is less than 0, this column is denoted as follows:<br /> -0.1: -1&nbsp;&nbsp; -0.9: -9&nbsp;&nbsp; -1.0: A0<br /> -1.9: A9&nbsp;&nbsp; -2.0: B0&nbsp;&nbsp; -3.0: C0</td> </tr>
+        <tr>
+          <td rowspan="4"><tt>55</tt></td>
+          <td rowspan="4"><tt>A1</tt></td>
+          <td rowspan="4">Magnitude type 1</td>
+          <td>JMA magnitudes<br /> J: M<sub>J</sub> &mdash; Local Meteorological Office magnitude<br /> D: M<sub>D</sub> &mdash; Displacement magnitude<br /> d: As per M<sub>D</sub>, but for two stations<br /> V: M<sub>V</sub> &mdash; Velocity magnitude<br /> v: As per M<sub>V</sub>, but for two or three stations</td> </tr>
+        <tr>
+          <td>Moment magnitudes<br /> W: M<sub>W</sub> &mdash; When the Agency Code is J, moment magnitude is based on JMA's centroid moment tensor solution. Otherwise, moment magnitude is determined by JMA or another organization such as USGS.</td> </tr>
+        <tr>
+          <td>Other organizations' magnitudes<br /> B: mb &mdash; USGS body wave magnitude<br /> S: M<sub>S</sub> &mdash; USGS surface wave magnitude</td> </tr>
+        <tr>
+          <td>blank: Undetermined</td> </tr>
+        <tr>
+          <td><tt>56 &ndash; 57</tt></td>
+          <td><tt>F2.1</tt></td>
+          <td>Magnitude 2</td>
+          <td>See magnitude 1</td> </tr>
+        <tr>
+          <td><tt>58</tt></td>
+          <td><tt>A1</tt></td>
+          <td>Magnitude type 2</td>
+          <td>See magnitude type 1</td> </tr>
+        <tr>
+          <td><tt>59</tt></td>
+          <td><tt>A1</tt></td>
+          <td>Travel time table</td>
+          <td>Type of travel time table
+            <br /> 1: Reported by Ichikawa and Mochizuki (1971), Hamada (1984) (hereafter 83A) and others
+            <br /> 2: Reported by Ichikawa (1978) (hereafter LL) (for the area far east of the Sanriku district)
+            <br /> 3: Tables reported by Ichikawa and Mochizuki (1971) and LL, or 83A and LL (for the area east of Hokkaido)
+            <br /> 4: Tables reported by Ichikawa and Mochizuki (1971) and LL, or 83A and LL (for southern parts of the Kurile Islands）
+            <br /> 5: Table reported by Ueno et al. (2002) (hereafter JMA2001)
+            <br /> 6: JMA2001 and LL (with the mesh interval of LL matched to that of JMA2001) (for southern parts of the Kurile Islands)
+            <br /> 7: JMA2001A for inland stations, JMA2020A for those within landward slopes, JMA2020B for those in outer-rise regions of the Japan Trench, and JMA2020C for those within the Nankai Trough area
+            <br /> Blank: Determined by other agencies
+          <br />
+          <br />The tables are used when a hypocenter is determined in these areas:
+          <br />2: Far east of Sanriku
+          <br />3: East of Hokkaido
+          <br />4 or 6: Southern parts of the Kurile Islands
+          <br />7: Tables corresponding to individual station locations used in hypocenter calculation
+          </td>
+          </tr>
+        <tr>
+          <td><tt>60</tt></td>
+          <td><tt>A1</tt></td>
+          <td>Hypocenter location precision</td>
+          <td>Hypocenter location precision<br /> 1: Depth-free method<br /> 2: Depth-slice method<br /> 3: Fixed depth<br /> 4: Based on depth phase<br /> 5: Based on S&minus;P time<br /> 7: Poor solution (before March 2016)<br /> 8: Undetermined or not accepted<br /> 9: Hypocenter fixed (of which the most close station)<br /> M: Matched filter method</td> </tr>
+        <tr>
+          <td><tt>61</tt></td>
+          <td><tt>A1</tt></td>
+          <td>Subsidiary information</td>
+          <td>Subsidiary information on event<br /> 1: Natural earthquake<br /> 2: Insufficient number of JMA stations<br /> 3: Artificial event<br /> 4: Eruption earthquake and others<br /> 5: Low-frequency earthquake</td> </tr>
+        <tr>
+          <td><tt>62</tt></td>
+          <td><tt>A1</tt></td>
+          <td>Maximum intensity</td>
+          <td>1: One<br /> 2: Two<br /> 3: Three<br /> 4: Four<br /> 5: Five (until September 1996)<br /> 6: Six (until September 1996)<br /> 7: Seven<br /> A: Five lower<br /> B: Five upper<br /> C: Six lower<br /> D: Six upper<br /> R: Remarkable earthquake (shock felt over 300 km away) (until 1977)<br /> M: Moderate earthquake (shock felt over 200 km away but not over 300 km away) (until 1977)<br /> S: Small earthquake (shock felt over 100 km away but not over 200 km away) (until 1977)<br /> L: Local earthquake (shock felt less than 100 km away) (until 1977)<br /> F: Felt earthquake (until 1984)<br /> X: Shock felt by some people but not by JMA observers (until September 1996)</td> </tr>
+        <tr>
+          <td><tt>63</tt></td>
+          <td><tt>A1</tt></td>
+          <td>Damage class</td>
+          <td>Damage class (after Utsu)<br /> 1: Slight damage (cracks on walls and ground)<br /> 2: Light damage (damage to houses, roads, etc.)<br /> 3: 2 &ndash; 19 fatalities or 2 &ndash; 999 houses destroyed<br /> 4: 20 &ndash; 199 fatalities or 1,000 &ndash; 9,999 houses destroyed<br /> 5: 200 &ndash; 1,999 fatalities or 10,000 &ndash; 99,999 houses destroyed<br /> 6: 2,000 &ndash; 19,999 fatalities or 100,000 &ndash; 999,999 houses destroyed<br /> 7: 20,000+ fatalities or 1,000,000+ houses destroyed<br /> X: Injury or damage of unclear scale (until 1988)<br /> Y: Injury and damage included in the grade for the preceding or following event (until 1988)</td> </tr>
+        <tr>
+          <td rowspan="2"><tt>64</tt></td>
+          <td rowspan="2"><tt>A1</tt></td>
+          <td rowspan="2">Tsunami class</td>
+          <td>1923 &ndash; 1988 Tsunami class (after Utsu)<br /> 1: Tsunami recorded by tidal gage but no damage caused<br /> T: Tsunami generated</td> </tr>
+        <tr>
+          <td>1989 &ndash; Tsunami class (after Imamura and Iida, 1958)<br /> Height/damage<br /> 1: 50 cm/none<br /> 2: 1 m/very slight damage<br /> 3: 2 m/slight damage to coastal areas and vessels<br /> 4: 4 &ndash; 6 m/human injury<br /> 5: 10 &ndash; 20 m/damage along more than 400 km of coastline<br /> 6: 30 m+/damage along more than 500 km of coastline</td> </tr>
+        <tr>
+          <td><tt>65</tt></td>
+          <td><tt>I1</tt></td>
+          <td>District number</td>
+          <td>Number of epicenter location district based on <a href="../../catalog/appendix/appendix_e.html#REGION">Appendix 1.A.3 Geographical region names</a></td> </tr>
+        <tr>
+          <td><tt>66 &ndash; 68</tt></td>
+          <td><tt>I3</tt></td>
+          <td>Region number</td>
+          <td>Number of epicenter location region</td> </tr>
+        <tr>
+          <td><tt>69 &ndash; 92</tt></td>
+          <td><tt>A24</tt></td>
+          <td>Region name</td>
+          <td>Name of epicenter location region</td> </tr>
+        <tr>
+          <td><tt>93 &ndash; 95</tt></td>
+          <td><tt>I3</tt></td>
+          <td>Number of stations</td>
+          <td>Number of stations contributing to hypocenter determination</td> </tr>
+        <tr>
+          <td rowspan="2"><tt>96</tt></td>
+          <td rowspan="2"><tt>A1</tt></td>
+          <td rowspan="2">Hypocenter determination flag</td>
+          <td rowspan="2">K: High-precision hypocenters (Manual, closely examined)<br /> S: Low-precision hypocenters (Manual, closely examined)<br /> k: Middle-precision hypocenters (Manual)<br /> s: Low-precision hypocenters (Manual)<br /> A: Middle-precision hypocenters (Auto)<br /> a: Low-precision hypocenters (Auto)<br /> N: Undetermined or not accepted or fixed hypocenters<br /> F: Far field<br /> </td> </tr>
+        <tr>
+        </tr> </table> </div> <!-- //contents end --> <!-- footer start -->
+    <div id="foot_all">
+      <div id="foot_copyright"><a href="//www.jma.go.jp/jma/en/copyright.html">&lt;Legal Notice&gt;</a> </div> </div> <!-- //footer end --> </body>    </html>

@@ -1,0 +1,10 @@
+# Downloaded and derived data (re-creatable from JMA)
+data/raw/
+data/interim/
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+# Claude Code local files
+.claude/settings.local.json

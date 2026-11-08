@@ -1,0 +1,237 @@
+﻿JMA seismic intensity and acceleration file (96 bytes)
+
+  Data for each earthquake event consist of the following:
+  ・Hypocenter record
+     Each event has more than one record. 
+     The top record is adopted as the best result. 
+  ・Seismic intensity and acceleration data record (one or more after 1961; sometimes none before)
+
+Col.     Item            Type  Description
+1        Record type     A1    Codes:
+         identifier            A: Hypocenter record 
+                               B: Hypocenter record (for two or more spatio-temporally close earthquakes 
+                                  whose seismic intensity data cannot be separated)
+                               D: Hypocenter record (for two or more temporally close earthquakes 
+                                  whose seismic intensity data cannot be separated)
+2 - 5    Year            I4    Year of origin time (Japan Standard Time = UTC + 9 h; the same applies below.) 
+6 - 7    Month           I2    Month of origin time
+8 - 9    Day             I2    Day of origin time
+10 - 11  Hour            I2    Hour of origin time
+12 - 13  Minute          I2    Minute of origin time
+14 - 17  Second          F4.2  Second of origin time
+18 - 21  Standard error  F4.2  Standard error for origin time (seconds)
+         (seconds)
+22 - 24  Latitude        I3    Latitude of hypocenter (degrees)
+         (degrees)
+25 - 28  Latitude        F4.2  Latitude of hypocenter (minutes)
+         (minutes)
+29 - 32  Standard error  F4.2  Standard error for latitude (minutes)
+         (minutes)
+33 - 36  Longitude       I4    Longitude of hypocenter (degrees)
+         (degrees)
+37 - 40  Longitude       F4.2  Longitude of hypocenter (minutes)
+         (minutes)
+41 - 44  Standard error  F4.2  Standard error for longitude (minutes)
+         (minutes)
+45 - 49  Depth           F5.2  Depth in kilometers (depth-free method) 
+         (kilometers)          The depth of focus is treated as an unknown variable. 
+                         I3,2X Depth in kilometers (depth-slice method) 
+                               The optimal solution is sought with different source depths. 
+                               Width of change: 10 km (1926 - 1960, 1967 - 1982) 
+                               Width of change: 20 km (1961 - 1966)
+                               Width of change: 1 km (1983 -)
+                               Hypocenters from before 1982 are being re-examined and relocated based on  
+                               calculation using the depth-free method or the 1 km-width depth-slice method.
+50 - 52  Standard error  F3.2  Standard error for depth (kilometers)
+         (kilometers)
+53 - 54  Magnitude 1     F2.1  See magnitude type 1      
+                               When the magnitude is less than 0, this column is denoted as follows:
+                               -0.1:-1;-0.9:-9;-1.0:A0;-1.9:A9;-2.0:B0;-3.0:C0
+55       Magnitude       A1    JMA magnitudes
+         type 1                J: MJ - Local Meteorological Office magnitude
+                               D: MD - Displacement magnitude
+                               d: Md - As per MD, but for two stations
+                               V: MV - Velocity magnitude
+                               v: Mv - As per MV, but for two or three stations
+                               Moment magnitudes
+                               W: MW - Moment magnitude based on JMA's centroid moment tensor solution
+                               Other organizations' magnitudes
+                               B: mb - USGS body wave magnitude
+                               S: MS - USGS surface wave magnitude
+56 - 57  Magnitude 2     F2.1  See magnitude 1
+58       Magnitude       A1    See magnitude type 1
+         type 2   
+59       Travel time     A1    Travel time table type
+         table                 1: Standard table (83A or other)
+                               2: Table for far east of the Sanriku district
+                               3: Table for east of the Hokkaido district
+                               4: Table for regions of southern parts of the Kurile Islands (with 83A or other)
+                               5: Standard table (JMA2001)
+                               6: Table for regions of southern parts of the Kurile Islands (with JMA2001)
+                               7: Table for regions of Land Area (JMA2001A), Tohoku Pacific Offshore (JMA2020A),
+                                  Tohoku Outer Rise (JMA2020B), or Nankai Trough (JMA2020C)
+                               blank : Determined by other agency
+60       Hypocenter      A1    Hypocenter location precision
+         location              1: Depth-free method
+         precision             2: Depth-slice method
+                               3: Fixed depth
+                               4: Based on depth phase
+                               5: Based on S-P time
+                               7: Poor solution
+                               8: Undetermined or not accepted
+61       Subsidiary      A1    Subsidiary information on event
+         information           1: Natural earthquake
+                               2: Insufficient number of JMA stations
+                               3: Artificial event
+                               4: Noise
+                               5: Low-frequency earthquake
+62       Maximum         A1    1: One
+         intensity             2: Two
+                               3: Three
+                               4: Four
+                               5: Five (until September 1996)
+                               6: Six (until September 1996)
+                               7: Seven
+                               A: Five lower
+                               B: Five upper
+                               C: Six lower
+                               D: Six upper
+                               R: Remarkable earthquake (shock felt over 300 km away) (until 1977)
+                               M: Moderate earthquake (shock felt over 200 km away but not over 300 km away) (until 1977)
+                               S: Small earthquake (shock felt over 100 km away but not over 200 km away) (until 1977)
+                               L: Local earthquake (shock felt less than 100 km away) (until 1977)
+                               F: Felt earthquake (until 1984)
+                               X: Shock felt by some people but not by JMA observers (until September 1996)
+63       Damage class    A1    Damage class (after Utsu)
+                               1: Slight damage (cracks on walls and ground)
+                               2: Light damaged (broken houses, roads, etc.)
+                               3: 2 - 19 fatalities or 2 - 999 houses destroyed
+                               4: 20 - 199 fatalities or 1,000 - 9,999 houses destroyed
+                               5: 200 - 1,999 fatalities or 10,000 - 99,999 houses destroyed
+                               6: 2,000 - 19,999 fatalities or 100,000 - 999,999 houses destroyed
+                               7: 20,000+ fatalities or 1,000,000+ houses destroyed
+                               X: Injury or damage of unclear scale (until 1988)
+                               Y: Injury and damage included in the grade for the preceding or following event (until 1988)
+64       Tsunami class   A1    1923-1988 Tsunami class (after Utsu)
+                               1: Tsunami recorded by tidal gage but no damage caused
+                               T: Tsunami generated
+                               1989 - Tsunami class (after Imamura and Iida, 1958)
+                               Height/damage
+                               1: 50 cm/none
+                               2: 1 m/very slight damage
+                               3: 2 m/slight damage to coastal areas and vessels
+                               4: 4 - 6 m/human injury
+                               5: 10 - 20 m/damage along more than 400 km of coastline
+                               6: 30 m+/damage along more than 500 km of coastline
+65       District number I1    Number of epicenter location district
+66 - 68  Region number   I3    Number of epicenter location region
+69 - 90  Region name     A22   Name of epicenter location region
+91 - 95  Number of       I5    Number of shocks felt
+         stations              
+96       Identifiers     A1    K: High-precision hypocenters (Manual, closely examined)
+                               S: Low-precision hypocenters (Manual, closely examined)
+                               k: Middle-precision hypocenters (Manual)
+                               s: Low-precision hypocenters (Manual)
+                               A: Middle-precision hypocenters (Auto)
+                               a: Low-precision hypocenters (Auto)
+                               N: Undetermined or not accepted or fixed hypocenters
+                               U: USGS hypocenter
+                               I: ISC hypocenter
+                               R: Preliminary hypocenter (included only in district observatory databases)
+                               H,D,M: Exact observation time unknown
+
+JMA seismic intensity and acceleration data record (96 bytes)
+
+Col.    Type     Item                Description
+01 - 07   I7    Seismic intensity    Seismic intensity station number
+                station number       Numbers are provided in the code_p.dat file.
+08        A1    Blank                Blank
+09 - 10   I2    Day                  Day of observation time
+                                     (Japan Standard Time = UT + 9h; the same applies below.)
+11 - 12   I2    Hour                 Hour of observation time
+13 - 14   I2    Minute               Minute of observation time
+15 - 17   F3.1  Second               Second of observation time
+18        A1    Blank                Blank
+19        A1    Seismic intensity    Seismic intensity on the JMA scale (1 - 7 A, B, C, D)
+                                     9: Felt but intensity unknown
+20        A1    Blank                Blank
+21 - 22   I2    Instrumental seismic Seismic intensity as observed using seismic intensity meters
+                intensity            (rounded off to one decimal place) 
+                                     '//' indicates no observation; the same applies below.
+23        A1    Blank                Blank             
+24 - 25   I2    Minute               Minute of maximum acceleration observation time
+26 - 28   F3.1  Second               Second of maximum acceleration observation time
+29        A1    Blank                Blank
+30 - 34   I5    Maximum acceleration in composition of three components
+                                     (unit: 0.1 cm/sec^2)  
+                                     rounded off to one decimal place
+35        A1    Blank                Blank
+36        A1    Identifier           N
+37 - 41   I5    Maximum acceleration in N-S component
+                                     (unit: 0.1 cm/sec^2)
+                                     rounded off to one decimal place
+42        A1    Blank                Blank
+43        A1    Identifier           E
+44 - 48   I5    Maximum acceleration in E-W component
+                                     (unit: 0.1 cm/sec^2)
+                                     rounded off to one decimal place
+49        A1    Blank                Blank
+50        A1    Identifier           Z
+51 - 55   I5    Maximum acceleration in U-D component
+                                     (unit: 0.1 cm/sec^2)
+                                     rounded off to one decimal place
+56        A1    Blank                Blank
+                                     Note: Columns 57 to 80 are blank for the period before 1 Oct. 2000.
+57        A1    Identifier           F (frequency) or P (period)
+58 - 60   I3    Period of maximum    0.1 Hz or 0.1 sec
+                acceleration         Frequencies are applied for periods shorter than 0.1 seconds.
+                (N-S component)      
+61        A1    Identifier           F (frequency) or P (period)
+62 - 64   I3    Predominant period   0.1 Hz or 0.1 sec
+                (N-S component)      Frequencies are applied for periods shorter than 0.1 seconds.
+65        A1    Identifier           F (frequency) or P (period)
+66 - 68   I3    Period of maximum    0.1 Hz or 0.1 sec
+                acceleration         Frequencies are applied for periods shorter than 0.1 seconds.
+                (E-W component)      
+69        A1    Identifier           F (frequency) or P (period)
+70 - 72   I3    Predominant period   0.1 Hz or 0.1 sec
+                (E-W component)      Frequencies are applied for periods shorter than 0.1 seconds.
+73        A1    Identifier           F (frequency) or P (period)
+74 - 76   I3    Period of maximum    0.1 Hz or 0.1 sec
+                acceleration         Frequencies are applied for periods shorter than 0.1 seconds.
+                (U-D component)      
+77        A1    Identifier           F (frequency) or P (period)
+78 - 80   I3    Predominant period   0.1 Hz or 0.1 sec
+                (U-D component)      Frequencies are applied for periods shorter than 0.1 seconds.
+81 - 96   A16   Blank                Blank 
+
+
+
+Seismic intensity station list file(code_p.dat)
+
+The data file is in TSV(Tab Separated Values) format.
+Each record includes six items.
+
+item    Type  Item Name           Description
+01      I7    Seismic intensity   The first five figures denote the municipality code.
+              station number
+02      -     Seismic intensity   Station name used in JMA's earthquake information 
+              station name        (JIS code) 
+03     2I2    Latitude            Latitude north in degrees and minutes (Japanese Geodetic Datum 2000)
+04    I3,I2   Longitude           Longitude eastern in degrees and minutes (Japanese Geodetic Datum 2000)
+05    I4,4I2  Observation start time 
+                                  I4:Year(Japan Standard Time = UT + 9h; the same applies below.)
+                                  I2:Month
+                                  I2:Day 
+                                  I2:Hour
+                                  I2:Minute
+                                  If the time is unknown, [99] or [9999] is indicated.
+06    I4,4I2  Observation end time
+                                  I4:Year
+                                  I2:Month
+                                  I2:Day 
+                                  I2:Hour
+                                  I2:Minute
+                                  if the time is unknown, [99] or [9999] is indicated. 
+                                  If the station remains operational, this is blank.
+
