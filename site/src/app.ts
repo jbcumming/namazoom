@@ -12,6 +12,7 @@ import { DAY, FORESHOCK_DAYS, MIN_MAINSHOCK, WINDOW_DAYS, sequence, type Shock }
 import { PRESETS, renderDepth } from "./panel-depth";
 import { PLACES, renderLocation, type Place } from "./panel-location";
 import { renderHistory } from "./panel-history";
+import { formatHash, parseHash, yearFromId } from "./urlstate";
 import { LocationStore, type FeltQuake, type NearbyStation } from "./location";
 import { swath, type LonLat, type Section } from "./section";
 import { Marker } from "maplibre-gl";
@@ -37,6 +38,10 @@ const state = {
 const store = new QuakeStore();
 const [grData] = await Promise.all([fetch("./data/gr.json").then((r) => r.json() as Promise<GrData>), store.init()]);
 [state.from, state.to] = store.index.years;
+// A shared link may set the view; applied before the first render.
+const fromUrl = parseHash(location.hash, ["magnitudes", "depth", "quake", "location", "history"], store.index.years);
+if (fromUrl.from !== undefined) { state.from = fromUrl.from; state.to = fromUrl.to!; }
+if (fromUrl.minMag !== undefined) state.minMag = fromUrl.minMag;
 
 // ------------------------------------------------------------------ map ---
 
@@ -127,9 +132,37 @@ const fitJapan = () => map.fitBounds([[box.lon_min, box.lat_min], [box.lon_max, 
 map.on("load", () => {
   // The container may have been sized before the panel layout settled.
   map.resize();
-  fitJapan();
+  if (fromUrl.view) map.jumpTo({ center: [fromUrl.view.lon, fromUrl.view.lat], zoom: fromUrl.view.zoom });
+  else fitJapan();
   addQuakeLayers();
+  if (fromUrl.quake) restoreQuake(fromUrl.quake);
 });
+
+/** Select a quake from a shared link: find it in its year's data. */
+async function restoreQuake(id: string) {
+  const y = yearFromId(id);
+  await store.ensureYears([y]);
+  const f = store.features(yearStart(y), yearEnd(y), 3).features.find((x) => x.properties.id === id);
+  if (f) select({ props: f.properties, coords: f.geometry.coordinates as [number, number] });
+}
+
+let urlTimer = 0;
+function updateUrl() {
+  clearTimeout(urlTimer);
+  urlTimer = window.setTimeout(() => {
+    const c = map.getCenter();
+    const [y0, y1] = store.index.years;
+    const hash = formatHash({
+      ...(state.from !== y0 || state.to !== y1 ? { from: state.from, to: state.to } : {}),
+      ...(state.minMag !== 5 ? { minMag: state.minMag } : {}),
+      ...(state.tab !== "magnitudes" ? { tab: state.tab } : {}),
+      ...(state.selected ? { quake: state.selected.props.id } : {}),
+      view: { lat: c.lat, lon: c.lng, zoom: map.getZoom() },
+    });
+    if (hash !== location.hash) history.replaceState(null, "", hash);
+  }, 300);
+}
+map.on("moveend", updateUrl);
 
 // ------------------------------------------------------------- overlays ---
 
@@ -357,6 +390,7 @@ async function select(sel: typeof state.selected) {
   stopReplay();
   const token = ++selectToken;
   state.selected = sel;
+  updateUrl();
   map.setFilter("selected", ["==", ["get", "id"], sel?.props.id ?? ""]);
   footprint = sel?.props.felt ? { status: "loading" } : { status: "none" };
   showFootprint();
@@ -607,6 +641,7 @@ function syncTimeline() {
   const fill = $("range-fill");
   fill.style.left = `${pct(state.from)}%`;
   fill.style.width = `${pct(state.to) - pct(state.from)}%`;
+  updateUrl();
   $("play").textContent = state.playing ? "❚❚" : "▶";
   $("play").setAttribute("aria-label", state.playing ? "Pause" : "Play through the period");
 }
@@ -626,6 +661,7 @@ toInput.addEventListener("input", () => onRangeInput("to"));
 
 $<HTMLSelectElement>("min-mag").addEventListener("change", (e) => {
   state.minMag = Number((e.target as HTMLSelectElement).value);
+  updateUrl();
   refreshData();
 });
 $<HTMLSelectElement>("trail").addEventListener("change", (e) => {
@@ -699,6 +735,7 @@ const TABS = ["magnitudes", "depth", "quake", "location", "history"];
 
 function setTab(tab: string) {
   state.tab = tab;
+  updateUrl();
   document.body.classList.remove("panel-closed");
   for (const t of TABS) {
     const btn = $(`tab-${t}`);
@@ -897,5 +934,6 @@ function renderLegend() {
 
 renderLegend();
 syncTimeline();
-setTab("magnitudes");
+$<HTMLSelectElement>("min-mag").value = String(state.minMag);
+setTab(fromUrl.tab ?? "magnitudes");
 $("source").textContent = `Data: JMA Seismological Bulletin of Japan, ${store.index.years[0]}–${store.index.years[1]}.`;

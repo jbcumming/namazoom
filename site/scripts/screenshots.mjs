@@ -19,11 +19,11 @@ const idle = (page) => page.waitForFunction(() => {
   return m && m.loaded() && m.areTilesLoaded() && document.getElementById("loading").hidden;
 }, null, { timeout: 30000 });
 
-async function shot(name, { width = 1440, height = 900, dark = false, act } = {}) {
+async function shot(name, { width = 1440, height = 900, dark = false, act, hash = "" } = {}) {
   const page = await browser.newPage({ viewport: { width, height }, colorScheme: dark ? "dark" : "light" });
   page.on("console", (m) => { if (m.type() === "error") errors.push(`${name}: ${m.text()}`); });
   page.on("pageerror", (e) => errors.push(`${name}: ${e.message}`));
-  await page.goto(url);
+  await page.goto(url + hash);
   await idle(page);
   if (act) { await act(page); if (!name.includes("replay")) await idle(page); }
   await page.waitForTimeout(400);
@@ -150,6 +150,10 @@ for (const [n, city] of [["11", "Sendai"], ["12", "Tokyo"]]) {
 }
 await shot("15-history", {
   act: async (p) => { await p.click("#tab-history"); await p.waitForSelector("#pane-history svg", { timeout: 20000 }); },
+});
+await shot("16-shared-link", {
+  hash: "#y=2016&m=3&tab=quake&q=J2016041601250547_3275_13076&v=32.80,130.80,7.0",
+  act: async (p) => { await p.waitForSelector("#pane-quake .chart-title", { timeout: 30000 }); },
 });
 await shot("05-dark", { dark: true });
 await shot("06-mobile", { width: 390, height: 844 });
