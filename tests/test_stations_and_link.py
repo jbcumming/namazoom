@@ -34,6 +34,14 @@ def test_parse_stations(tmp_path):
     assert (st["8070070"].start, st["8070070"].end) == ("1954", "2003-03-10")
 
 
+def test_area_entry_without_position(tmp_path):
+    # Real row: the 1995 Kobe shindo-7 survey area has position 0000/00000.
+    p = tmp_path / "code_p.dat"
+    p.write_text("5399999\t神戸市等阪神淡路地域\t0000\t00000\t199501179999\t199501189999\n", encoding="utf-8")
+    st = parse_stations(p)["5399999"]
+    assert (st.lat, st.lon) == (None, None)
+
+
 def test_station_list_accepts_shift_jis(tmp_path):
     p = tmp_path / "code_p.dat"
     p.write_bytes(STATIONS.encode("cp932"))

@@ -2,7 +2,10 @@
 
 Tab-separated, six columns (data/docs/shindo_format_e.txt). The docs say the
 names are JIS-encoded, but the current file is UTF-8; we accept either.
-Coordinates are JGD2000 to the nearest arc-minute (~1.8 km).
+Coordinates are JGD2000 to the nearest arc-minute (~1.8 km). A position of
+0°0', 0°0' means "no single position": it is used by area entries such as
+5399999 (Kobe and the Hanshin-Awaji area, where shindo 7 was assigned by field
+survey in 1995). Those stations get lat/lon None.
 """
 
 from __future__ import annotations
@@ -18,8 +21,8 @@ from .fields import ParseError
 class Station:
     id: str
     name: str
-    lat: float
-    lon: float
+    lat: float | None  # None: area entry without a single position
+    lon: float | None
     start: str | None  # ISO prefix, as precise as JMA knows it: '1954', '2003-03-10T12:00'
     end: str | None  # None while the station is still operating
 
@@ -71,8 +74,10 @@ def parse_stations(path: str | Path) -> dict[str, Station]:
         if sid in stations:
             raise ParseError(f"code_p line {n}: duplicate station {sid}")
         try:
-            stations[sid] = Station(sid, name.strip(), _dm(lat, 2), _dm(lon, 3),
-                                    partial_datetime(start), partial_datetime(end))
+            la, lo = _dm(lat, 2), _dm(lon, 3)
+            if la == 0 and lo == 0:
+                la = lo = None
+            stations[sid] = Station(sid, name.strip(), la, lo, partial_datetime(start), partial_datetime(end))
         except ParseError as e:
             raise ParseError(f"code_p line {n}: {e}") from e
     return stations

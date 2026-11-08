@@ -40,7 +40,21 @@ const clickAt = async (page, lon, lat) => {
 };
 
 await shot("01-map");
-await shot("02-quake-tohoku", { act: (p) => clickAt(p, 142.861, 38.1035) });
+await shot("02-quake-tohoku", {
+  act: async (p) => { await clickAt(p, 142.861, 38.1035); await p.waitForSelector("#pane-quake .chart-title", { timeout: 20000 }); },
+});
+await shot("08-kobe-1995", {
+  act: async (p) => {
+    await p.evaluate(() => {
+      const set = (id, v) => { const e = document.getElementById(id); e.value = v; e.dispatchEvent(new Event("input")); };
+      set("range-from", "1995"); set("range-to", "1995");
+      window.quakeMap.jumpTo({ center: [135.2, 34.8], zoom: 6.3 });
+    });
+    await p.waitForTimeout(800);
+    await clickAt(p, 135.035, 34.5983);
+    await p.waitForSelector("#pane-quake .chart-title", { timeout: 20000 });
+  },
+});
 await shot("03-eras", { act: (p) => p.click("text=Compare eras") });
 await shot("04-playing", {
   act: async (p) => {

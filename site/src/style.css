@@ -256,3 +256,10 @@ body.panel-closed .panel { display: none; }
   #panel-toggle { display: none; }
   .pill { font-size: 0.7rem; }
 }
+
+.chart-title { font-size: 0.8rem; color: var(--text-secondary); margin: 10px 0 2px; }
+.mini { border-collapse: collapse; font-size: 0.8rem; margin-top: 6px; font-variant-numeric: tabular-nums; width: 100%; }
+.mini th { text-align: left; font-weight: 400; color: var(--text-secondary); border-bottom: 1px solid var(--axis); padding: 2px 6px 2px 0; }
+.mini td { border-bottom: 1px solid var(--grid); padding: 2px 6px 2px 0; }
+.clear-btn { margin-top: 14px; }
+.note { font-size: 0.82rem; color: var(--text-primary); background: var(--page); border-left: 3px solid var(--axis); padding: 6px 10px; margin: 6px 0; }

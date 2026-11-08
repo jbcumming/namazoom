@@ -6,7 +6,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { basemapStyle } from "./basemap";
 import type { GrData } from "./gr";
 import { cellsInBounds, renderMagnitudes, type MagSelection } from "./panel-magnitudes";
-import { renderQuake } from "./panel-quake";
+import { renderQuake, type Footprint } from "./panel-quake";
+import { CLASSES, CLASS_COLORS, classOf, ShindoStore } from "./shindo";
 import { MAX_YEARS_FOR_M3, QuakeStore, yearEnd, yearOf, yearStart, yearsNeeded, type QuakeProps } from "./quakes";
 import { $, el, fmt, hideTooltip, isDark, showTooltip, theme } from "./ui";
 
@@ -95,11 +96,14 @@ function addQuakeLayers() {
     layout: { "circle-sort-key": ["coalesce", ["get", "mag"], 0] },
   }, before);
   addPlateLayers(before);
+  addFootprintLayer();
   map.addLayer({
     id: "selected", type: "circle", source: "quakes", filter: ["==", ["get", "id"], ""],
     paint: { "circle-radius": radiusPlus(4), "circle-color": "transparent", "circle-stroke-color": theme().text, "circle-stroke-width": 2 },
   });
+  if (state.selected) map.setFilter("selected", ["==", ["get", "id"], state.selected.props.id]);
   refreshData();
+  showFootprint(); // after a style change the source starts empty
 }
 
 const fitJapan = () => map.fitBounds([[box.lon_min, box.lat_min], [box.lon_max, box.lat_max]], { padding: 20, duration: 0 });
@@ -225,13 +229,82 @@ map.on("click", "quakes", (e) => {
   const props = f.properties as unknown as QuakeProps;
   // GeoJSON properties come back from the worker as plain values; null may arrive as the string "null".
   const num = (v: unknown) => (v === null || v === "null" || v === undefined ? null : Number(v));
-  state.selected = {
+  select({
     props: { ...props, mag: num(props.mag), depth: num(props.depth), felt: String(props.felt) === "true", t: Number(props.t) },
     coords: (f.geometry as GeoJSON.Point).coordinates as [number, number],
-  };
-  map.setFilter("selected", ["==", ["get", "id"], props.id]);
-  setTab("quake");
+  });
 });
+
+// ------------------------------------------------------- shindo footprint ---
+
+const shindo = new ShindoStore();
+let footprint: Footprint = { status: "none" };
+let selectToken = 0;
+
+function footprintColor(): ExpressionSpecification {
+  const m: (string | number)[] = [];
+  CLASS_COLORS.forEach((c, i) => m.push(i, c));
+  return ["match", ["get", "k"], ...m, theme().muted] as unknown as ExpressionSpecification;
+}
+
+function addFootprintLayer() {
+  map.addSource("footprint", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  map.addLayer({
+    id: "footprint", type: "circle", source: "footprint",
+    paint: {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 2.4, 7, 4.5, 10, 7],
+      "circle-color": footprintColor(),
+      "circle-stroke-color": theme().text, "circle-stroke-width": 0.4, "circle-stroke-opacity": 0.6,
+    },
+    layout: { "circle-sort-key": ["get", "k"] },
+  });
+}
+
+function showFootprint() {
+  const src = map.getSource("footprint") as GeoJSONSource | undefined;
+  if (!src) return;
+  const r = footprint.status === "ok" ? footprint.readings! : [];
+  const st = footprint.stations;
+  src.setData({
+    type: "FeatureCollection",
+    features: st ? r.filter((x) => x.distanceKm !== null).map((x) => ({
+      type: "Feature", geometry: { type: "Point", coordinates: [st.lon[x.station]!, st.lat[x.station]!] },
+      properties: { k: classOf(x.code), name: st.name[x.station] || st.id[x.station], code: x.code, iv: x.instrumental ?? -1, dist: Math.round(x.distanceKm!) },
+    })) : [],
+  });
+  applyTimeFilter();
+  renderLegend();
+}
+
+async function select(sel: typeof state.selected) {
+  const token = ++selectToken;
+  state.selected = sel;
+  map.setFilter("selected", ["==", ["get", "id"], sel?.props.id ?? ""]);
+  footprint = sel?.props.felt ? { status: "loading" } : { status: "none" };
+  showFootprint();
+  setTab("quake");
+  if (!sel || !sel.props.felt) return;
+  const { props, coords } = sel;
+  const readings = await shindo.readings(props.id, props.t, coords[1], coords[0], props.depth);
+  if (token !== selectToken) return;
+  footprint = readings && readings.length ? { status: "ok", readings, stations: shindo.stations! } : { status: "none" };
+  showFootprint();
+  renderPanel();
+}
+
+const SHINDO_TIP: Record<string, string> = Object.fromEntries(CLASSES.flatMap((c) => c.codes.map((k) => [k, c.label])));
+map.on("mousemove", "footprint", (e) => {
+  const f = e.features?.[0];
+  if (!f) return;
+  const p = f.properties as { name: string; code: string; iv: number; dist: number };
+  showTooltip(e.originalEvent.clientX, e.originalEvent.clientY, (tip) => {
+    tip.append(el("div", "t-head", p.name));
+    const r = el("div", "t-row"); r.append(el("span", "", "Shindo"), el("strong", "", SHINDO_TIP[p.code] ?? "felt")); tip.append(r);
+    if (Number(p.iv) >= 0) { const r2 = el("div", "t-row"); r2.append(el("span", "", "Instrumental"), el("strong", "", Number(p.iv).toFixed(1))); tip.append(r2); }
+    const r3 = el("div", "t-row"); r3.append(el("span", "", "Distance"), el("strong", "", `${fmt(Number(p.dist))} km`)); tip.append(r3);
+  });
+});
+map.on("mouseleave", "footprint", hideTooltip);
 
 // -------------------------------------------------------- data on the map ---
 
@@ -273,7 +346,7 @@ function applyTimeFilter() {
     map.setPaintProperty("quakes", "circle-opacity", ["interpolate", ["linear"], ["get", "t"], lo, 0.08, hi, 0.95]);
   } else {
     map.setFilter("quakes", null);
-    map.setPaintProperty("quakes", "circle-opacity", 0.7);
+    map.setPaintProperty("quakes", "circle-opacity", footprint.status === "ok" ? 0.15 : 0.7);
   }
 }
 
@@ -381,7 +454,9 @@ function stop() {
 }
 $("play").addEventListener("click", () => (state.playing ? pause() : play()));
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && state.anim) stop();
+  if (e.key !== "Escape") return;
+  if (state.selected) select(null);
+  else if (state.anim) stop();
 });
 
 // ---------------------------------------------------------------- panel ---
@@ -428,7 +503,11 @@ function renderPanel() {
     const areaLabel = cells === null ? "all of Japan" : `the visible map area (${cells.size} 2° squares)`;
     renderMagnitudes(host, grData, { from: state.from, to: state.to, cells, areaLabel, mode: state.magMode });
   } else if (state.tab === "quake") {
-    renderQuake($("pane-quake-body"), state.selected?.props ?? null, state.selected?.coords);
+    const clear = el("button", "clear-btn", "Clear selection (Esc)") as HTMLButtonElement;
+    clear.type = "button";
+    clear.addEventListener("click", () => select(null));
+    renderQuake($("pane-quake-body"), state.selected?.props ?? null, state.selected?.coords, footprint,
+      state.selected ? clear : undefined);
   }
 }
 
@@ -484,7 +563,19 @@ function renderLegend() {
     k.append(dot, document.createTextNode(`M${m}`));
     size.append(k);
   }
-  host.replaceChildren(depth, size, layers);
+  const rows = [depth, size, layers];
+  if (footprint.status === "ok") {
+    const fr = el("div", "lg-row");
+    fr.append(el("span", "lg-title", "Shindo"));
+    CLASSES.forEach((c, i) => {
+      const k = el("span", "lg-key");
+      const dot = el("span", "lg-dot"); dot.style.background = CLASS_COLORS[i];
+      k.append(dot, document.createTextNode(c.label));
+      fr.append(k);
+    });
+    rows.unshift(fr);
+  }
+  host.replaceChildren(...rows);
 }
 
 renderLegend();
