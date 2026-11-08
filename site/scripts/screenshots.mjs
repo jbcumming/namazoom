@@ -160,6 +160,18 @@ await shot("17-footprint-dark", {
   hash: "#y=2016&m=3&tab=quake&q=J2016041601250547_3275_13076&v=32.80,130.80,7.0",
   act: async (p) => { await p.waitForSelector("#pane-quake .chart-title", { timeout: 30000 }); },
 });
+await shot("18-location-hover", {
+  act: async (p) => {
+    await p.click("#tab-location");
+    await p.click("#pane-location >> text=Sendai");
+    await p.waitForSelector("#pane-location svg", { timeout: 30000 });
+    await p.waitForTimeout(1500);
+    // hover the 2011 Tohoku epicentre circle
+    const pt = await p.evaluate(() => { const s = window.quakeMap.project([142.861, 38.1035]); return { x: s.x, y: s.y }; });
+    const box = await p.locator("#map").boundingBox();
+    await p.mouse.move(box.x + pt.x, box.y + pt.y);
+  },
+});
 await shot("05-dark", { dark: true });
 await shot("06-mobile", { width: 390, height: 844 });
 

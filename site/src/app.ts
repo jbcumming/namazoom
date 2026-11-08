@@ -259,7 +259,12 @@ map.on("mousemove", "slabs-hit", (e) => {
 });
 map.on("mouseleave", "slabs-hit", hideTooltip);
 
+/** True when a My location epicentre circle is under the pointer: it takes priority over the dimmed quakes. */
+const overPlaceFelt = (p: { x: number; y: number }) =>
+  !!map.getLayer("place-felt") && map.queryRenderedFeatures([p.x, p.y], { layers: ["place-felt"] }).length > 0;
+
 map.on("mousemove", "quakes", (e) => {
+  if (overPlaceFelt(e.point)) return;
   map.getCanvas().style.cursor = "pointer";
   const f = e.features?.[0];
   if (!f) return;
@@ -275,6 +280,7 @@ map.on("mousemove", "quakes", (e) => {
 map.on("mouseleave", "quakes", () => { map.getCanvas().style.cursor = ""; hideTooltip(); });
 map.on("click", "quakes", (e) => {
   if (sectionState.drawing || loc.picking) return; // clicks place points instead
+  if (overPlaceFelt(e.point)) return; // handled by the place-felt layer
   const f = e.features?.[0];
   if (!f) return;
   const props = f.properties as unknown as QuakeProps;
@@ -556,8 +562,8 @@ function drawLocation() {
       type: "FeatureCollection",
       features: visible ? [
         { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [circle(loc.place!.lonlat, loc.radiusKm)] } },
-        ...loc.quakes.filter((q) => q.lat !== null && q.cls >= 0).map((q) => ({
-          type: "Feature" as const, properties: { k: q.cls, mag: q.mag },
+        ...loc.quakes.map((q, i) => ({ q, i })).filter(({ q }) => q.lat !== null && q.cls >= 0).map(({ q, i }) => ({
+          type: "Feature" as const, properties: { k: q.cls, mag: q.mag, i },
           geometry: { type: "Point" as const, coordinates: [q.lon!, q.lat!] },
         })),
       ] : [],
@@ -583,6 +589,41 @@ async function setPlace(place: Place | null) {
   Object.assign(loc, { status: "ok", quakes: r.quakes, stations: r.stations });
   drawLocation(); renderPanel();
 }
+
+/** Open a quake from the felt list in the Quake tab (full catalogue details when loaded). */
+function selectFelt(q: FeltQuake) {
+  if (!q.id || q.lat === null || q.lon === null) return;
+  const f = shownQuakes.find((x) => x.properties.id === q.id);
+  const props: QuakeProps = f ? f.properties
+    : { t: q.t, mag: q.mag, depth: q.depth, shindo: "", cls: "", felt: true, id: q.id };
+  select({ props, coords: [q.lon, q.lat] });
+}
+
+// Hover and click on the epicentres of quakes felt at the chosen place.
+map.on("mousemove", "place-felt", (e) => {
+  map.getCanvas().style.cursor = "pointer";
+  const f = e.features?.[0];
+  const q = f ? loc.quakes[Number((f.properties as { i: number }).i)] : undefined;
+  if (!q) return;
+  const st = shindo.stations;
+  showTooltip(e.originalEvent.clientX, e.originalEvent.clientY, (tip) => {
+    tip.append(el("div", "t-head", `${new Date((q.t + 9 * 3600) * 1000).toISOString().slice(0, 16).replace("T", " ")} JST`));
+    const row = (k: string, v: string) => { const r = el("div", "t-row"); r.append(el("span", "", k), el("strong", "", v)); tip.append(r); };
+    row("Magnitude", q.mag === null ? "unknown" : `M${q.mag.toFixed(1)}`);
+    if (q.depth !== null) row("Depth", `${Math.round(q.depth)} km`);
+    row(`Felt near ${loc.place?.name ?? "here"}`, (CLASSES[q.cls]?.label ?? "felt") + (q.instrumental !== null ? ` (${q.instrumental.toFixed(1)})` : ""));
+    if (st) row("Strongest at", st.name[q.station] || st.id[q.station]);
+    if (q.epiKm !== null) row("Epicentre", `${fmt(Math.round(q.epiKm))} km away`);
+    tip.append(el("div", "t-head", q.id ? "Click to open in the Quake tab" : "No catalogue entry"));
+  });
+});
+map.on("mouseleave", "place-felt", () => { map.getCanvas().style.cursor = ""; hideTooltip(); });
+map.on("click", "place-felt", (e) => {
+  if (loc.picking) return;
+  const f = e.features?.[0];
+  const q = f ? loc.quakes[Number((f.properties as { i: number }).i)] : undefined;
+  if (q) selectFelt(q);
+});
 
 map.on("click", (e) => {
   if (!loc.picking) return;
@@ -835,12 +876,7 @@ function renderPanel() {
         );
       },
       onRadius: (km) => { loc.radiusKm = km; setPlace(loc.place); },
-      onSelectQuake: (q) => {
-        const f = shownQuakes.find((x) => x.properties.id === q.id);
-        const props: QuakeProps = f ? f.properties
-          : { t: q.t, mag: q.mag, depth: q.depth, shindo: "", cls: "", felt: true, id: q.id };
-        select({ props, coords: [q.lon!, q.lat!] });
-      },
+      onSelectQuake: selectFelt,
     });
   } else if (state.tab === "quake") {
     const clear = el("button", "clear-btn", "Clear selection (Esc)") as HTMLButtonElement;
