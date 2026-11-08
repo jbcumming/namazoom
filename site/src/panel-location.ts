@@ -2,7 +2,7 @@
 import * as Plot from "@observablehq/plot";
 import * as d3 from "d3";
 import { stationsByYear, type FeltQuake, type NearbyStation } from "./location";
-import { CLASSES, CLASS_COLORS, type Stations } from "./shindo";
+import { CLASSES, shindoColors, type Stations } from "./shindo";
 import { el, fmt, hideTooltip, showTooltip, theme } from "./ui";
 
 export interface Place { name: string; lonlat: [number, number] }
@@ -79,6 +79,7 @@ export function renderLocation(host: HTMLElement, inp: LocationInputs) {
 
 function summary(inp: LocationInputs, width: number): HTMLElement[] {
   const t = theme();
+  const CLASS_COLORS = shindoColors();
   const out: HTMLElement[] = [];
   const q = inp.quakes;
   const st = inp.allStations!;
@@ -175,6 +176,7 @@ function summary(inp: LocationInputs, width: number): HTMLElement[] {
 }
 
 function attachYearTooltip(svg: SVGSVGElement, rows: { year: number; cls: number; label: string }[]) {
+  const CLASS_COLORS = shindoColors();
   const x = (svg as unknown as { scale(n: string): { invert(p: number): number } }).scale("x");
   const byYear = d3.group(rows, (r) => r.year);
   svg.addEventListener("pointermove", (ev) => {

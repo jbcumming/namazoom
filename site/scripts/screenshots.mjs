@@ -155,6 +155,11 @@ await shot("16-shared-link", {
   hash: "#y=2016&m=3&tab=quake&q=J2016041601250547_3275_13076&v=32.80,130.80,7.0",
   act: async (p) => { await p.waitForSelector("#pane-quake .chart-title", { timeout: 30000 }); },
 });
+await shot("17-footprint-dark", {
+  dark: true,
+  hash: "#y=2016&m=3&tab=quake&q=J2016041601250547_3275_13076&v=32.80,130.80,7.0",
+  act: async (p) => { await p.waitForSelector("#pane-quake .chart-title", { timeout: 30000 }); },
+});
 await shot("05-dark", { dark: true });
 await shot("06-mobile", { width: 390, height: 844 });
 

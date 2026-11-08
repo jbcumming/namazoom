@@ -1,5 +1,4 @@
 // Station readings (shindo) for felt quakes. Data: pipeline/build/site_data.py build_shindo.
-import * as d3 from "d3";
 
 export interface Stations {
   id: string[];
@@ -41,9 +40,15 @@ export const CLASSES = [
 ];
 export const classOf = (code: string) => CLASSES.findIndex((c) => c.codes.includes(code)); // -1 for '9' (felt, unknown)
 
-/** Sequential orange ramp, one step per class: a second sequential context
- * beside the blue depth scale. The lightest steps are skipped so 1 stays visible. */
-export const CLASS_COLORS = d3.quantize(d3.interpolateOranges, 12).slice(3);
+/** One colour per class, from the --shindo-1..9 tokens in style.css: an ordered
+ * scale whose hue moves yellow -> orange -> red -> crimson -> purple while
+ * lightness falls evenly, so neighbouring levels differ in hue *and* the order
+ * still reads light -> dark (validated as an ordinal ramp, light and dark
+ * mode separately). No blue, which is taken by depth. */
+export function shindoColors(): string[] {
+  const css = getComputedStyle(document.documentElement);
+  return CLASSES.map((_, i) => css.getPropertyValue(`--shindo-${i + 1}`).trim());
+}
 
 const R = 6371;
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {

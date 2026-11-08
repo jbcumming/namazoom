@@ -3,7 +3,7 @@
 import * as Plot from "@observablehq/plot";
 import * as d3 from "d3";
 import type { QuakeProps } from "./quakes";
-import { CLASSES, CLASS_COLORS, classOf, type Reading, type Stations } from "./shindo";
+import { CLASSES, classOf, shindoColors, type Reading, type Stations } from "./shindo";
 import { el, fmt, hideTooltip, showTooltip, theme } from "./ui";
 
 const SHINDO: Record<string, string> = {
@@ -66,13 +66,14 @@ export function renderQuake(host: HTMLElement, q: QuakeProps | null, coords: [nu
 
 function footprintSection(all: Reading[], stations: Stations, width: number): HTMLElement[] {
   const t = theme();
+  const CLASS_COLORS = shindoColors();
   const out: HTMLElement[] = [];
   const readings = all.filter((r) => r.distanceKm !== null);
   const areas = all.filter((r) => r.distanceKm === null);
   const far = d3.max(readings, (r) => r.distanceKm!) ?? 0;
   out.push(el("p", "sub",
     `${fmt(readings.length)} stations reported shaking, up to ${fmt(Math.round(far))} km from the hypocentre. ` +
-    "The orange dots on the map are those stations."));
+    "The coloured dots on the map are those stations, from yellow (1) to purple (7)."));
   for (const a of areas) {
     out.push(el("p", "note",
       `Shindo ${CLASSES[classOf(a.code)]?.label ?? a.code} was also assigned to "${stations.name[a.station]}" as a whole ` +

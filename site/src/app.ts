@@ -16,7 +16,7 @@ import { formatHash, parseHash, yearFromId } from "./urlstate";
 import { LocationStore, type FeltQuake, type NearbyStation } from "./location";
 import { swath, type LonLat, type Section } from "./section";
 import { Marker } from "maplibre-gl";
-import { CLASSES, CLASS_COLORS, classOf, ShindoStore } from "./shindo";
+import { CLASSES, classOf, shindoColors, ShindoStore } from "./shindo";
 import { MAX_YEARS_FOR_M3, QuakeStore, yearEnd, yearOf, yearStart, yearsNeeded, type QuakeProps } from "./quakes";
 import { $, DEPTH_EDGES, DEPTH_LABELS, el, fmt, hideTooltip, isDark, showTooltip, theme } from "./ui";
 
@@ -295,7 +295,7 @@ let selectToken = 0;
 
 function footprintColor(): ExpressionSpecification {
   const m: (string | number)[] = [];
-  CLASS_COLORS.forEach((c, i) => m.push(i, c));
+  shindoColors().forEach((c, i) => m.push(i, c));
   return ["match", ["get", "k"], ...m, theme().muted] as unknown as ExpressionSpecification;
 }
 
@@ -919,11 +919,12 @@ function renderLegend() {
   }
   const rows = [depth, size, layers];
   if (footprint.status === "ok" || (state.tab === "location" && loc.place !== null)) {
+    const shindo_ = shindoColors();
     const fr = el("div", "lg-row");
     fr.append(el("span", "lg-title", "Shindo"));
     CLASSES.forEach((c, i) => {
       const k = el("span", "lg-key");
-      const dot = el("span", "lg-dot"); dot.style.background = CLASS_COLORS[i];
+      const dot = el("span", "lg-dot"); dot.style.background = shindo_[i];
       k.append(dot, document.createTextNode(c.label));
       fr.append(k);
     });

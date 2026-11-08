@@ -22,6 +22,16 @@
   --depth-3: #256abf;
   --depth-4: #184f95;
   --depth-5: #0d366b;
+  /* shindo 1..7: ordered scale, yellow -> purple, lightness falling evenly (validated, light surface) */
+  --shindo-1: #c9a90c; /* 1 */
+  --shindo-2: #c9890e; /* 2 */
+  --shindo-3: #c76708; /* 3 */
+  --shindo-4: #c04307; /* 4 */
+  --shindo-5: #ac2722; /* 5- */
+  --shindo-6: #96022f; /* 5+ */
+  --shindo-7: #74043b; /* 6- */
+  --shindo-8: #520347; /* 6+ */
+  --shindo-9: #300148; /* 7 */
   /* fallback basemap */
   --map-sea: #dde5ec;
   --map-land: #f6f5f1;
@@ -50,6 +60,16 @@
     --depth-3: #6da7ec;
     --depth-4: #3987e5;
     --depth-5: #256abf;
+    /* shindo: same hues stepped for the dark surface (validated separately) */
+    --shindo-1: #feefb5;
+    --shindo-2: #fdd297;
+    --shindo-3: #fdb37f;
+    --shindo-4: #fe8f68;
+    --shindo-5: #f66e60;
+    --shindo-6: #df5769;
+    --shindo-7: #c44275;
+    --shindo-8: #9e368c;
+    --shindo-9: #722f9a;
     --map-sea: #121416;
     --map-land: #24241f;
     --map-coast: #4a4a46;
@@ -76,6 +96,16 @@
   --depth-3: #6da7ec;
   --depth-4: #3987e5;
   --depth-5: #256abf;
+  /* shindo: same hues stepped for the dark surface (validated separately) */
+  --shindo-1: #feefb5;
+  --shindo-2: #fdd297;
+  --shindo-3: #fdb37f;
+  --shindo-4: #fe8f68;
+  --shindo-5: #f66e60;
+  --shindo-6: #df5769;
+  --shindo-7: #c44275;
+  --shindo-8: #9e368c;
+  --shindo-9: #722f9a;
   --map-sea: #121416;
   --map-land: #24241f;
   --map-coast: #4a4a46;
