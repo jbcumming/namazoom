@@ -7,9 +7,12 @@ import { basemapStyle } from "./basemap";
 import type { GrData } from "./gr";
 import { cellsInBounds, renderMagnitudes, type MagSelection } from "./panel-magnitudes";
 import { renderQuake, type Footprint } from "./panel-quake";
+import { PRESETS, renderDepth } from "./panel-depth";
+import { swath, type LonLat, type Section } from "./section";
+import { Marker } from "maplibre-gl";
 import { CLASSES, CLASS_COLORS, classOf, ShindoStore } from "./shindo";
 import { MAX_YEARS_FOR_M3, QuakeStore, yearEnd, yearOf, yearStart, yearsNeeded, type QuakeProps } from "./quakes";
-import { $, el, fmt, hideTooltip, isDark, showTooltip, theme } from "./ui";
+import { $, DEPTH_EDGES, DEPTH_LABELS, el, fmt, hideTooltip, isDark, showTooltip, theme } from "./ui";
 
 // ---------------------------------------------------------------- state ---
 
@@ -52,10 +55,6 @@ map.touchZoomRotate.disableRotation();
 map.addControl(new NavigationControl({ showCompass: false }), "top-left");
 if (!tiles) $("basemap-note").hidden = false;
 
-// Depth classes. The edges match the slab contours drawn by the overlay
-// (pipeline/build/overlays.py SLAB_DEPTHS), so a contour is a colour boundary.
-const DEPTH_EDGES = [40, 100, 200, 300];
-const DEPTH_LABELS = ["0–40", "40–100", "100–200", "200–300", "300+ km"];
 
 function depthStep(input: ExpressionSpecification): ExpressionSpecification {
   const d = theme().depth;
@@ -97,6 +96,7 @@ function addQuakeLayers() {
   }, before);
   addPlateLayers(before);
   addFootprintLayer();
+  addSectionLayers();
   map.addLayer({
     id: "selected", type: "circle", source: "quakes", filter: ["==", ["get", "id"], ""],
     paint: { "circle-radius": radiusPlus(4), "circle-color": "transparent", "circle-stroke-color": theme().text, "circle-stroke-width": 2 },
@@ -104,6 +104,7 @@ function addQuakeLayers() {
   if (state.selected) map.setFilter("selected", ["==", ["get", "id"], state.selected.props.id]);
   refreshData();
   showFootprint(); // after a style change the source starts empty
+  drawSection();
 }
 
 const fitJapan = () => map.fitBounds([[box.lon_min, box.lat_min], [box.lon_max, box.lat_max]], { padding: 20, duration: 0 });
@@ -224,6 +225,7 @@ map.on("mousemove", "quakes", (e) => {
 });
 map.on("mouseleave", "quakes", () => { map.getCanvas().style.cursor = ""; hideTooltip(); });
 map.on("click", "quakes", (e) => {
+  if (sectionState.drawing) return; // clicks place section points instead
   const f = e.features?.[0];
   if (!f) return;
   const props = f.properties as unknown as QuakeProps;
@@ -331,11 +333,74 @@ async function refreshData() {
   if (token !== dataToken || !map.getSource("quakes")) return;
   const fc = store.features(lo, hi, minMag);
   (map.getSource("quakes") as GeoJSONSource).setData(fc);
+  shownQuakes = fc.features;
+  shownMinMag = minMag;
+  if (state.tab === "depth") renderPanel();
   loadedRange = [lo, hi];
   applyTimeFilter();
   updateStatus(fc.features.length, minMag);
 }
 let loadedRange: [number, number] = [0, 0];
+let shownQuakes: GeoJSON.Feature<GeoJSON.Point, QuakeProps>[] = [];
+let shownMinMag = 5;
+
+// --------------------------------------------------------- depth section ---
+
+const sectionState = {
+  section: PRESETS[0].section as Section | null,
+  drawing: false,
+  first: null as LonLat | null,
+};
+const overlayData: { slabs: GeoJSON.FeatureCollection | null; plates: GeoJSON.FeatureCollection | null } = { slabs: null, plates: null };
+Promise.all([
+  fetch("./data/overlays/slabs.json").then((r) => r.json()),
+  fetch("./data/overlays/plates.json").then((r) => r.json()),
+]).then(([slabs, plates]) => { overlayData.slabs = slabs; overlayData.plates = plates; if (state.tab === "depth") renderPanel(); });
+
+const markerEl = (label: string) => { const d = el("div", "section-marker", label); return d; };
+const markers = { a: new Marker({ element: markerEl("A") }), b: new Marker({ element: markerEl("B") }) };
+
+function addSectionLayers() {
+  map.addSource("section", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  map.addLayer({ id: "section-swath", type: "fill", source: "section", filter: ["==", ["geometry-type"], "Polygon"],
+    paint: { "fill-color": theme().text, "fill-opacity": 0.06 } });
+  map.addLayer({ id: "section-line", type: "line", source: "section", filter: ["==", ["geometry-type"], "LineString"],
+    paint: { "line-color": theme().text, "line-width": 2, "line-dasharray": [2, 1] } });
+}
+
+function drawSection() {
+  const src = map.getSource("section") as GeoJSONSource | undefined;
+  const s = sectionState.section;
+  const visible = state.tab === "depth";
+  if (src) {
+    src.setData({
+      type: "FeatureCollection",
+      features: visible && s ? [
+        { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [swath(s)] } },
+        { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [s.a, s.b] } },
+      ] : [],
+    });
+  }
+  const a = visible ? (sectionState.drawing ? sectionState.first : s?.a) : null;
+  const b = visible && !sectionState.drawing ? s?.b : null;
+  if (a) markers.a.setLngLat(a).addTo(map); else markers.a.remove();
+  if (b) markers.b.setLngLat(b).addTo(map); else markers.b.remove();
+}
+
+map.on("click", (e) => {
+  if (!sectionState.drawing) return;
+  const p: LonLat = [e.lngLat.lng, e.lngLat.lat];
+  if (!sectionState.first) {
+    sectionState.first = p;
+  } else {
+    sectionState.section = { a: sectionState.first, b: p, halfWidthKm: sectionState.section?.halfWidthKm ?? 50 };
+    sectionState.drawing = false;
+    sectionState.first = null;
+    map.getCanvas().style.cursor = "";
+  }
+  drawSection();
+  renderPanel();
+});
 
 function applyTimeFilter() {
   if (!map.getLayer("quakes")) return;
@@ -473,6 +538,7 @@ function setTab(tab: string) {
     $(`pane-${t}`).hidden = t !== tab;
   }
   renderPanel();
+  drawSection();
   map.resize();
 }
 for (const t of TABS) $(`tab-${t}`).addEventListener("click", () => setTab(t));
@@ -502,6 +568,38 @@ function renderPanel() {
     const cells = visibleCells();
     const areaLabel = cells === null ? "all of Japan" : `the visible map area (${cells.size} 2° squares)`;
     renderMagnitudes(host, grData, { from: state.from, to: state.to, cells, areaLabel, mode: state.magMode });
+  } else if (state.tab === "depth") {
+    const years = state.from === state.to ? `${state.from}` : `${state.from}–${state.to}`;
+    renderDepth($("pane-depth"), {
+      section: sectionState.section,
+      quakes: state.anim ? [] : shownQuakes,
+      slabs: (overlayData.slabs?.features ?? []) as never,
+      plates: (overlayData.plates?.features ?? []) as never,
+      drawing: sectionState.drawing,
+      scopeNote: state.anim
+        ? "Paused playback shows only part of the period; press Esc to return to the full range."
+        : `Showing M${shownMinMag}+ quakes from ${years}, as on the map. ` +
+          (shownMinMag >= 5 ? `For M3+, narrow the timeline to ${MAX_YEARS_FOR_M3} years or less and choose M3+.` : ""),
+      onPreset: (p) => {
+        sectionState.section = { ...p.section, halfWidthKm: sectionState.section?.halfWidthKm ?? p.section.halfWidthKm };
+        sectionState.section.a = p.section.a; sectionState.section.b = p.section.b;
+        sectionState.drawing = false; sectionState.first = null;
+        drawSection(); renderPanel();
+        const s = sectionState.section;
+        map.fitBounds([[Math.min(s.a[0], s.b[0]), Math.min(s.a[1], s.b[1])], [Math.max(s.a[0], s.b[0]), Math.max(s.a[1], s.b[1])]], { padding: 80, maxZoom: 7 });
+      },
+      onDraw: () => {
+        sectionState.drawing = !sectionState.drawing;
+        sectionState.first = null;
+        map.getCanvas().style.cursor = sectionState.drawing ? "crosshair" : "";
+        drawSection(); renderPanel();
+      },
+      onWidth: (km) => {
+        if (sectionState.section) sectionState.section = { ...sectionState.section, halfWidthKm: km };
+        drawSection(); renderPanel();
+      },
+      onSelect: (f) => select({ props: f.properties, coords: f.geometry.coordinates as [number, number] }),
+    });
   } else if (state.tab === "quake") {
     const clear = el("button", "clear-btn", "Clear selection (Esc)") as HTMLButtonElement;
     clear.type = "button";

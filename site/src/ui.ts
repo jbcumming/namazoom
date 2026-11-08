@@ -12,6 +12,12 @@ export function el(tag: string, cls?: string, text?: string): HTMLElement {
 
 export const fmt = d3.format(",");
 
+// Depth classes for colouring quakes. The edges match the Slab2 contours drawn on
+// the map (pipeline/build/overlays.py SLAB_DEPTHS), so a contour is a colour boundary.
+export const DEPTH_EDGES = [40, 100, 200, 300];
+export const DEPTH_LABELS = ["0–40", "40–100", "100–200", "200–300", "300+ km"];
+export const depthClass = (d: number) => DEPTH_EDGES.filter((e) => d >= e).length;
+
 export const isDark = () =>
   document.documentElement.dataset.theme === "dark" ||
   (document.documentElement.dataset.theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
