@@ -90,6 +90,7 @@ uv run python -m pipeline.summary data/raw/h2019.zip data/raw/i2019.zip data/raw
 ./run.sh build    # build only;  ./run.sh serve  serves the existing build
 REBUILD=1 ./run.sh  # redo pipeline steps even if their outputs exist
 PRELIM=0 ./run.sh   # skip refreshing the preliminary recent data
+FORECAST=0 ./run.sh # skip rebuilding the 7-day forecast
 ```
 
 A first run downloads the JMA catalogue (~185 MB), plate boundaries, USGS Slab2
@@ -140,6 +141,31 @@ kept in the URL hash.
   detection method (template matching from 2018 multiplies the counts), and a
   space-time density plot along the belt where episodic tremor-and-slip bursts
   show as streaks.
+- *Forecast* - the chance of M5+/M6+/M7+ quakes in the 7 days after the data
+  ends, for the visible area and per half-degree square on the map, against the
+  long-term average; and how the same method did on every week since 2016
+  (see below). Ignores the timeline.
+
+**Forecast.** `pipeline/forecast/etas.py` is a space-time ETAS model (Ogata
+1988, 1998; background by stochastic declustering, Zhuang, Ogata & Vere-Jones
+2002) fitted by maximum likelihood to M4+ quakes no deeper than 100 km in the
+Japan box (JMA natural classes plus the preliminary data), with each quake's
+influence cut off after 3 years and beyond ~3 rupture lengths. Within-week
+cascades are added as an average factor from the realised branching ratio.
+`pipeline/build/forecast.py` caches two fits in `data/interim/forecast/`
+(2000-2015 for the test; 2000 to the end of the finalised catalogue for the
+live forecast; ~6 min each), then:
+- *test (pseudo-prospective)*: each week from 2016 forecast from the quakes
+  before it with the 2000-2015 fit, scored against the M5+ quakes that followed
+  on a 0.5° grid, alongside the long-term average 2000-2015. Results at the
+  time of writing: information gain 0.98 per M5+ quake; the top 1% of
+  square-weeks held 34% of M5+ quakes (long-term average: 15%); in total 1,327
+  forecast vs 1,070 observed (average: 1,601). The within-week cascade factor
+  was changed after a first run of this test (it used the theoretical branching
+  ratio, which ran 41% high), which the site says.
+- *prospective record*: each build appends the forecast it shows to
+  `data/forecasts/issued.jsonl` (not committed, like the rest of `data/`) and
+  scores entries once the data covers their week.
 
 Shindo colours run yellow (1) to purple (7): a multi-hue scale with evenly
 falling lightness, validated separately for light and dark mode.
@@ -170,7 +196,8 @@ pipeline/jma/link.py       link intensity events to catalogue events; view selec
 pipeline/known_quakes.py   independently documented quakes for sanity checks
 pipeline/summary.py        sanity-check report for one year
 pipeline/selection.py      which events the site shows (one definition)
-pipeline/build/            ingest, completeness, overview, site_data, overlays
+pipeline/forecast/etas.py  ETAS model: likelihood, fit, background, grid forecasts, simulation
+pipeline/build/            ingest, completeness, overview, site_data, overlays, prelim, forecast
 tests/                     pytest; fixtures/ holds real records cut from the 2019 files
 ```
 

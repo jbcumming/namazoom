@@ -14,6 +14,8 @@ import { PLACES, renderLocation, type Place } from "./panel-location";
 import { renderHistory } from "./panel-history";
 import { HOT_STEPS, hotColors, renderShaking, scaleRange } from "./panel-shaking";
 import { renderLfe } from "./panel-lfe";
+import { renderForecast } from "./panel-forecast";
+import { P_EDGES, chance, fmtPct, fmtWindow, pClass, sumCells, type Forecast } from "./forecast";
 import type { LfeColumns } from "./lfe";
 import { CELL_DEG, grid, LEVELS, logClass, stationRates, type Cell, type StationCounts } from "./hotspots";
 import { formatHash, parseHash, yearFromId } from "./urlstate";
@@ -43,7 +45,7 @@ const store = new QuakeStore();
 const [grData] = await Promise.all([fetch("./data/gr.json").then((r) => r.json() as Promise<GrData>), store.init()]);
 [state.from, state.to] = store.index.years;
 // A shared link may set the view; applied before the first render.
-const fromUrl = parseHash(location.hash, ["magnitudes", "depth", "quake", "location", "history", "shaking", "slow"], store.index.years);
+const fromUrl = parseHash(location.hash, ["magnitudes", "depth", "quake", "location", "history", "shaking", "slow", "forecast"], store.index.years);
 if (fromUrl.from !== undefined) { state.from = fromUrl.from; state.to = fromUrl.to!; }
 if (fromUrl.minMag !== undefined) state.minMag = fromUrl.minMag;
 
@@ -122,6 +124,7 @@ function addQuakeLayers() {
   addLocationLayers();
   addHotspotLayer();
   addLfeLayer();
+  addForecastLayer();
   // Rings round destructive quakes (damage class 3+ or a damaging tsunami), on the History tab.
   map.addLayer({
     id: "destructive", type: "circle", source: "quakes",
@@ -141,6 +144,7 @@ function addQuakeLayers() {
   drawLocation();
   drawHotspots();
   drawLfe();
+  drawForecast();
 }
 
 const fitJapan = () => map.fitBounds([[box.lon_min, box.lat_min], [box.lon_max, box.lat_max]], { padding: 20, duration: 0 });
@@ -654,6 +658,65 @@ function lfeInView(): number[] {
   return out;
 }
 
+// -------------------------------------------------------------- forecast ---
+
+const fc = { data: null as Forecast | null, status: "loading" as "loading" | "ok" | "missing" };
+let fcPromise: Promise<Forecast | null> | null = null;
+
+function addForecastLayer() {
+  map.addSource("forecast", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  const colors = hotColors();
+  const m: (number | string)[] = [];
+  colors.forEach((c, i) => m.push(i, c));
+  map.addLayer({
+    id: "forecast", type: "fill", source: "forecast",
+    paint: { "fill-color": ["match", ["get", "c"], ...m, colors[0]] as unknown as ExpressionSpecification,
+      // the lowest class (the usual quiet background) faint, so raised areas stand out
+      "fill-opacity": ["match", ["get", "c"], 0, 0.25, 1, 0.5, 0.8] as unknown as ExpressionSpecification,
+      "fill-outline-color": theme().surface },
+  }, "quakes");
+}
+
+/** Load the forecast once; draw its cells while the tab is open. */
+async function drawForecast() {
+  const src = map.getSource("forecast") as GeoJSONSource | undefined;
+  if (!src) return;
+  if (state.tab !== "forecast") { src.setData({ type: "FeatureCollection", features: [] }); return; }
+  fcPromise ??= fetch("./data/forecast.json").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  const f = await fcPromise;
+  const first = fc.status === "loading";
+  fc.data = f;
+  fc.status = f ? "ok" : "missing";
+  if (first) renderPanel();
+  if (!f || state.tab !== "forecast") return;
+  const { lat0, lon0, step } = f.grid;
+  src.setData({
+    type: "FeatureCollection",
+    features: f.live.cells.map(([i, j, lam5], k) => {
+      const lat = lat0 + i * step, lon = lon0 + j * step;
+      return {
+        type: "Feature", properties: { c: pClass(chance(lam5)), k },
+        geometry: { type: "Polygon", coordinates: [[[lon, lat], [lon + step, lat], [lon + step, lat + step], [lon, lat + step], [lon, lat]]] },
+      };
+    }),
+  });
+}
+
+map.on("mousemove", "forecast", (e) => {
+  const f = e.features?.[0];
+  const d = fc.data;
+  if (!f || !d) return;
+  const [, , lam5, base5] = d.live.cells[Number((f.properties as { k: number }).k)];
+  showTooltip(e.originalEvent.clientX, e.originalEvent.clientY, (tip) => {
+    tip.append(el("div", "t-head", `M5+ in this square, ${fmtWindow(d.live.t0, d.live.days)}`));
+    const row = (k: string, v: string) => { const r = el("div", "t-row"); r.append(el("span", "", k), el("strong", "", v)); tip.append(r); };
+    row("Forecast chance", fmtPct(chance(lam5)));
+    row("Long-term average", fmtPct(chance(base5)));
+    if (base5 > 0) row("Ratio", `${(lam5 / base5).toFixed(1)}×`);
+  });
+});
+map.on("mouseleave", "forecast", hideTooltip);
+
 // ------------------------------------------------------------ my location ---
 
 const locStore = new LocationStore();
@@ -789,7 +852,7 @@ function applyTimeFilter() {
     map.setPaintProperty("quakes", "circle-opacity", ["interpolate", ["linear"], ["get", "t"], lo, 0.08, hi, 0.95]);
   } else {
     map.setFilter("quakes", null);
-    const dim = footprint.status === "ok" || (state.tab === "location" && loc.place !== null) || state.tab === "shaking" || state.tab === "slow";
+    const dim = footprint.status === "ok" || (state.tab === "location" && loc.place !== null) || state.tab === "shaking" || state.tab === "slow" || state.tab === "forecast";
     map.setPaintProperty("quakes", "circle-opacity", dim ? 0.15 : 0.7);
   }
 }
@@ -919,7 +982,7 @@ document.addEventListener("keydown", (e) => {
 
 // ---------------------------------------------------------------- panel ---
 
-const TABS = ["magnitudes", "depth", "quake", "location", "history", "shaking", "slow"];
+const TABS = ["magnitudes", "depth", "quake", "location", "history", "shaking", "slow", "forecast"];
 
 function setTab(tab: string) {
   state.tab = tab;
@@ -936,6 +999,7 @@ function setTab(tab: string) {
   drawLocation();
   drawHotspots();
   drawLfe();
+  drawForecast();
   if (map.getLayer("quakes")) applyTimeFilter();
   if (map.getLayer("destructive")) map.setLayoutProperty("destructive", "visibility", tab === "history" ? "visible" : "none");
   map.resize();
@@ -1005,6 +1069,16 @@ function renderPanel() {
       status: lfeData ? "ok" : "loading", data: lfeData, idx: lfeInView(),
       from: Math.max(yearStart(state.from), yearStart(1997)), to: yearEnd(state.to),
       years: state.from === state.to ? `${state.from}` : `${Math.max(1997, state.from)}–${state.to}`,
+    });
+  } else if (state.tab === "forecast") {
+    if (fc.status === "loading") drawForecast();
+    const b = map.getBounds();
+    const all = visibleCells() === null;
+    renderForecast($("pane-forecast"), {
+      status: fc.status, data: fc.data,
+      view: fc.data ? sumCells(fc.data, all ? null : { w: b.getWest(), s: b.getSouth(), e: b.getEast(), n: b.getNorth() }) : null,
+      areaLabel: all ? "all of Japan" : "the visible map area",
+      colors: hotColors(), edges: P_EDGES,
     });
   } else if (state.tab === "shaking") {
     renderShaking($("pane-shaking"), {

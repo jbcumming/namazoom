@@ -1,6 +1,8 @@
 # Downloaded and derived data (re-creatable from JMA)
 data/raw/
 data/interim/
+# The prospective forecast record (pipeline/build/forecast.py): not re-creatable, back it up
+data/forecasts/
 # Python
 __pycache__/
 *.pyc

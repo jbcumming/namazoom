@@ -6,6 +6,7 @@
 #   ./run.sh serve      serve the existing build
 #   REBUILD=1 ./run.sh  redo the pipeline steps even if their outputs exist
 #   PRELIM=0 ./run.sh   don't download or refresh the preliminary recent data
+#   FORECAST=0 ./run.sh don't rebuild the 7-day forecast
 #
 # Steps are skipped when their output already exists, so a second run only
 # rebuilds the site itself. Downloads need network access to
@@ -66,6 +67,10 @@ build() {
   step "Site data (quakes, footprints, felt history, G-R counts, overlays)"
   uv run python -m pipeline.build.site_data
   uv run python -m pipeline.build.overlays
+  if [[ "${FORECAST:-1}" != 0 ]]; then
+    step "7-day forecast (ETAS; the first run fits the model, ~15 min)"
+    uv run python -m pipeline.build.forecast >/dev/null && echo "forecast written (site/public/data/forecast.json; record in data/forecasts/issued.jsonl)"
+  fi
 
   step "Front end"
   cd site

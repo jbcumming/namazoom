@@ -35,7 +35,11 @@ New features below wait until that's settled.
   - [ ] b-value and Mc over time for a selected area, with completeness shown
         alongside so detection changes (2016 automatic/matched-filter jump,
         regional Mc) aren't read as physics.
-- [ ] Optional: ETAS (Ogata 1988) short-term forecast, tested prospectively.
+- [x] ETAS (Ogata 1988) 7-day forecast, Forecast tab, with a pseudo-prospective
+      test from 2016 and a prospective record (`data/forecasts/issued.jsonl`).
+  - [ ] Possible improvements: simulation-based forecasts (proper spread of
+        counts instead of Poisson), a magnitude-dependent depth limit, and a
+        background that down-weights swarms.
 
 ## Data
 - [x] Fill 2025 → present from JMA's daily hypocentre lists / 震度データベース
