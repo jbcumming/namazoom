@@ -18,9 +18,10 @@ from ..known_quakes import HISTORIC
 
 def report(interim: Path) -> tuple[str, bool]:
     con = duckdb.connect()
-    ev = f"read_parquet('{interim / 'events' / '*.parquet'}')"
-    hd = f"read_parquet('{interim / 'shindo_headers' / '*.parquet'}')"
-    ob = f"read_parquet('{interim / 'shindo_obs' / '*.parquet'}')"
+    # The finalised catalogue; preliminary data has its own section below.
+    ev = f"read_parquet('{interim / 'events' / 'h*.parquet'}')"
+    hd = f"read_parquet('{interim / 'shindo_headers' / 'i*.parquet'}')"
+    ob = f"read_parquet('{interim / 'shindo_obs' / 'i*.parquet'}')"
     out: list[str] = []
     p = out.append
     ok = True
@@ -107,10 +108,45 @@ def report(interim: Path) -> tuple[str, bool]:
         got = f"M{row[0][1]} shindo {row[0][2]} {row[0][3]:.0f} km {row[0][4]}" if row else ""
         p(f"  {'OK  ' if not problems else 'FAIL'} {k.name:<30} {got}  {'; '.join(problems)}")
 
+    if (interim / "events" / "prelim.parquet").exists():
+        ok &= _prelim_section(q, interim, ev, p)
+
     manifest = json.loads((interim / "manifest.json").read_text())
     p(f"\nbuilt {manifest['built']} in {manifest['seconds']} s from {len(manifest['hypocentre'])} hypocentre "
       f"and {len(manifest['shindo'])} intensity files")
     return "\n".join(out), ok
+
+
+def _prelim_section(q, interim: Path, final_ev: str, p) -> bool:
+    pev = f"read_parquet('{interim / 'events' / 'prelim.parquet'}')"
+    phd = f"read_parquet('{interim / 'shindo_headers' / 'prelim.parquet'}')"
+    pob = f"read_parquet('{interim / 'shindo_obs' / 'prelim.parquet'}')"
+    ok = True
+    p("\nPRELIMINARY  (JMA daily lists + intensity database, after the finalised catalogue)")
+    (n, n_ids, first, last, nomag, m3), = q(f"""SELECT count(*), count(DISTINCT id), min(origin_jst), max(origin_jst),
+        count(*) FILTER (WHERE mag1 IS NULL), count(*) FILTER (WHERE mag1 >= 3) FROM {pev}""")
+    (final_last,), = q(f"SELECT max(origin_jst) FROM {final_ev}")
+    p(f"  {n:,} events, {first:%Y-%m-%d} .. {last:%Y-%m-%d} (JST); M>=3 {m3:,}; no magnitude {nomag:,}; IDs unique: {n == n_ids}")
+    starts_after = first > final_last
+    p(f"  starts after the finalised catalogue ({final_last:%Y-%m-%d}): {starts_after}")
+    ok &= n == n_ids and starts_after
+    (felt, linked, from_db, unlocated), = q(f"""SELECT count(*), count(*) FILTER (WHERE link_method IS NOT NULL),
+        (SELECT count(*) FROM {pev} WHERE source LIKE 'prelim:eqdb/%'), count(*) FILTER (WHERE NOT located) FROM {phd}""")
+    p(f"  felt quakes {felt:,}: with an event {linked:,} (of which only in the intensity database {from_db:,}); "
+      f"without hypocentre {unlocated:,}")
+    (nobs, nmiss), = q(f"""SELECT count(*), count(*) FILTER (WHERE station_id NOT IN
+        (SELECT id FROM read_parquet('{interim / 'stations.parquet'}'))) FROM {pob}""")
+    p(f"  station readings {nobs:,} ({nmiss} from stations not in the station list)")
+    ok &= nmiss == 0
+    p(f"  {'month':>7} {'events':>7} {'M>=3':>5} {'M>=5':>4} {'felt':>5} {'largest':>7}  region of largest")
+    for ym, n_, m3_, m5_, mmax, region, felt_ in q(f"""
+        WITH e AS (SELECT strftime(origin_jst, '%Y-%m') AS ym, count(*) AS n, count(*) FILTER (WHERE mag1 >= 3) AS m3,
+                          count(*) FILTER (WHERE mag1 >= 5) AS m5, max(mag1) AS mmax, arg_max(region_name, mag1) AS region
+                   FROM {pev} GROUP BY 1),
+             f AS (SELECT strftime(origin_jst, '%Y-%m') AS ym, count(*) AS felt FROM {phd} GROUP BY 1)
+        SELECT e.*, coalesce(f.felt, 0) FROM e LEFT JOIN f USING (ym) ORDER BY ym"""):
+        p(f"  {ym:>7} {n_:>7,} {m3_:>5,} {m5_:>4} {felt_:>5,} {mmax!s:>7}  {region}")
+    return ok
 
 
 def main(argv: list[str] | None = None) -> int:

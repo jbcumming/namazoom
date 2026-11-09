@@ -204,6 +204,10 @@ def main(argv: list[str] | None = None) -> int:
     _write([vars(s) if hasattr(s, "__dict__") else {f: getattr(s, f) for f in s.__slots__} for s in stations.values()],
            STATION_SCHEMA, out / "stations.parquet")
     manifest["stations"] = len(stations)
+    if (args.raw / "prelim").exists():
+        from .prelim import ingest_prelim  # imports this module, so not at the top
+        manifest["prelim"] = info = ingest_prelim(args.raw, out)
+        print(f"preliminary    {info['events']:>9,} events  {info['felt']:,} felt  to {info['last']}", flush=True)
     manifest["seconds"] = round(time.time() - t0)
     (out / "manifest.json").write_text(json.dumps(manifest, indent=1, ensure_ascii=False))
     print(f"done in {manifest['seconds']} s")

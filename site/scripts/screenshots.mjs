@@ -4,8 +4,10 @@ import { chromium } from "playwright";
 import { preview } from "vite";
 
 const out = process.argv[2] ?? "screenshots";
-const server = await preview({ preview: { port: 4173, host: "127.0.0.1" } });
-const url = "http://127.0.0.1:4173/";
+// Not 4173, so it can run next to `./run.sh serve`.
+const port = Number(process.env.SHOT_PORT ?? 4174);
+const server = await preview({ preview: { port, host: "127.0.0.1", strictPort: true } });
+const url = `http://127.0.0.1:${port}/`;
 // MapLibre needs WebGL2; SwiftShader provides it without a GPU. A WAYLAND_DISPLAY
 // in the environment makes Chromium pick a Wayland surface that SwiftShader can't
 // use, so drop it.
@@ -197,6 +199,12 @@ await shot("23-slow-slip-shikoku-2019", {
   hash: "#y=2019-2020&tab=slow&v=33.50,132.60,7.5",
   act: async (p) => { await p.waitForSelector("#pane-slow svg", { timeout: 30000 }); await p.waitForTimeout(1500); },
 });
+// Preliminary data after the finalised catalogue: the 2026 Kumamoto M7.1 (shindo 7).
+await shot("24-prelim-kumamoto-2026", {
+  hash: "#y=2026&m=3&tab=quake&q=J2026072816271520_3262_13068&v=32.60,130.70,7.0",
+  act: async (p) => { await p.waitForSelector(".badge-prelim", { timeout: 30000 }); await p.waitForTimeout(1500); },
+});
+await shot("25-prelim-2025-2026", { hash: "#y=2025-2026&m=4" });
 await shot("05-dark", { dark: true });
 await shot("06-mobile", { width: 390, height: 844 });
 

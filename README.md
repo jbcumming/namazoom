@@ -3,14 +3,17 @@
 A static website visualising the Japan Meteorological Agency's historical
 earthquake catalogue (地震月報 カタログ編), 1919 onwards.
 
-**Status:** all JMA files (1919-2024) are parsed and checked; the map app
-runs locally (`./run.sh`). Hosting and further analysis: see TODO.md.
+**Status:** all JMA files (1919-2024) are parsed and checked, and preliminary
+JMA data fills 2025 to two days ago; the map app runs locally (`./run.sh`).
+Hosting and further analysis: see TODO.md.
 
 Full pipeline:
 
 ```bash
 uv run python -m pipeline.fetch                 # download everything listed on JMA's index pages
-uv run python -m pipeline.build.ingest          # -> data/interim/*.parquet (~3 min)
+uv run python -m pipeline.fetch_prelim          # preliminary data after the last finalised year
+uv run python -m pipeline.build.ingest          # -> data/interim/*.parquet (~3 min), incl. preliminary
+uv run python -m pipeline.build.prelim          # re-ingest only the preliminary data (seconds)
 uv run python -m pipeline.build.completeness    # Mc / b-value per 2°x2° cell per 5 years
 uv run python -m pipeline.build.overview        # checks + data/interim/overview.txt
 ```
@@ -41,6 +44,21 @@ All from JMA's *Seismological Bulletin of Japan*
 | `shindo/i{year}.zip` | Seismic intensity: hypocentre headers each followed by per-station readings. Shift-JIS (cp932), CRLF. | `data/docs/shindo_format_e.txt` |
 | `shindo/code_p.zip` | Intensity station list (TSV). UTF-8 in practice, although the docs say JIS. | same |
 
+**Preliminary data.** The finalised bulletin arrives about two years late. For
+the months since, `pipeline/fetch_prelim.py` downloads JMA's daily hypocentre
+lists (震源リスト, `daily_map/YYYYMMDD.html`, up to two days ago, available from
+2025-01-01) and, for felt quakes, the station intensities from the intensity
+database (震度データベース, the JSON API behind its search page, up to
+yesterday). `pipeline/build/prelim.py` writes them in the catalogue's schemas
+(`*/prelim.parquet`, `source` starting `prelim:`), matching each felt quake to
+its daily-list hypocentre by time (≤3 s) and position (≤0.3°). Only days after
+the last finalised year are used, so publishing `h2025.zip` replaces 2025's
+preliminary rows automatically. Limits: values are provisional; there is no
+event class (natural / low-frequency / artificial), so the magnitude statistics
+and the Slow slip tab leave these quakes out; readings have no instrumental
+intensity or arrival time. The site marks these quakes "Preliminary" and
+marks them on the timeline.
+
 Downloads go to `data/raw/` (not committed). For phase 1 that holds
 `h2019.zip`, `i2019.zip` and `code_p.zip`:
 
@@ -65,6 +83,7 @@ uv run python -m pipeline.summary data/raw/h2019.zip data/raw/i2019.zip data/raw
 ./run.sh          # build whatever is missing, then serve on http://0.0.0.0:4173
 ./run.sh build    # build only;  ./run.sh serve  serves the existing build
 REBUILD=1 ./run.sh  # redo pipeline steps even if their outputs exist
+PRELIM=0 ./run.sh   # skip refreshing the preliminary recent data
 ```
 
 A first run downloads the JMA catalogue (~185 MB), plate boundaries, USGS Slab2

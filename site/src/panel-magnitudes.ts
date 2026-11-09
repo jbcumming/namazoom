@@ -56,6 +56,20 @@ function buildSeries(data: GrData, sel: MagSelection): Series[] {
 }
 
 export function renderMagnitudes(host: HTMLElement, data: GrData, sel: MagSelection) {
+  // Magnitude statistics use the finalised catalogue only: later (preliminary)
+  // quakes are unreviewed and not classified natural / low-frequency / artificial.
+  const last = data.years[1];
+  const why = "Later quakes come from JMA's preliminary lists: unreviewed, and not yet classified as natural, " +
+    "low-frequency or artificial, so they are left out of these statistics.";
+  if (sel.mode === "single" && sel.from > last) {
+    host.replaceChildren(
+      el("h2", "", "Earthquakes at or above each magnitude"),
+      el("p", "note", `Magnitude statistics use the finalised catalogue, which ends in ${last}. ${why} ` +
+        `Move the start of the timeline to ${last} or earlier.`));
+    return;
+  }
+  const clipped = sel.mode === "single" && sel.to > last;
+  if (clipped) sel = { ...sel, to: last };
   const series = buildSeries(data, sel);
   const single = series.length === 1;
   const title = el("h2", "", single ? "Earthquakes at or above each magnitude" : "Earthquakes per year at or above each magnitude");
@@ -66,7 +80,8 @@ export function renderMagnitudes(host: HTMLElement, data: GrData, sel: MagSelect
   const chart = el("div", "chart");
   const readout = el("div", "readout");
   const table = el("details", "table-view");
-  host.replaceChildren(title, sub, legend, chart, readout, table);
+  host.replaceChildren(title, sub, ...(clipped ? [el("p", "note", `Counts stop at the end of ${last}. ${why}`)] : []),
+    legend, chart, readout, table);
   renderLegend(legend, series);
   renderChart(chart, series, Math.max(280, host.clientWidth));
   renderReadout(readout, series);

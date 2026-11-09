@@ -45,10 +45,19 @@ export function renderQuake(host: HTMLElement, q: QuakeProps | null, coords: [nu
   row("Depth", q.depth === null ? "unknown" : `${q.depth.toFixed(q.depth < 10 ? 1 : 0)} km`);
   row("Epicentre", `${coords[1].toFixed(3)}°N, ${coords[0].toFixed(3)}°E`);
   row("Max shindo", q.shindo ? SHINDO[q.shindo] ?? q.shindo : q.felt ? "felt" : "not felt / not reported");
-  row("Type", CLASS[q.cls] ?? "located by another agency");
-  row("Catalogue ID", q.id);
+  row("Type", q.prelim ? "not yet classified" : CLASS[q.cls] ?? "located by another agency");
+  row(q.prelim ? "ID" : "Catalogue ID", q.id);
 
-  const parts: HTMLElement[] = [el("h2", "", q.mag === null ? "Felt earthquake" : `M${q.mag.toFixed(1)} earthquake`), dl];
+  const title = el("h2", "", q.mag === null ? "Felt earthquake" : `M${q.mag.toFixed(1)} earthquake`);
+  const parts: HTMLElement[] = [title];
+  if (q.prelim) {
+    title.append(" ", el("span", "badge-prelim", "Preliminary"));
+    parts.push(el("p", "note",
+      "Provisional values from JMA's daily hypocentre list and intensity database. They can change, and the quake " +
+      "isn't yet classified (natural, low-frequency or artificial), until JMA publishes the finalised catalogue, " +
+      "about two years later."));
+  }
+  parts.push(dl);
   parts.push(el("h2", "", "Where it was felt"));
   if (!q.felt) {
     parts.push(el("p", "sub", "No intensity readings: this quake was not reported as felt."));
@@ -59,6 +68,8 @@ export function renderQuake(host: HTMLElement, q: QuakeProps | null, coords: [nu
       "Felt, but its station readings are shared with another quake close in time, so they can't be shown for this one alone."));
   } else {
     parts.push(...footprintSection(fp.readings, fp.stations, host.clientWidth));
+    if (q.prelim) parts.push(el("p", "sub",
+      "Preliminary readings give each station's shindo only: no instrumental value or arrival time yet, so there is no replay."));
   }
   if (extra) parts.push(extra);
   host.replaceChildren(...parts);

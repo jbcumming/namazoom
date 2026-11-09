@@ -21,7 +21,7 @@ import { LocationStore, type FeltQuake, type NearbyStation } from "./location";
 import { swath, type LonLat, type Section } from "./section";
 import { Marker } from "maplibre-gl";
 import { CLASSES, classOf, shindoColors, ShindoStore } from "./shindo";
-import { MAX_YEARS_FOR_M3, QuakeStore, yearEnd, yearOf, yearStart, yearsNeeded, type QuakeProps } from "./quakes";
+import { MAX_YEARS_FOR_M3, QuakeStore, fmtDate, yearEnd, yearOf, yearStart, yearsNeeded, type QuakeProps } from "./quakes";
 import { $, DEPTH_EDGES, DEPTH_LABELS, el, fmt, hideTooltip, isDark, showTooltip, theme } from "./ui";
 
 // ---------------------------------------------------------------- state ---
@@ -282,7 +282,9 @@ map.on("mousemove", "quakes", (e) => {
     const r = el("div", "t-row");
     r.append(el("span", "", p.mag === null ? "magnitude unknown" : `M${Number(p.mag).toFixed(1)}`),
       el("strong", "", p.depth === null || p.depth === undefined ? "" : `${Math.round(Number(p.depth))} km deep`));
-    tip.append(r, el("div", "t-head", "Click for details"));
+    tip.append(r);
+    if (store.isPrelim(Number(p.t))) tip.append(el("div", "t-note", "Preliminary: values may still change"));
+    tip.append(el("div", "t-head", "Click for details"));
   });
 });
 map.on("mouseleave", "quakes", () => { map.getCanvas().style.cursor = ""; hideTooltip(); });
@@ -402,6 +404,7 @@ function replay() {
 
 async function select(sel: typeof state.selected) {
   stopReplay();
+  if (sel) sel = { ...sel, props: { ...sel.props, prelim: store.isPrelim(sel.props.t) } };
   const token = ++selectToken;
   state.selected = sel;
   updateUrl();
@@ -430,7 +433,7 @@ async function loadAftershocks(sel: NonNullable<typeof state.selected>, token: n
     .filter((f) => f.properties.mag !== null)
     .map((f) => ({ t: f.properties.t, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0], mag: f.properties.mag!, id: f.properties.id }));
   const main: Shock = { t: props.t, lat: coords[1], lon: coords[0], mag: props.mag, id: props.id };
-  aftershocks = { status: "ok", main, seq: sequence(main, shocks), dataEnd: yearEnd(store.index.years[1]) };
+  aftershocks = { status: "ok", main, seq: sequence(main, shocks), dataEnd: store.index.dataEnd ?? yearEnd(store.index.years[1]) };
   renderPanel();
 }
 
@@ -801,12 +804,24 @@ for (const inp of [fromInput, toInput]) { inp.min = String(store.index.years[0])
 function syncTimeline() {
   fromInput.value = String(state.from);
   toInput.value = String(state.to);
-  $("range-label").textContent = state.from === state.to ? `${state.from}` : `${state.from}–${state.to}`;
+  const label = $("range-label");
+  label.textContent = state.from === state.to ? `${state.from}` : `${state.from}–${state.to}`;
+  if (store.index.prelimFrom && state.to >= yearOf(store.index.prelimFrom)) {
+    const b = el("span", "badge-prelim", "Preliminary");
+    b.title = `Quakes from ${fmtDate(store.index.prelimFrom)} on are preliminary: JMA's provisional values, which may change`;
+    label.append(" ", b);
+  }
   const span = store.index.years[1] - store.index.years[0];
   const pct = (y: number) => ((y - store.index.years[0]) / span) * 100;
   const fill = $("range-fill");
   fill.style.left = `${pct(state.from)}%`;
   fill.style.width = `${pct(state.to) - pct(state.from)}%`;
+  if (store.index.prelimFrom) {
+    const band = $("range-prelim");
+    band.hidden = false;
+    band.style.left = `${pct(yearOf(store.index.prelimFrom))}%`;
+    band.title = `Hatched: preliminary data (from ${fmtDate(store.index.prelimFrom)})`;
+  }
   updateUrl();
   $("play").textContent = state.playing ? "❚❚" : "▶";
   $("play").setAttribute("aria-label", state.playing ? "Pause" : "Play through the period");
@@ -1118,4 +1133,7 @@ renderLegend();
 syncTimeline();
 $<HTMLSelectElement>("min-mag").value = String(state.minMag);
 setTab(fromUrl.tab ?? "magnitudes");
-$("source").textContent = `Data: JMA Seismological Bulletin of Japan, ${store.index.years[0]}–${store.index.years[1]}.`;
+$("source").textContent = store.index.prelimFrom
+  ? `Data: JMA Seismological Bulletin of Japan, ${store.index.years[0]}–${yearOf(store.index.prelimFrom) - 1}; ` +
+    `preliminary JMA lists to ${fmtDate(store.index.dataEnd)}, marked "Preliminary".`
+  : `Data: JMA Seismological Bulletin of Japan, ${store.index.years[0]}–${store.index.years[1]}.`;

@@ -5,6 +5,7 @@
 #   ./run.sh build      build only
 #   ./run.sh serve      serve the existing build
 #   REBUILD=1 ./run.sh  redo the pipeline steps even if their outputs exist
+#   PRELIM=0 ./run.sh   don't download or refresh the preliminary recent data
 #
 # Steps are skipped when their output already exists, so a second run only
 # rebuilds the site itself. Downloads need network access to
@@ -28,6 +29,13 @@ build() {
   if need data/interim/manifest.json; then
     step "Parse all years into Parquet (data/interim, ~3 min)"
     uv run python -m pipeline.build.ingest
+  fi
+  # Preliminary data after the last finalised year: refreshed on every build
+  # (only new days and the last two weeks are downloaded). PRELIM=0 skips it.
+  if [[ "${PRELIM:-1}" != 0 ]]; then
+    step "Preliminary data since the finalised catalogue (JMA daily lists, intensity database)"
+    uv run python -m pipeline.fetch_prelim || echo "preliminary download incomplete; continuing with what is cached"
+    uv run python -m pipeline.build.prelim >/dev/null && echo "preliminary data ingested (data/interim/*/prelim.parquet)"
   fi
   if need data/interim/completeness.parquet; then
     step "Completeness"

@@ -20,6 +20,8 @@ export interface QuakeColumns {
 export interface QuakeIndex {
   generated: string;
   years: [number, number];
+  prelimFrom: number | null; // UTC seconds: quakes from here on are preliminary (pipeline/build/prelim.py)
+  dataEnd: number; // UTC seconds of the latest quake
   m5: number;
   m3: Record<string, number>;
 }
@@ -35,6 +37,7 @@ export interface QuakeProps {
   dmg?: string;
   tsu?: string;
   region?: string;
+  prelim?: boolean; // provisional JMA values, not yet in the finalised catalogue
 }
 
 /** Longest year range for which M3+ events are drawn all at once. */
@@ -43,6 +46,12 @@ export const MAX_YEARS_FOR_M3 = 10;
 export const yearStart = (y: number) => Date.UTC(y, 0, 1) / 1000 - 9 * 3600; // JST year boundaries
 export const yearEnd = (y: number) => yearStart(y + 1) - 1;
 export const yearOf = (t: number) => new Date((t + 9 * 3600) * 1000).getUTCFullYear();
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** Japan-time date of a UTC timestamp, e.g. "7 Nov 2026". */
+export function fmtDate(t: number): string {
+  const d = new Date((t + 9 * 3600) * 1000);
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
 
 /** Which yearly M3 files a view needs. */
 export function yearsNeeded(fromT: number, toT: number, minMag: number): number[] {
@@ -86,6 +95,11 @@ export class QuakeStore {
     );
   }
 
+  /** True for quakes after the finalised catalogue (provisional values that may change). */
+  isPrelim(t: number): boolean {
+    return this.index.prelimFrom !== null && this.index.prelimFrom !== undefined && t >= this.index.prelimFrom;
+  }
+
   hasYears(years: number[]): boolean {
     return years.every((y) => this.loaded.has(y) || y < this.index.years[0] || y > this.index.years[1]);
   }
@@ -104,7 +118,7 @@ export class QuakeStore {
           type: "Feature",
           geometry: { type: "Point", coordinates: [c.lon[i], c.lat[i]] },
           properties: { t, mag: m, depth: c.depth[i], shindo: c.shindo[i], cls: c.cls[i], felt: c.felt[i], id: c.id[i],
-            dmg: c.dmg[i], tsu: c.tsu[i], region: c.region?.[i] },
+            dmg: c.dmg[i], tsu: c.tsu[i], region: c.region?.[i], prelim: this.isPrelim(t) },
         });
       }
     };

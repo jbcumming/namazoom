@@ -9,7 +9,7 @@
   </head>
   <body>
     <header class="topbar">
-      <h1>Japan earthquakes, 1919–2024</h1>
+      <h1 id="app-title">Japan earthquakes since 1919</h1>
       <span class="source" id="source"></span>
       <button type="button" id="panel-toggle" aria-controls="panel" aria-expanded="true">Panel</button>
     </header>
@@ -31,7 +31,7 @@
         <div class="timeline" aria-label="Time range">
           <button type="button" id="play" class="play" aria-label="Play through the period">▶</button>
           <div class="range">
-            <div class="range-track"><div id="range-fill" class="range-fill"></div><div id="progress" class="progress" hidden></div></div>
+            <div class="range-track"><div id="range-fill" class="range-fill"></div><div id="range-prelim" class="range-prelim" hidden></div><div id="progress" class="progress" hidden></div></div>
             <input type="range" id="range-from" step="1" aria-label="Start year" />
             <input type="range" id="range-to" step="1" aria-label="End year" />
           </div>

@@ -38,7 +38,11 @@ New features below wait until that's settled.
 - [ ] Optional: ETAS (Ogata 1988) short-term forecast, tested prospectively.
 
 ## Data
-- [ ] Fill 2025 → present from JMA's daily hypocentre lists / 震度データベース.
+- [x] Fill 2025 → present from JMA's daily hypocentre lists / 震度データベース
+      (marked "Preliminary"; refreshed by `./run.sh`).
+- [ ] When JMA publishes h2025/i2025: re-run `pipeline.fetch` + ingest; the
+      preliminary 2025 rows drop out by themselves. The daily lists only go back
+      to 2025-01-01 on JMA's site, so keep `data/raw/prelim` until then.
 - [ ] Cross-check against USGS.
 - [ ] Onland active faults (AIST Active Fault Database or GSI): needs network
       approval for gbank.gsj.jp / www.gsi.go.jp and a check of redistribution terms.

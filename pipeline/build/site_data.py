@@ -30,12 +30,13 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import duckdb
 
 from ..selection import JAPAN_BOX, shown
+from .prelim import PREFIX as PRELIM_PREFIX
 from .completeness import CELL_DEG, WINDOW_YEARS
 
 
@@ -134,10 +135,20 @@ def build_quakes(interim: Path, out: Path) -> dict:
     for y in years:
         per_year[y] = write(f"year = {y} AND ((mag1 >= 3 AND mag1 < 5) OR (mag1 IS NULL AND felt))",
                             qdir / "m3" / f"{y}.json")
+    # Preliminary data (pipeline.build.prelim) starts the day after the last finalised
+    # event; the site flags every quake from then on.
+    final_end, data_end = con.execute(f"""
+        SELECT max(origin_jst) FILTER (WHERE NOT source LIKE '{PRELIM_PREFIX}%'), max(origin_utc) FROM q
+    """).fetchone()
+    has_prelim = con.execute(f"SELECT count(*) FROM q WHERE source LIKE '{PRELIM_PREFIX}%'").fetchone()[0] > 0
+    prelim_from = (int((datetime.combine(final_end.date() + timedelta(days=1), datetime.min.time())
+                        - timedelta(hours=9)).replace(tzinfo=timezone.utc).timestamp()) if has_prelim else None)
     index = {
         "generated": date.today().isoformat(),
         "columns": list(QUAKE_COLUMNS),
         "years": [years[0], years[-1]],
+        "prelimFrom": prelim_from,  # UTC seconds; null when there is no preliminary data
+        "dataEnd": int(data_end.replace(tzinfo=timezone.utc).timestamp()),
         "m5": n5,
         "m3": per_year,
     }
