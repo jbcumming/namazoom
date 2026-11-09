@@ -3,6 +3,7 @@
 import * as Plot from "@observablehq/plot";
 import * as d3 from "d3";
 import { atMag, chance, fmtPct, fmtWindow, overForecast, type CellSum, type Forecast, type RelBin } from "./forecast";
+import { trenchSection } from "./panel-trench";
 import { el, fmt, hideTooltip, showTooltip, theme } from "./ui";
 
 export interface ForecastInputs {
@@ -40,8 +41,10 @@ function midText(r: number | null): string {
 
 export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
   const parts: HTMLElement[] = [el("h2", "", "Forecast: the next 7 days")];
+  const w = Math.max(260, host.clientWidth - 32);
   if (inp.status === "missing") {
-    host.replaceChildren(...parts, el("p", "sub", "No forecast in this build. Run ./run.sh build (step: forecast)."));
+    host.replaceChildren(...parts, el("p", "sub", "No forecast in this build. Run ./run.sh build (step: forecast)."),
+      ...trenchSection(w));
     return;
   }
   if (inp.status === "loading" || !inp.data || !inp.view) {
@@ -50,7 +53,6 @@ export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
   }
   const f = inp.data;
   const t = theme();
-  const w = Math.max(260, host.clientWidth - 32);
   const v = inp.view;
   const b = f.live.b;
   const win = fmtWindow(f.live.t0, f.live.days);
@@ -61,7 +63,7 @@ export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
     "from every recent quake on top of each area's usual rate."));
 
   if (!v.cells) {
-    host.replaceChildren(...parts, el("p", "sub", "No forecast cells in the visible area; zoom out."));
+    host.replaceChildren(...parts, el("p", "sub", "No forecast cells in the visible area; zoom out."), ...trenchSection(w));
     return;
   }
   const p5 = chance(v.lam5);
@@ -236,5 +238,5 @@ export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
       "M6+ and M7+ chances are scaled from M5+ by Gutenberg–Richter and are rougher.",
   ]) det.append(el("p", "", text));
   parts.push(det);
-  host.replaceChildren(...parts);
+  host.replaceChildren(...parts, ...trenchSection(w));
 }

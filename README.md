@@ -145,7 +145,10 @@ kept in the URL hash.
 - *Forecast* - the chance of M5+/M6+/M7+ quakes in the 7 days after the data
   ends, for the visible area and per half-degree square on the map, against the
   long-term average; and how the same method did on every week since 2016
-  (see below). Ignores the timeline.
+  (see below). Ignores the timeline. Below it, the long view: great quakes on
+  the Kuril and Japan trenches, Sagami Trough and Nankai Trough since 684 on a
+  timeline, with the government's (HERP) 30-year chances for 1 Jan 2026,
+  transcribed in `site/src/trench-history.ts`.
 
 **Forecast.** `pipeline/forecast/etas.py` is a space-time ETAS model (Ogata
 1988, 1998; background by stochastic declustering, Zhuang, Ogata & Vere-Jones
@@ -209,6 +212,8 @@ pipeline/selection.py      which events the site shows (one definition)
 pipeline/forecast/etas.py  ETAS model: likelihood, fit, background, grid forecasts, simulation
 pipeline/build/            ingest, completeness, overview, site_data, overlays, prelim, forecast
 tests/                     pytest; fixtures/ holds real records cut from the 2019 files
+scripts/forecast_tests.py  further forecast tests (not on the site)
+docs/references.md         figures checked against primary sources (HERP, JMA, Cabinet Office)
 ```
 
 ## Format notes (verified on the 2019 files)

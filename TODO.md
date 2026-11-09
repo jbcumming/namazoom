@@ -67,11 +67,10 @@ New features below wait until that's settled.
 ## More ideas discussed
 - [ ] Seismic quiescence / gaps: areas unusually quiet compared with their own
       past (needs a careful false-alarm discussion).
-- [ ] Recurrence along the Nankai and Japan trenches (segment timeline), in the
-      Forecast tab beside the official 30-year probabilities. **Blocked:** needs
-      the sandbox firewall to allow www.jishin.go.jp (HERP long-term evaluations:
-      historical quakes 684-1946 Nankai, 869-2011 Japan Trench, Kuril, Sagami)
-      before any pre-1919 dates or extents go on the site.
+- [x] Recurrence along the trenches (Kuril, Japan Trench, Sagami, Nankai east/west):
+      timeline since 684 and HERP's 30-year chances, in the Forecast tab
+      (`site/src/trench-history.ts`, sources in `docs/references.md`).
+  - [ ] Update the chances each January (HERP recalculates for 1 Jan).
 - [ ] Slow slip burst intervals per segment over time (Slow slip tab): detect
       ETS episodes per tremor segment (western Shikoku, Kii, Tōkai), chart the
       interval between bursts and their along-dip/along-strike position, and flag
@@ -83,22 +82,9 @@ New features below wait until that's settled.
 ## Smaller ideas
 - [ ] Density heatmap of quakes below M3 (currently only in the Magnitudes counts).
 - [ ] M3–5 for ranges over 10 years outside playback (binary format or tiling).
-- [ ] Verify literature figures quoted in conversation (Nankai advisory
-      probability, foreshock base rates) before citing them on the site.
-      **Blocked:** needs www.jma.go.jp, www.jma-net.go.jp, www.bousai.go.jp
-      (and optionally ja.wikipedia.org) allowed (`sbx policy approval ls`).
-      Leads from web search, unverified:
-      - Nankai 30-year probability revised 26 Sep 2025 (base date 1 Jan 2025):
-        "60-90% or more" (slip-dependent BPT) and "20-50%" (BPT); was ~80%.
-      - Nankai "megaquake advisory" 8 Aug 2024 after the M7.1 Hyuga-nada quake:
-        "one in several hundred"; Cabinet Office guideline: 6 of 1,437 Mw7.0+
-        quakes worldwide followed by Mw8+ within 7 days (~0.4%); after Mw8.0+:
-        7 of 103 (~7%).
-      - Japan/Kuril Trench advisory: 19 of 1,529 Mw7.0+ (1904-2021) followed
-        by Mw7.8+ within a week (~1%); one was issued 20 Apr 2026.
-      - Kuril Trench 17th-century-type M8.8+: 7-40% in 30 years (2017).
-      - USGS: ~5% chance a quake is followed by a larger one nearby within a week.
-      - Båth's law: largest aftershock ~1.2 below the mainshock (Båth 1965),
-        with wide scatter (0-3). Already used in the Quake tab.
-      - Also check the site's existing citations: Gutenberg & Richter 1956
-        energy formula, Wells & Coppersmith rupture length, Utsu damage classes.
+- [x] Verify literature figures quoted in conversation: all confirmed against
+      HERP, JMA and Cabinet Office documents (`docs/references.md`). Corrections:
+      the Japan/Kuril Trench advisory was issued twice (9 Dec 2025 and 20 Apr
+      2026), not once.
+  - [ ] USGS "~5% followed by a larger quake within a week": needs
+        earthquake.usgs.gov allowed. Not used on the site.

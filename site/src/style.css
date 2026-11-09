@@ -351,6 +351,10 @@ tr.clickable:hover td { background: var(--page); }
 .lead { font-size: 0.95rem; color: var(--text-primary); margin: 6px 0 10px; }
 .table-scroll { max-height: 360px; overflow: auto; }
 .mini td:nth-child(3) { text-transform: capitalize; }
+.trench-wrap { overflow-x: auto; }
+.mini.trench td:nth-child(n+2) { white-space: nowrap; text-transform: none; }
+.mini.trench td:last-child { color: var(--text-primary); }
+.mini.trench tr.zone td { color: var(--text-primary); padding-top: 8px; border-bottom: none; }
 .hot-legend { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 4px 10px; font-size: 0.78rem;
   color: var(--text-secondary); font-variant-numeric: tabular-nums; margin-bottom: 8px; }
 .hot-key { display: flex; align-items: center; gap: 6px; }
