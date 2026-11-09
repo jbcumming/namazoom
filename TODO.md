@@ -37,9 +37,17 @@ New features below wait until that's settled.
         regional Mc) aren't read as physics.
 - [x] ETAS (Ogata 1988) 7-day forecast, Forecast tab, with a pseudo-prospective
       test from 2016 and a prospective record (`data/forecasts/issued.jsonl`).
+  - [x] Further tests (`scripts/forecast_tests.py`): simpler rules, forecast
+        length, data delay. Daily reissue (`./run.sh live`) and the record
+        committed as a result.
   - [ ] Possible improvements: simulation-based forecasts (proper spread of
         counts instead of Poisson), a magnitude-dependent depth limit, and a
         background that down-weights swarms.
+  - [ ] Fresher data for the last 1-2 days: the intensity database lists felt
+        quakes within hours, before the daily hypocentre lists. Using them as
+        provisional parents would move the live forecast towards the "fresh
+        data" skill (most gain right after large quakes); offshore quakes too
+        small to be felt would be missing.
 
 ## Data
 - [x] Fill 2025 → present from JMA's daily hypocentre lists / 震度データベース

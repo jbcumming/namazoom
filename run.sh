@@ -4,6 +4,8 @@
 #   ./run.sh            build what's missing, then serve on 0.0.0.0:4173
 #   ./run.sh build      build only
 #   ./run.sh serve      serve the existing build
+#   ./run.sh live       build and serve, then rebuild every 24 h (new preliminary
+#                       data and a new forecast) while serving; REFRESH_HOURS=24
 #   REBUILD=1 ./run.sh  redo the pipeline steps even if their outputs exist
 #   PRELIM=0 ./run.sh   don't download or refresh the preliminary recent data
 #   FORECAST=0 ./run.sh don't rebuild the 7-day forecast
@@ -100,9 +102,22 @@ serve() {
   cd site && exec npx vite preview --host 0.0.0.0 --port "$PORT" --strictPort
 }
 
+# Serve, and rebuild in a separate process every REFRESH_HOURS (a failed rebuild
+# leaves the previous build in place; vite rebuilds site/dist in a few seconds).
+live() {
+  build
+  serve & local server=$!
+  trap 'kill $server 2>/dev/null' EXIT
+  while sleep "$(( ${REFRESH_HOURS:-24} * 3600 ))"; do
+    step "Refresh $(date -u +%FT%TZ)"
+    "$0" build || echo "refresh failed; still serving the previous build"
+  done
+}
+
 case "${1:-all}" in
   build) build ;;
   serve) serve ;;
+  live) live ;;
   all) build; serve ;;
-  *) echo "usage: $0 [build|serve|all]" >&2; exit 2 ;;
+  *) echo "usage: $0 [build|serve|live|all]" >&2; exit 2 ;;
 esac

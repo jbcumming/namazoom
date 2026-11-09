@@ -88,6 +88,7 @@ uv run python -m pipeline.summary data/raw/h2019.zip data/raw/i2019.zip data/raw
 ```bash
 ./run.sh          # build whatever is missing, then serve on http://0.0.0.0:4173
 ./run.sh build    # build only;  ./run.sh serve  serves the existing build
+./run.sh live     # build and serve, then rebuild every 24 h (REFRESH_HOURS) while serving
 REBUILD=1 ./run.sh  # redo pipeline steps even if their outputs exist
 PRELIM=0 ./run.sh   # skip refreshing the preliminary recent data
 FORECAST=0 ./run.sh # skip rebuilding the 7-day forecast
@@ -163,9 +164,18 @@ live forecast; ~6 min each), then:
   forecast vs 1,070 observed (average: 1,601). The within-week cascade factor
   was changed after a first run of this test (it used the theoretical branching
   ratio, which ran 41% high), which the site says.
-- *prospective record*: each build appends the forecast it shows to
-  `data/forecasts/issued.jsonl` (not committed, like the rest of `data/`) and
-  scores entries once the data covers their week.
+- *prospective record*: each build with new data appends the forecast it shows
+  to `data/forecasts/issued.jsonl` (committed: it can't be re-created) and scores
+  entries once the data covers their 7 days. `./run.sh live` rebuilds daily, so
+  forecasts are reissued daily and their windows overlap.
+- *further tests* (`scripts/forecast_tests.py`, not on the site; results in its
+  docstring): ETAS gains 0.98 per quake over the long-term average, against
+  0.42 for "last week repeats" and 0.53 for a generic aftershock formula
+  (Reasenberg & Jones 1989), so about half its skill is plain clustering. Fresh
+  data matters most: 1-day forecasts gain 1.57 with fresh data, 1.20 with data
+  a day old, 0.91 three days old and 1.02 if issued weekly; in the 3 days after
+  an M6+, 3.13 fresh vs 1.41 weekly. JMA's preliminary lists run 1-2 days behind,
+  so daily rebuilds get roughly the "a day old" figure.
 
 Shindo colours run yellow (1) to purple (7): a multi-hue scale with evenly
 falling lightness, validated separately for light and dark mode.

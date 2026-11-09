@@ -196,12 +196,13 @@ export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
   const scored = f.issued.filter((x) => x.obs5 !== undefined);
   parts.push(el("p", "sub",
     "The test above was run after the fact. Each build also records the forecast it shows, and scores it once the data " +
-    `covers its week: a record that can't be tuned afterwards. ${f.issued.length} recorded, ${scored.length} scored so far.`));
+    "covers its 7 days: a record that can't be tuned afterwards. The forecast is reissued whenever new data arrives " +
+    `(normally daily), so the 7-day windows overlap. ${f.issued.length} recorded, ${scored.length} scored so far.`));
   if (f.issued.length) {
     const tb = document.createElement("table");
     tb.className = "mini";
     const hr = tb.createTHead().insertRow();
-    for (const h of ["Week from", "Forecast M5+", "Average", "Observed"]) hr.append(el("th", "", h));
+    for (const h of ["7 days from", "Forecast M5+", "Average", "Observed"]) hr.append(el("th", "", h));
     const bd = tb.createTBody();
     for (const x of [...f.issued].reverse().slice(0, 12)) {
       const tr = bd.insertRow();

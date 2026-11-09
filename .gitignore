@@ -1,8 +1,7 @@
 # Downloaded and derived data (re-creatable from JMA)
 data/raw/
 data/interim/
-# The prospective forecast record (pipeline/build/forecast.py): not re-creatable, back it up
-data/forecasts/
+# data/forecasts/issued.jsonl (the prospective forecast record) is committed: it can't be re-created.
 # Python
 __pycache__/
 *.pyc
