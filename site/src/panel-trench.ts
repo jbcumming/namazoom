@@ -2,10 +2,13 @@
 // beside HERP's official 30-year probabilities (data in trench-history.ts).
 import * as Plot from "@observablehq/plot";
 import { el, theme } from "./ui";
-import { AS_OF, HERP_LTE, HERP_SUMMARY, OUTLOOK, ROWS, type TrenchEvent } from "./trench-history";
+import { AS_OF, HERP_LTE, HERP_SUMMARY, OUTLOOK, ROWS, slipBudget, type TrenchEvent } from "./trench-history";
 
 const X0 = 650, X1 = 2030;
 const NOW = new Date().getUTCFullYear();
+const yearNow = (() => { const d = new Date(); return d.getUTCFullYear() + d.getUTCMonth() / 12; })();
+const num = (m: number) => (m < 10 ? m.toFixed(1) : String(Math.round(m)));
+const fmtM = (m: number) => `${num(m)} m`;
 
 interface Mark extends TrenchEvent { row: string }
 
@@ -76,7 +79,7 @@ export function trenchSection(width: number): HTMLElement[] {
   const tb = document.createElement("table");
   tb.className = "mini trench";
   const hr = tb.createTHead().insertRow();
-  for (const h of ["Quake", "Last", "Interval", "30 years"]) hr.append(el("th", "", h));
+  for (const h of ["Quake", "Last", "Interval", "30 years", "Slip budget*"]) hr.append(el("th", "", h));
   const bd = tb.createTBody();
   let prev = "";
   for (const o of OUTLOOK) {
@@ -84,12 +87,14 @@ export function trenchSection(width: number): HTMLElement[] {
       const zr = bd.insertRow();
       zr.className = "zone";
       const td = el("td", "", ZONE_NAMES[o.zone] ?? o.zone) as HTMLTableCellElement;
-      td.colSpan = 4;
+      td.colSpan = 5;
       zr.append(td);
       prev = o.zone;
     }
     const tr = bd.insertRow();
-    tr.append(el("td", "", o.quake), el("td", "", o.last), el("td", "", o.interval), el("td", "", o.p30));
+    const sb = slipBudget(o, yearNow);
+    const sbText = !sb ? "–" : Math.abs(sb[1] - sb[0]) < 0.5 ? `~${fmtM(sb[1])}` : `~${num(sb[0])}–${fmtM(sb[1])}`;
+    tr.append(el("td", "", o.quake), el("td", "", o.last), el("td", "", o.interval), el("td", "", o.p30), el("td", "", sbText));
   }
   const wrap = el("div", "trench-wrap");
   wrap.append(tb);
@@ -104,5 +109,11 @@ export function trenchSection(width: number): HTMLElement[] {
     link(HERP_LTE, "HERP long-term evaluations"), " and ", link(HERP_SUMMARY, "summary of results"),
     " (地震調査研究推進本部), transcribed by hand.");
   out.push(src);
+  out.push(el("p", "sub",
+    "*Slip budget: how far the plates have moved since the last such quake, which is how much the fault could slip " +
+    "if it were fully locked (plate rates from Bird 2003: about 9 cm a year at the Japan and Kuril trenches, 5 cm at " +
+    "the Nankai Trough, 3.5 cm at the Sagami Trough, mostly sideways there). It's an upper bound: faults are only " +
+    "partly locked, and slow slip and smaller quakes release some of it. For scale, 2011 slipped more than 50 m at " +
+    "its peak and about 12 m on average, matching 400–550 years at 9 cm. It says how big the next quake could be, not when."));
   return out;
 }

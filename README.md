@@ -157,7 +157,9 @@ kept in the URL hash.
   (see below). Ignores the timeline. Below it, the long view: great quakes on
   the Kuril and Japan trenches, Sagami Trough and Nankai Trough since 684 on a
   timeline, with the government's (HERP) 30-year chances for 1 Jan 2026,
-  transcribed in `site/src/trench-history.ts`.
+  transcribed in `site/src/trench-history.ts`, and a slip budget per quake type
+  (plate rate from PB2002 × years since the last one: what a fully locked fault
+  could release, an upper bound).
 
 **Forecast.** `pipeline/forecast/etas.py` is a space-time ETAS model (Ogata
 1988, 1998; background by stochastic declustering, Zhuang, Ogata & Vere-Jones

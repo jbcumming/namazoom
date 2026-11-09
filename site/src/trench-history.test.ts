@@ -19,3 +19,13 @@ describe("trench history", () => {
     expect(new Set(ROWS.map((r) => r.id)).size).toBe(ROWS.length);
   });
 });
+
+describe("slip budget", () => {
+  it("is plate rate times years since the last quake", async () => {
+    const { slipBudget } = await import("./trench-history");
+    expect(slipBudget({ zone: "x", quake: "", last: "", interval: "", p30: "", rate: 90 } as never, 2026)).toBeNull();
+    const [lo, hi] = slipBudget({ zone: "x", quake: "", last: "", interval: "", p30: "", rate: 90, lastYears: [1611, 1637] } as never, 2026)!;
+    expect(lo).toBeCloseTo(35.01);
+    expect(hi).toBeCloseTo(37.35);
+  });
+});

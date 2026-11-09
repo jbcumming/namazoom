@@ -52,6 +52,15 @@ and explanation; [Sagami (2014)](https://www.jishin.go.jp/main/chousa/kaikou_pdf
 [Japan Trench (2019)](https://www.jishin.go.jp/main/chousa/kaikou_pdf/japan_trench.pdf) 4-2;
 [Kuril (2017)](https://www.jishin.go.jp/main/chousa/kaikou_pdf/chishima3.pdf).
 
+## Plate rates for the slip budget
+
+Medians of the PB2002 boundary steps (Bird 2003, `data/raw/plates/PB2002_steps.json`,
+total relative velocity) in boxes along each trench: Japan Trench off Miyagi
+(Pacific/Okhotsk) 92 mm/yr, Kuril off Tokachi-Nemuro (Okhotsk/Pacific) 90 mm/yr,
+Nankai Trough (Amur/Philippine Sea) 50 mm/yr, Sagami Trough (Okhotsk/Philippine
+Sea) 35 mm/yr, mostly strike-slip there. Check: 2011's 50 m+ peak slip (HERP)
+equals 400-550 years at 92 mm/yr, the time since the 1611 or 1454 quake.
+
 ## Site formulas and classes
 
 - Damage classes 1-7 (after Utsu) and tsunami classes (Utsu to 1988, Imamura-Iida

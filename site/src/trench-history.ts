@@ -36,6 +36,20 @@ export interface TrenchOutlook {
   last: string;
   interval: string;
   p30: string; // chance within 30 years from 1 Jan 2026
+  rate?: number;                // plate convergence, mm/yr (PB2002), for the slip budget
+  lastYears?: [number, number]; // year (range) of the last such quake, for the slip budget
+}
+
+// Relative plate velocity along each trench: the median of PB2002's boundary steps
+// (Bird 2003; data/raw/plates/PB2002_steps.json, total velocity VELOCITYLE) in boxes
+// off Miyagi (PA\OK), off Tokachi-Nemuro (OK/PA), along the Nankai Trough (AM/PS)
+// and the Sagami Trough (OK-PS, mostly oblique).
+export const PLATE_RATE = { "Japan Trench": 92, Kuril: 90, Nankai: 50, Sagami: 35 } as const;
+
+/** Slip that would have built up since the last quake if the fault were fully locked, metres [min, max]. */
+export function slipBudget(o: TrenchOutlook, year: number): [number, number] | null {
+  if (!o.rate || !o.lastYears) return null;
+  return [o.rate * (year - o.lastYears[1]) / 1000, o.rate * (year - o.lastYears[0]) / 1000];
 }
 
 export const AS_OF = "1 January 2026";
@@ -122,13 +136,13 @@ export const ROWS: TrenchRow[] = [
 ];
 
 export const OUTLOOK: TrenchOutlook[] = [
-  { zone: "Kuril", quake: "17th-century type, M8.8+", last: "1611–37", interval: "~340–380 yr", p30: "7–40%" },
-  { zone: "Kuril", quake: "Off Tokachi, M8.0–8.6", last: "2003", interval: "80 yr", p30: "~20%" },
-  { zone: "Kuril", quake: "Off Nemuro, M7.8–8.5", last: "1973", interval: "65 yr", p30: "~90%" },
-  { zone: "Japan Trench", quake: "Tōhoku type, M9", last: "2011", interval: "~550–600 yr", p30: "~0%" },
-  { zone: "Japan Trench", quake: "Tsunami quake near the trench, Mt 8.6–9.0", last: "2011", interval: "4 in ~410 yr", p30: "~30%" },
-  { zone: "Sagami", quake: "M8 class (as 1703, 1923)", last: "1923", interval: "180–590 yr", p30: "~0–6%" },
+  { zone: "Kuril", quake: "17th-century type, M8.8+", last: "1611–37", interval: "~340–380 yr", p30: "7–40%", rate: PLATE_RATE.Kuril, lastYears: [1611, 1637] },
+  { zone: "Kuril", quake: "Off Tokachi, M8.0–8.6", last: "2003", interval: "80 yr", p30: "~20%", rate: PLATE_RATE.Kuril, lastYears: [2003, 2003] },
+  { zone: "Kuril", quake: "Off Nemuro, M7.8–8.5", last: "1973", interval: "65 yr", p30: "~90%", rate: PLATE_RATE.Kuril, lastYears: [1973, 1973] },
+  { zone: "Japan Trench", quake: "Tōhoku type, M9", last: "2011", interval: "~550–600 yr", p30: "~0%", rate: PLATE_RATE["Japan Trench"], lastYears: [2011, 2011] },
+  { zone: "Japan Trench", quake: "Tsunami quake near the trench, Mt 8.6–9.0", last: "2011", interval: "4 in ~410 yr", p30: "~30%", rate: PLATE_RATE["Japan Trench"], lastYears: [2011, 2011] },
+  { zone: "Sagami", quake: "M8 class (as 1703, 1923)", last: "1923", interval: "180–590 yr", p30: "~0–6%", rate: PLATE_RATE.Sagami, lastYears: [1923, 1923] },
   { zone: "Sagami", quake: "M7 class anywhere under southern Kantō", last: "–", interval: "–", p30: "~70%" },
-  { zone: "Nankai", quake: "M8–9, slip-dependent model", last: "1944/46", interval: "~97 yr (next)", p30: "60–90%+" },
-  { zone: "Nankai", quake: "M8–9, dates only", last: "1944/46", interval: "117 yr", p30: "20–50%" },
+  { zone: "Nankai", quake: "M8–9, slip-dependent model", last: "1944/46", interval: "~97 yr (next)", p30: "60–90%+", rate: PLATE_RATE.Nankai, lastYears: [1944, 1946] },
+  { zone: "Nankai", quake: "M8–9, dates only", last: "1944/46", interval: "117 yr", p30: "20–50%", rate: PLATE_RATE.Nankai, lastYears: [1944, 1946] },
 ];
