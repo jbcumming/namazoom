@@ -59,6 +59,12 @@ and the Slow slip tab leave these quakes out; readings have no instrumental
 intensity or arrival time. The site marks these quakes "Preliminary" and
 marks them on the timeline.
 
+**Attribution.** JMA's terms of use (compatible with CC BY 4.0) ask for the
+source to be named and linked, and for a note when the data has been processed.
+The site does this in the header line (a footer on phones): "出典：気象庁ホームページ"
+linked to <https://www.jma.go.jp/>, links to each dataset, and "Processed for
+this site". The map's credits repeat "出典：気象庁 (processed)".
+
 Downloads go to `data/raw/` (not committed). For phase 1 that holds
 `h2019.zip`, `i2019.zip` and `code_p.zip`:
 

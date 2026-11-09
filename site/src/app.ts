@@ -52,6 +52,10 @@ if (fromUrl.minMag !== undefined) state.minMag = fromUrl.minMag;
 setWorkerUrl(maplibreWorkerUrl);
 
 const box = grData.box;
+const JMA_HOME = "https://www.jma.go.jp/";
+const JMA_BULLETIN = "https://www.data.jma.go.jp/eqev/data/bulletin/index_e.html";
+const JMA_DAILY = "https://www.data.jma.go.jp/eqev/data/daily_map/index.html";
+const JMA_EQDB = "https://www.data.jma.go.jp/eqdb/data/shindo/";
 const { style, tiles } = await basemapStyle(isDark());
 const map = new MLMap({
   container: "map",
@@ -60,7 +64,10 @@ const map = new MLMap({
   fitBoundsOptions: { padding: 20 },
   minZoom: 3,
   maxZoom: 11,
-  attributionControl: { compact: true },
+  attributionControl: {
+    compact: true,
+    customAttribution: `<a href="${JMA_HOME}" target="_blank" rel="noopener">出典：気象庁</a> (processed)`,
+  },
   dragRotate: false,
   pitchWithRotate: false,
 });
@@ -1133,7 +1140,25 @@ renderLegend();
 syncTimeline();
 $<HTMLSelectElement>("min-mag").value = String(state.minMag);
 setTab(fromUrl.tab ?? "magnitudes");
-$("source").textContent = store.index.prelimFrom
-  ? `Data: JMA Seismological Bulletin of Japan, ${store.index.years[0]}–${yearOf(store.index.prelimFrom) - 1}; ` +
-    `preliminary JMA lists to ${fmtDate(store.index.dataEnd)}, marked "Preliminary".`
-  : `Data: JMA Seismological Bulletin of Japan, ${store.index.years[0]}–${store.index.years[1]}.`;
+// Attribution as JMA's terms of use ask: source named and linked, and a note
+// that the data has been processed. (The map's attribution control repeats the
+// short form; on phones the line moves to a footer below the panel.)
+for (const src of [$("source"), $("source-foot")]) {
+  const link = (href: string, text: string) => {
+    const a = document.createElement("a");
+    a.href = href; a.textContent = text; a.target = "_blank"; a.rel = "noopener";
+    return a;
+  };
+  const final = store.index.prelimFrom
+    ? `${store.index.years[0]}–${yearOf(store.index.prelimFrom) - 1}`
+    : `${store.index.years[0]}–${store.index.years[1]}`;
+  src.replaceChildren(
+    "出典：", link(JMA_HOME, "気象庁ホームページ"), " (Japan Meteorological Agency): ",
+    link(JMA_BULLETIN, "Seismological Bulletin of Japan"), ` ${final}`,
+    ...(store.index.prelimFrom
+      ? [", ", link(JMA_DAILY, "daily hypocentre lists"), " and ", link(JMA_EQDB, "intensity database"),
+         ` to ${fmtDate(store.index.dataEnd)} (marked "Preliminary")`]
+      : []),
+    ". Processed for this site.",
+  );
+}
