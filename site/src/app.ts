@@ -58,6 +58,7 @@ const JMA_HOME = "https://www.jma.go.jp/";
 const JMA_BULLETIN = "https://www.data.jma.go.jp/eqev/data/bulletin/index_e.html";
 const JMA_DAILY = "https://www.data.jma.go.jp/eqev/data/daily_map/index.html";
 const JMA_EQDB = "https://www.data.jma.go.jp/eqdb/data/shindo/";
+const JMA_LIVE = "https://www.jma.go.jp/bosai/map.html#contents=earthquake_map";
 const { style, tiles } = await basemapStyle(isDark());
 const map = new MLMap({
   container: "map",
@@ -1230,7 +1231,8 @@ for (const src of [$("source"), $("source-foot")]) {
     "出典：", link(JMA_HOME, "気象庁ホームページ"), " (Japan Meteorological Agency): ",
     link(JMA_BULLETIN, "Seismological Bulletin of Japan"), ` ${final}`,
     ...(store.index.prelimFrom
-      ? [", ", link(JMA_DAILY, "daily hypocentre lists"), " and ", link(JMA_EQDB, "intensity database"),
+      ? [", ", link(JMA_DAILY, "daily hypocentre lists"), ", ", link(JMA_EQDB, "intensity database"), " and ",
+         link(JMA_LIVE, "earthquake information"),
          ` to ${fmtDate(store.index.dataEnd)} (marked "Preliminary")`]
       : []),
     ". Processed for this site.",

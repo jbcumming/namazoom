@@ -108,3 +108,24 @@ def test_fetch_stops_on_refusal(monkeypatch):
     with pytest.raises(fp.Refused, match="429"):
         fp._request("https://example.invalid/")
     assert len(calls) == 1  # no retries
+
+
+def test_parse_live_list():
+    from pipeline.jma.prelim import parse_live_list
+
+    base = {"ift": "発表", "anm": "茨城県沖", "eid": "20261109135259", "at": "2026-11-09T13:52:00+09:00"}
+    items = [
+        # first flash: no hypocentre
+        {**base, "ttl": "震度速報", "rdt": "2026-11-09T13:54:00+09:00", "cod": "", "maxi": "3"},
+        {**base, "ttl": "震源・震度情報", "rdt": "2026-11-09T13:59:00+09:00", "cod": "+36.2+142.2-10000/",
+         "mag": "5.9", "maxi": "3", "json": "a.json"},
+        # a later revision wins
+        {**base, "ttl": "震源・震度情報", "rdt": "2026-11-09T14:30:00+09:00", "cod": "+36.3+142.1-20000/",
+         "mag": "6.0", "maxi": "5-", "json": "b.json"},
+        {"ift": "発表", "ttl": "遠地地震に関する情報", "eid": "x", "at": "2026-11-09T01:00:00+09:00",
+         "rdt": "2026-11-09T01:30:00+09:00", "cod": "-10.0+120.0-30000/", "mag": "7.0"},
+        {"ift": "取消", "ttl": "震源・震度情報", "eid": "y", "at": "2026-11-09T02:00:00+09:00", "cod": "+35+140-10000/"},
+    ]
+    (q,) = parse_live_list(items)
+    assert (q.lat, q.lon, q.depth_km, q.mag, q.max_shindo, q.report) == (36.3, 142.1, 20.0, 6.0, "A", "b.json")
+    assert q.origin_jst.isoformat() == "2026-11-09T13:52:00"

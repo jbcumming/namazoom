@@ -5,14 +5,16 @@
 #   ./run.sh build      build only
 #   ./run.sh serve      serve the existing build
 #   ./run.sh live       build and serve, then rebuild every 24 h (new preliminary
-#                       data and a new forecast) while serving; REFRESH_HOURS=24
+#                       data and a new forecast) while serving; REFRESH_HOURS=24.
+#                       Commits data/forecasts/issued.jsonl after each build
+#                       (only that file; AUTO_COMMIT=0 to skip)
 #   REBUILD=1 ./run.sh  redo the pipeline steps even if their outputs exist
 #   PRELIM=0 ./run.sh   don't download or refresh the preliminary recent data
 #   FORECAST=0 ./run.sh don't rebuild the 7-day forecast
 #
 # Steps are skipped when their output already exists, so a second run only
 # rebuilds the site itself. Downloads need network access to
-# www.data.jma.go.jp, raw.githubusercontent.com, www.sciencebase.gov,
+# www.data.jma.go.jp, www.jma.go.jp, raw.githubusercontent.com, www.sciencebase.gov,
 # build.protomaps.com and codeload.github.com.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -36,7 +38,7 @@ build() {
   # Preliminary data after the last finalised year: refreshed on every build
   # (only new days and the last two weeks are downloaded). PRELIM=0 skips it.
   if [[ "${PRELIM:-1}" != 0 ]]; then
-    step "Preliminary data since the finalised catalogue (JMA daily lists, intensity database)"
+    step "Preliminary data since the finalised catalogue (JMA daily lists, intensity database, live earthquake list)"
     uv run python -m pipeline.fetch_prelim || echo "preliminary download incomplete; continuing with what is cached"
     uv run python -m pipeline.build.prelim >/dev/null && echo "preliminary data ingested (data/interim/*/prelim.parquet)"
   fi
@@ -102,15 +104,33 @@ serve() {
   cd site && exec npx vite preview --host 0.0.0.0 --port "$PORT" --strictPort
 }
 
+# Commit the prospective forecast record if this build added to it. Only that
+# file is committed, whatever else is staged or modified.
+commit_record() {
+  local f=data/forecasts/issued.jsonl
+  [[ "${AUTO_COMMIT:-1}" != 0 && -e $f ]] || return 0
+  git rev-parse --git-dir >/dev/null 2>&1 || return 0
+  if [[ -z "$(git ls-files -- "$f")" ]] || ! git diff --quiet -- "$f"; then
+    git add -- "$f"
+    git commit -q -m "Forecast record: $(date -u +%F)" -- "$f" && echo "committed $f"
+  fi
+}
+
 # Serve, and rebuild in a separate process every REFRESH_HOURS (a failed rebuild
 # leaves the previous build in place; vite rebuilds site/dist in a few seconds).
+# Each successful build commits the forecast record (AUTO_COMMIT=0 to skip).
 live() {
   build
+  commit_record || echo "could not commit the forecast record"
   serve & local server=$!
   trap 'kill $server 2>/dev/null' EXIT
   while sleep "$(( ${REFRESH_HOURS:-24} * 3600 ))"; do
     step "Refresh $(date -u +%FT%TZ)"
-    "$0" build || echo "refresh failed; still serving the previous build"
+    if "$0" build; then
+      commit_record || echo "could not commit the forecast record"
+    else
+      echo "refresh failed; still serving the previous build"
+    fi
   done
 }
 

@@ -63,11 +63,19 @@ export function fmtPct(p: number): string {
   return "0%";
 }
 
-/** "8–14 Nov 2026": the forecast window's days in JST (end exclusive). */
+/** "8–14 Nov 2026": the forecast window's days in JST (end exclusive). A window that
+ * doesn't start at midnight shows its times: "9 Nov 22:00 – 16 Nov 22:00 2026". */
 export function fmtWindow(t0: number, days: number): string {
   const d = (t: number) => new Date((t + 9 * 3600) * 1000);
-  const a = d(t0), b = d(t0 + (days - 1) * 86400);
   const mon = (x: Date) => x.toLocaleString("en-GB", { month: "short", timeZone: "UTC" });
+  const s = d(t0);
+  if (s.getUTCHours() || s.getUTCMinutes()) {
+    const e = d(t0 + days * 86400);
+    const hm = (x: Date) => `${String(x.getUTCHours()).padStart(2, "0")}:${String(x.getUTCMinutes()).padStart(2, "0")}`;
+    const yr = s.getUTCFullYear() === e.getUTCFullYear() ? "" : ` ${s.getUTCFullYear()}`;
+    return `${s.getUTCDate()} ${mon(s)}${yr} ${hm(s)} – ${e.getUTCDate()} ${mon(e)} ${hm(e)} ${e.getUTCFullYear()}`;
+  }
+  const a = s, b = d(t0 + (days - 1) * 86400);
   if (a.getUTCMonth() === b.getUTCMonth()) return `${a.getUTCDate()}–${b.getUTCDate()} ${mon(b)} ${b.getUTCFullYear()}`;
   if (a.getUTCFullYear() === b.getUTCFullYear()) return `${a.getUTCDate()} ${mon(a)} – ${b.getUTCDate()} ${mon(b)} ${b.getUTCFullYear()}`;
   return `${a.getUTCDate()} ${mon(a)} ${a.getUTCFullYear()} – ${b.getUTCDate()} ${mon(b)} ${b.getUTCFullYear()}`;

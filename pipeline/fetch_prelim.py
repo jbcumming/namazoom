@@ -9,6 +9,9 @@ For the months since, two preliminary sources fill the gap:
   震度データベース (intensity database), the API behind its search page, up to yesterday:
       search: felt quakes in a period  -> data/raw/prelim/eqdb/search/{from}_{to}.json
       event:  station intensities      -> data/raw/prelim/eqdb/event/{id}.json
+  地震情報 (the live earthquake-information list behind www.jma.go.jp/bosai/map.html),
+  felt quakes minutes after they happen, about the last month; one request per run:
+      -> data/raw/prelim/live/list.json  ({"fetched": JST time, "items": [...]})
 
     uv run python -m pipeline.fetch_prelim                 # from the day after the last h*.zip year
     uv run python -m pipeline.fetch_prelim --start 2025-01-01
@@ -27,13 +30,16 @@ import time
 import urllib.error
 import urllib.request
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from .fetch import USER_AGENT
 
+JST = timezone(timedelta(hours=9))
+
 DAILY_URL = "https://www.data.jma.go.jp/eqev/data/daily_map/{d:%Y%m%d}.html"
 EQDB_API = "https://www.data.jma.go.jp/eqdb/data/shindo/api/"
+LIVE_URL = "https://www.jma.go.jp/bosai/quake/data/list.json"
 REFRESH_DAYS = 14
 SEARCH_LIMIT = 1000  # the API returns at most this many quakes per search
 # Pause between requests. One request at a time, at most about one a second:
@@ -168,6 +174,17 @@ def fetch_eqdb(dest: Path, start: date, today: date) -> tuple[int, int]:
     return searches, events
 
 
+def fetch_live(dest: Path) -> int:
+    """The live list, replaced on every run (only its last day or two are used)."""
+    fetched = datetime.now(timezone.utc).astimezone(JST).replace(tzinfo=None)
+    items = json.loads(_request(LIVE_URL))
+    if not isinstance(items, list):
+        raise RuntimeError("live list: unexpected reply")
+    _save(dest / "live" / "list.json", json.dumps({"fetched": fetched.isoformat(timespec="seconds"), "items": items},
+                                                   ensure_ascii=False).encode())
+    return len(items)
+
+
 def default_start(raw: Path) -> date:
     """The day after the last year of the finalised hypocentre catalogue."""
     years = [int(m.group(1)) for z in raw.glob("h*.zip") if (m := re.fullmatch(r"h(\d{4})", z.stem))]
@@ -195,6 +212,7 @@ def _run(args: argparse.Namespace) -> int:
     print(f"daily hypocentre lists: {n} downloaded")
     s, e = fetch_eqdb(dest, start, today)
     print(f"intensity database: {s} searches, {e} events downloaded")
+    print(f"live earthquake list: {fetch_live(dest)} reports")
     return 0
 
 

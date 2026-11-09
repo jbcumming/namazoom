@@ -4,7 +4,8 @@
 
 Writes, alongside the finalised catalogue's files and in the same schemas:
   events/prelim.parquet          daily-list hypocentres, plus felt quakes the
-                                 lists don't (yet) have
+                                 lists don't (yet) have, plus felt quakes from
+                                 the live list after the intensity database ends
   shindo_headers/prelim.parquet  one header per felt quake, linked to its event
   shindo_obs/prelim.parquet      station intensities (no instrumental value,
                                  observation time or acceleration)
@@ -30,7 +31,8 @@ import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from ..jma.prelim import JST_OFFSET, EqdbQuake, PrelimHypocentre, match_eqdb, parse_daily_page, parse_eqdb_event
+from ..jma.prelim import (JST_OFFSET, EqdbQuake, PrelimHypocentre, match_eqdb, parse_daily_page, parse_eqdb_event,
+                          parse_live_list)
 from .ingest import EVENT_SCHEMA, HEADER_SCHEMA, OBS_SCHEMA, STATION_SCHEMA, _write
 
 PREFIX = "prelim:"
@@ -185,6 +187,25 @@ def ingest_prelim(raw: Path, interim: Path) -> dict:
         for r in q.readings:
             obs.append({"group_id": gid, "station_id": r.station_id, "shindo": r.shindo, "source": gid, "line_no": 0})
 
+    # Days the daily lists and the intensity database cover (whole days, JST).
+    days = [datetime.strptime(f.stem, "%Y%m%d") for f in (src / "daily").glob("*.html")]
+    days += [datetime.fromisoformat(json.loads(f.read_text())["to"]) for f in (src / "eqdb" / "search").glob("*.json")]
+    covered = max(days, default=after) + timedelta(days=1)  # midnight after the last covered day
+
+    # Felt quakes since then, from the live list (minutes old, 0.1° / whole km, origin to the minute).
+    live = 0
+    live_path = src / "live" / "list.json"
+    if live_path.exists():
+        body = json.loads(live_path.read_text(encoding="utf-8"))
+        for q in parse_live_list(body["items"]):
+            if q.origin_jst < covered:
+                continue
+            eid = f"J{q.origin_jst:%Y%m%d%H%M}0000_{round(q.lat * 100)}_{round(q.lon * 100)}"
+            events[eid] = _event_row(eid, q.origin_jst, q.lat, q.lon, q.depth_km, q.mag, q.region_name_ja, regions,
+                                     q.max_shindo, f"{PREFIX}live/{q.report}", 0)
+            live += 1
+        covered = max(covered, datetime.fromisoformat(body["fetched"]))
+
     _write(list(events.values()), EVENT_SCHEMA, interim / "events" / "prelim.parquet")
     _write(headers, HEADER_SCHEMA, interim / "shindo_headers" / "prelim.parquet")
     _write(obs, OBS_SCHEMA, interim / "shindo_obs" / "prelim.parquet")
@@ -198,6 +219,8 @@ def ingest_prelim(raw: Path, interim: Path) -> dict:
         "daily_files": len({s for _, s in daily}), "events": len(events), "felt": len(quakes),
         "felt_matched": matched, "felt_from_eqdb": from_eqdb, "felt_unlocated": len(quakes) - matched - from_eqdb,
         "readings": len(obs), "new_stations": new_stations, "unknown_regions": unknown_regions,
+        # Quakes are complete (as far as the sources go) up to here, JST.
+        "live": live, "covered_to": covered.isoformat(timespec="seconds"),
     }
 
 

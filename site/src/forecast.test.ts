@@ -35,6 +35,8 @@ describe("forecast helpers", () => {
     // 2026-11-07T15:00Z = 8 Nov 00:00 JST
     expect(fmtWindow(Date.UTC(2026, 10, 7, 15) / 1000, 7)).toBe("8–14 Nov 2026");
     expect(fmtWindow(Date.UTC(2026, 10, 27, 15) / 1000, 7)).toBe("28 Nov – 4 Dec 2026");
+    // 2026-11-09T13:00Z = 9 Nov 22:00 JST
+    expect(fmtWindow(Date.UTC(2026, 10, 9, 13) / 1000, 7)).toBe("9 Nov 22:00 – 16 Nov 22:00 2026");
   });
 });
 

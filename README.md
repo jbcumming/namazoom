@@ -51,7 +51,11 @@ lists (震源リスト, `daily_map/YYYYMMDD.html`, up to two days ago, available
 database (震度データベース, the JSON API behind its search page, up to
 yesterday). `pipeline/build/prelim.py` writes them in the catalogue's schemas
 (`*/prelim.parquet`, `source` starting `prelim:`), matching each felt quake to
-its daily-list hypocentre by time (≤3 s) and position (≤0.3°). Only days after
+its daily-list hypocentre by time (≤3 s) and position (≤0.3°). After the last
+day those two cover, felt quakes come from JMA's live earthquake information
+(地震情報, `www.jma.go.jp/bosai/quake/data/list.json`, minutes old; origin to the
+minute, position to 0.1°), one request per run; the forecast then starts at the
+hour of that download instead of up to two days back. Only days after
 the last finalised year are used, so publishing `h2025.zip` replaces 2025's
 preliminary rows automatically. Limits: values are provisional; there is no
 event class (natural / low-frequency / artificial), so the magnitude statistics

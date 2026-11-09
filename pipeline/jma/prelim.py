@@ -157,6 +157,53 @@ def parse_eqdb_event(res: dict) -> EqdbQuake:
     )
 
 
+@dataclass(frozen=True)
+class LiveQuake:
+    """A quake from JMA's live earthquake-information list (bosai/quake/data/list.json).
+
+    Felt quakes (and a few others with a tsunami statement), minutes after they
+    happen, with the origin to the minute and the hypocentre to 0.1°/whole km."""
+    eid: str             # JMA's event id, YYYYMMDDhhmmss (JST)
+    origin_jst: datetime
+    lat: float
+    lon: float
+    depth_km: float | None
+    mag: float | None
+    region_name_ja: str
+    max_shindo: str | None
+    report: str          # the report file it was taken from
+
+
+_LIVE_SHINDO = {"1": "1", "2": "2", "3": "3", "4": "4", "5-": "A", "5+": "B", "6-": "C", "6+": "D", "7": "7"}
+_COD = re.compile(r"^([+-]\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)(?:([+-]\d+))?/?$")
+
+
+def parse_live_list(items: list[dict]) -> list[LiveQuake]:
+    """One quake per event id, from its latest report that gives a hypocentre.
+
+    Reports without one (震度速報, the first intensity flash) are skipped, as are
+    distant quakes (遠地地震に関する情報) and non-quake notices."""
+    best: dict[str, tuple[str, dict]] = {}
+    for it in items:
+        if it.get("ift") != "発表" or not it.get("cod") or "遠地" in it.get("ttl", ""):
+            continue
+        m = _COD.match(it["cod"])
+        if not m or not it.get("at"):
+            continue
+        key = it.get("rdt", "")
+        if it["eid"] not in best or key > best[it["eid"]][0]:
+            best[it["eid"]] = (key, it)
+    out = []
+    for _, it in best.values():
+        m = _COD.match(it["cod"])
+        depth = -float(m.group(3)) / 1000 if m.group(3) else None
+        origin = datetime.fromisoformat(it["at"]).replace(tzinfo=None)
+        out.append(LiveQuake(it["eid"], origin, float(m.group(1)), float(m.group(2)), depth,
+                             _float(it.get("mag")), it.get("anm", ""), _LIVE_SHINDO.get(it.get("maxi") or ""),
+                             it.get("json", "")))
+    return sorted(out, key=lambda q: q.origin_jst)
+
+
 def match_eqdb(q: EqdbQuake, candidates: list[PrelimHypocentre],
                max_dt: float = 3.0, max_deg: float = 0.3) -> PrelimHypocentre | None:
     """The daily-list hypocentre for a felt quake: nearest in time within max_dt

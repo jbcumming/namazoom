@@ -43,11 +43,9 @@ New features below wait until that's settled.
   - [ ] Possible improvements: simulation-based forecasts (proper spread of
         counts instead of Poisson), a magnitude-dependent depth limit, and a
         background that down-weights swarms.
-  - [ ] Fresher data for the last 1-2 days: the intensity database lists felt
-        quakes within hours, before the daily hypocentre lists. Using them as
-        provisional parents would move the live forecast towards the "fresh
-        data" skill (most gain right after large quakes); offshore quakes too
-        small to be felt would be missing.
+  - [x] Fresher data: felt quakes from JMA's live earthquake information after
+        the intensity database's last day, so the forecast starts at the hour of
+        the build. `./run.sh live` commits the forecast record after each build.
 
 ## Data
 - [x] Fill 2025 → present from JMA's daily hypocentre lists / 震度データベース

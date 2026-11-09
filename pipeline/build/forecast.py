@@ -256,13 +256,17 @@ def score_issued(log: Path, cat: Catalogue, mag: np.ndarray, data_end: float) ->
 def build(interim: Path, out: Path, forecasts: Path) -> dict:
     cat, mag = load(interim)
     manifest = json.loads((interim / "manifest.json").read_text())
-    # Data end: midnight JST after the last day the daily lists cover.
+    # Data end: the time the preliminary sources cover to (the live list's download
+    # time, on the hour), or else midnight JST after the last day with quakes.
     prelim = manifest.get("prelim") or {}
-    if prelim.get("last"):
-        last_jst = datetime.fromisoformat(prelim["last"])
-    else:  # no preliminary data: the end of the last catalogue day
-        last_jst = EPOCH + timedelta(days=float(cat.t.max()), hours=9)
-    end_jst = datetime.combine(last_jst.date() + timedelta(days=1), datetime.min.time())
+    if prelim.get("covered_to"):
+        end_jst = datetime.fromisoformat(prelim["covered_to"]).replace(minute=0, second=0)
+    else:
+        if prelim.get("last"):
+            last_jst = datetime.fromisoformat(prelim["last"])
+        else:  # no preliminary data: the end of the last catalogue day
+            last_jst = EPOCH + timedelta(days=float(cat.t.max()), hours=9)
+        end_jst = datetime.combine(last_jst.date() + timedelta(days=1), datetime.min.time())
     data_end = day_of(end_jst - timedelta(hours=9))
     final_end = day_of(f"{prelim['after'][:4]}-12-31T15:00:00") if prelim.get("after") else data_end
 

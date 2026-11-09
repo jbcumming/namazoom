@@ -20,6 +20,10 @@ const rtick = (d: number) => `${+(d * 100).toPrecision(1)}%`;
 
 const dateJst = (t: number) => new Date((t + 9 * 3600) * 1000).toLocaleDateString("en-GB",
   { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+const timeJst = (t: number) => {
+  const d = new Date((t + 9 * 3600) * 1000);
+  return `${dateJst(t)} ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+};
 
 function legend(items: [string, string][]) {
   const lg = el("div", "legend");
@@ -98,8 +102,9 @@ export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
   });
   parts.push(el("div", "chart-title", "Map: chance of an M5+ quake in each half-degree square (about 50 km) this week"), key);
   parts.push(el("p", "note",
-    `The data ends ${dateJst(f.dataEnd - 1)}; JMA's preliminary lists run about two days behind, so part of this week may ` +
-    "already have passed. This is a statistical forecast, not a warning: official information comes from JMA, " +
+    `The forecast starts where the data ends, ${timeJst(f.dataEnd)} Japan time. JMA's full preliminary lists run one ` +
+    "to two days behind; the most recent quakes come from its live earthquake information, which lists felt quakes " +
+    "only, so small quakes far offshore may be missing. This is a statistical forecast, not a warning: official information comes from JMA, " +
     "including the Nankai Trough and Japan/Kuril Trench advisories."));
 
   // ---------------------------------------------------------------- the test ---
