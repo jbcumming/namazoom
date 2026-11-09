@@ -131,7 +131,12 @@ kept in the URL hash.
   by intensity, intensity vs distance, strongest readings); replay of the
   shaking at recorded station times beside model P/S wave fronts; aftershocks
   for M5.5+ (window from Wells & Coppersmith rupture length, Omori p fit,
-  Båth's law, foreshocks).
+  Båth's law, foreshocks); and for M5.5+, "could it have been a foreshock?":
+  how often earlier quakes of similar size were followed by a larger one
+  within 50 km and 7 days, and how that depends on the gap to the largest
+  quake in the first 24 hours, from quakes before the selected one only
+  (`pipeline/build/foreshock.py`; since 1923, 140 of 2,522 M5.5+ quakes, 5.6%;
+  11.6% when the first day brought a quake within 0.5 of it, 0.9% when no M4+).
 - *My location* - quakes felt near a point (city presets, map pick or browser
   location): per year by strongest nearby intensity, stations operating
   nearby, strongest shakings, their epicentres on the map.

@@ -8,6 +8,8 @@ import type { GrData } from "./gr";
 import { cellsInBounds, renderMagnitudes, type MagSelection } from "./panel-magnitudes";
 import { renderQuake, type Footprint } from "./panel-quake";
 import { renderAftershocks, type AftershockState } from "./panel-aftershocks";
+import { renderForeshock, type ForeshockState } from "./panel-foreshock";
+import type { FsData } from "./foreshock";
 import { DAY, FORESHOCK_DAYS, MIN_MAINSHOCK, WINDOW_DAYS, sequence, type Shock } from "./aftershocks";
 import { PRESETS, renderDepth } from "./panel-depth";
 import { PLACES, renderLocation, type Place } from "./panel-location";
@@ -319,6 +321,17 @@ map.on("click", "quakes", (e) => {
 const shindo = new ShindoStore();
 let footprint: Footprint = { status: "none" };
 let aftershocks: AftershockState = { status: "small" };
+let foreshock: ForeshockState = { status: "loading" };
+let fsPromise: Promise<FsData | null> | null = null;
+
+/** Foreshock base rates (data/foreshock.json), fetched the first time an M5.5+ quake is selected. */
+async function loadForeshock() {
+  if (foreshock.status !== "loading") return;
+  fsPromise ??= fetch("./data/foreshock.json").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  const d = await fsPromise;
+  foreshock = d ? { status: "ok", data: d } : { status: "missing" };
+  renderPanel();
+}
 let selectToken = 0;
 
 function footprintColor(): ExpressionSpecification {
@@ -425,6 +438,7 @@ async function select(sel: typeof state.selected) {
   showFootprint();
   setTab("quake");
   if (sel) loadAftershocks(sel, token);
+  if (sel && sel.props.mag !== null && sel.props.mag >= 5.5) loadForeshock();
   if (!sel || !sel.props.felt) return;
   const { props, coords } = sel;
   const readings = await shindo.readings(props.id, props.t, coords[1], coords[0], props.depth);
@@ -1137,7 +1151,12 @@ function renderPanel() {
           `(${P_KMS} and ${S_KMS} km/s) for comparison.` + (missing ? ` ${fmt(missing)} readings have no recorded time and are left out.` : "")), rb);
       }
     }
-    if (state.selected) extra.append(renderAftershocks(aftershocks, $("pane-quake").clientWidth), clear);
+    if (state.selected) {
+      extra.append(renderAftershocks(aftershocks, $("pane-quake").clientWidth));
+      const fs = renderForeshock(foreshock, state.selected.props.t, state.selected.props.mag);
+      if (fs) extra.append(fs);
+      extra.append(clear);
+    }
     renderQuake($("pane-quake-body"), state.selected?.props ?? null, state.selected?.coords, footprint,
       state.selected ? extra : undefined);
   }

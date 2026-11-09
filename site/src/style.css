@@ -359,3 +359,6 @@ tr.clickable:hover td { background: var(--page); }
   color: var(--text-secondary); font-variant-numeric: tabular-nums; margin-bottom: 8px; }
 .hot-key { display: flex; align-items: center; gap: 6px; }
 .hot-swatch { width: 14px; height: 14px; border-radius: 3px; flex: none; }
+.mini.fs tr.this td { color: var(--text-primary); font-weight: 600; }
+.mini.fs td:nth-child(3) { text-transform: none; white-space: nowrap; }
+.mini.fs td:nth-child(2) { white-space: nowrap; }

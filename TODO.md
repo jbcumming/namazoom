@@ -17,7 +17,10 @@ New features below wait until that's settled.
       gzip/brotli on the JSON and range requests on the tiles.
 
 ## Analysis features (agreed, not started)
-- [ ] **"Could this have been a foreshock?" panel** for a selected large quake:
+- [x] **"Could this have been a foreshock?" panel** for a selected large quake
+      (Quake tab, `pipeline/build/foreshock.py`). Not done: the ETAS chance of a
+      larger quake per event.
+      Original spec:
       magnitude gap to its largest follower so far vs Båth's law (~1.2), and
       how often past Japanese sequences with a similar gap produced a larger
       quake. Base rates from data before the quake only (out-of-sample).

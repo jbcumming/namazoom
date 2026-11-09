@@ -71,6 +71,7 @@ build() {
   step "Site data (quakes, footprints, felt history, G-R counts, overlays)"
   uv run python -m pipeline.build.site_data
   uv run python -m pipeline.build.overlays
+  uv run python -m pipeline.build.foreshock >/dev/null && echo "foreshock base rates written (site/public/data/foreshock.json)"
   if [[ "${FORECAST:-1}" != 0 ]]; then
     step "7-day forecast (ETAS; the first run fits the model, ~15 min)"
     uv run python -m pipeline.build.forecast >/dev/null && echo "forecast written (site/public/data/forecast.json; record in data/forecasts/issued.jsonl)"
