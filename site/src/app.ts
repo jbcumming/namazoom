@@ -9,6 +9,7 @@ import { cellsInBounds, renderMagnitudes, type MagSelection } from "./panel-magn
 import { renderQuake, type Footprint } from "./panel-quake";
 import { renderAftershocks, type AftershockState } from "./panel-aftershocks";
 import { renderForeshock, type ForeshockState } from "./panel-foreshock";
+import type { Scene3D } from "./view3d";
 import type { FsData } from "./foreshock";
 import { DAY, FORESHOCK_DAYS, MIN_MAINSHOCK, WINDOW_DAYS, sequence, type Shock } from "./aftershocks";
 import { PRESETS, renderDepth } from "./panel-depth";
@@ -47,7 +48,7 @@ const store = new QuakeStore();
 const [grData] = await Promise.all([fetch("./data/gr.json").then((r) => r.json() as Promise<GrData>), store.init()]);
 [state.from, state.to] = store.index.years;
 // A shared link may set the view; applied before the first render.
-const fromUrl = parseHash(location.hash, ["magnitudes", "depth", "quake", "location", "history", "shaking", "slow", "forecast"], store.index.years);
+const fromUrl = parseHash(location.hash, ["magnitudes", "depth", "quake", "location", "history", "shaking", "slow", "forecast", "3d"], store.index.years);
 if (fromUrl.from !== undefined) { state.from = fromUrl.from; state.to = fromUrl.to!; }
 if (fromUrl.minMag !== undefined) state.minMag = fromUrl.minMag;
 
@@ -508,10 +509,105 @@ async function refreshData() {
   loadedRange = [lo, hi];
   applyTimeFilter();
   updateStatus(fc.features.length, minMag);
+  if (state.tab === "3d") draw3d();
 }
 let loadedRange: [number, number] = [0, 0];
 let shownQuakes: GeoJSON.Feature<GeoJSON.Point, QuakeProps>[] = [];
 let shownMinMag = 5;
+
+// ------------------------------------------------------------------- 3D ---
+
+const v3d = { scene: null as Scene3D | null, loading: false, ex: 1, spin: false, n: 0, capped: false, boundsKey: "" };
+let coastRings: [number, number][][] | null = null;
+const MAX_3D = 60000;
+
+/** Show the 3D scene instead of the map on the 3D tab, with the map's quakes in its current view. */
+async function draw3d(resetCamera = false) {
+  const on = state.tab === "3d";
+  $("view3d").hidden = !on;
+  $("map").style.visibility = on ? "hidden" : "";
+  if (!on) { if (v3d.scene) v3d.scene.autoRotate = false; return; }
+  if (!v3d.scene) {
+    if (v3d.loading) return;
+    v3d.loading = true;
+    const [{ Scene3D: S }, coast] = await Promise.all([
+      import("./view3d"),
+      coastRings ? null : fetch("./data/coast.json").then((r) => r.json()).catch(() => null),
+    ]);
+    if (coast) coastRings = (coast.geometry.coordinates as [number, number][][][]).flat();
+    v3d.scene = new S($("view3d"));
+    v3d.scene.onHover = (q, x, y) => {
+      if (!q) { hideTooltip(); return; }
+      showTooltip(x, y, (tip) => { tip.append(el("div", "t-head", q.label), el("div", "", `M${q.mag.toFixed(1)}, ${fmt(Math.round(q.depth))} km deep`)); });
+    };
+    v3d.scene.onPick = (q) => {
+      const f = shownQuakes.find((x) => x.properties.id === q.id);
+      if (f) select({ props: f.properties, coords: f.geometry.coordinates as [number, number] });
+    };
+    v3d.loading = false;
+    resetCamera = true;
+    if (state.tab !== "3d") { draw3d(); return; }
+  }
+  const b = map.getBounds();
+  const bounds = { w: b.getWest(), s: b.getSouth(), e: b.getEast(), n: b.getNorth() };
+  const key = [bounds.w, bounds.s, bounds.e, bounds.n].map((x) => x.toFixed(2)).join(",");
+  if (key !== v3d.boundsKey) { v3d.boundsKey = key; resetCamera = true; } // a new area: frame it
+  let quakes = shownQuakes
+    .filter((f) => f.properties.depth !== null && f.properties.mag !== null)
+    .filter((f) => { const [lo, la] = f.geometry.coordinates; return lo >= bounds.w && lo <= bounds.e && la >= bounds.s && la <= bounds.n; });
+  v3d.capped = quakes.length > MAX_3D;
+  if (v3d.capped) quakes = [...quakes].sort((a, c) => c.properties.mag! - a.properties.mag!).slice(0, MAX_3D);
+  v3d.n = quakes.length;
+  const lines = (fc: GeoJSON.FeatureCollection | null) => (fc?.features ?? []).flatMap((f) =>
+    f.geometry.type === "MultiLineString" ? (f.geometry.coordinates as [number, number][][])
+      : f.geometry.type === "LineString" ? [f.geometry.coordinates as [number, number][]] : []);
+  const t = theme();
+  v3d.scene.set({
+    quakes: quakes.map((f) => ({
+      lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], depth: f.properties.depth!, mag: f.properties.mag!,
+      id: f.properties.id, label: `${fmtDate(f.properties.t)}${f.properties.region ? `, ${f.properties.region}` : ""}`,
+    })),
+    coast: coastRings ?? [], plates: lines(overlayData.plates),
+    slabs: (overlayData.slabs?.features ?? []).map((f) => ({ depthKm: Number(f.properties?.depth), lines: lines({ type: "FeatureCollection", features: [f] }) })),
+    bounds, exaggeration: v3d.ex, depthEdges: DEPTH_EDGES,
+    colors: { background: t.surface, coast: t.secondary, plates: t.text, slab: t.series[0], box: t.axis, text: t.muted, depth: t.depth },
+  }, resetCamera);
+  v3d.scene.autoRotate = v3d.spin;
+  renderPanel();
+}
+
+function render3dPane() {
+  const host = $("pane-3d");
+  const parts: HTMLElement[] = [el("h2", "", "3D: quakes at their depths")];
+  parts.push(el("p", "sub",
+    "The quakes on the map, in the area the map showed, placed at their depths under the coastline. Deep quakes trace " +
+    "the plates sinking under Japan: the Pacific plate dipping west from the Japan and Kuril trenches down to about " +
+    "600 km, and the Philippine Sea plate under western Japan. Blue lines: the top of the sinking plates every 20–100 km " +
+    "(USGS Slab2). Drag to turn, scroll or pinch to zoom, right-drag or two fingers to move; click a quake to open it."));
+  parts.push(el("p", "lead", v3d.scene
+    ? `${fmt(v3d.n)} quakes` + (v3d.capped ? ` (the ${fmt(MAX_3D)} largest)` : "") + `, ${state.from === state.to ? state.from : `${state.from}–${state.to}`}, M${effectiveMinMag()}+.`
+    : "Loading the 3D view…"));
+  const row = el("div", "seg");
+  for (const ex of [1, 2, 4]) {
+    const b = el("button", ex === v3d.ex ? "primary" : "", ex === 1 ? "True depth" : `Depth ×${ex}`) as HTMLButtonElement;
+    b.type = "button";
+    b.addEventListener("click", () => { v3d.ex = ex; draw3d(true); });
+    row.append(b);
+  }
+  const ctl = el("div", "seg");
+  const spin = el("button", v3d.spin ? "primary" : "", v3d.spin ? "Stop turning" : "Turn slowly") as HTMLButtonElement;
+  spin.type = "button";
+  spin.addEventListener("click", () => { v3d.spin = !v3d.spin; if (v3d.scene) v3d.scene.autoRotate = v3d.spin; renderPanel(); });
+  const reset = el("button", "", "Reset view") as HTMLButtonElement;
+  reset.type = "button";
+  reset.addEventListener("click", () => draw3d(true));
+  ctl.append(spin, reset);
+  parts.push(row, ctl, el("p", "sub",
+    "Set the years and magnitude on the timeline below, and zoom the map on another tab to choose the area (the 3D view " +
+    "uses the area the map last showed). Colours are depth, as on the map; size is magnitude. With true depth, Japan's " +
+    "slabs look thin: the islands are about 2,500 km long and the deepest quakes 700 km down."));
+  host.replaceChildren(...parts);
+}
 
 // --------------------------------------------------------- depth section ---
 
@@ -997,7 +1093,7 @@ document.addEventListener("keydown", (e) => {
 
 // ---------------------------------------------------------------- panel ---
 
-const TABS = ["magnitudes", "depth", "quake", "location", "history", "shaking", "slow", "forecast"];
+const TABS = ["magnitudes", "depth", "quake", "location", "history", "shaking", "slow", "forecast", "3d"];
 
 function setTab(tab: string) {
   state.tab = tab;
@@ -1015,6 +1111,7 @@ function setTab(tab: string) {
   drawHotspots();
   drawLfe();
   drawForecast();
+  draw3d();
   if (map.getLayer("quakes")) applyTimeFilter();
   if (map.getLayer("destructive")) map.setLayoutProperty("destructive", "visibility", tab === "history" ? "visible" : "none");
   map.resize();
@@ -1085,6 +1182,8 @@ function renderPanel() {
       from: Math.max(yearStart(state.from), yearStart(1997)), to: yearEnd(state.to),
       years: state.from === state.to ? `${state.from}` : `${Math.max(1997, state.from)}–${state.to}`,
     });
+  } else if (state.tab === "3d") {
+    render3dPane();
   } else if (state.tab === "forecast") {
     if (fc.status === "loading") drawForecast();
     const b = map.getBounds();
@@ -1176,6 +1275,7 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", async () =
   map.setStyle(next);
   map.once("style.load", addQuakeLayers);
   renderPanel();
+  if (state.tab === "3d") draw3d();
 });
 
 // Legend for the map symbols (depth colours, sizes).

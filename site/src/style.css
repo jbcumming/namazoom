@@ -362,3 +362,7 @@ tr.clickable:hover td { background: var(--page); }
 .mini.fs tr.this td { color: var(--text-primary); font-weight: 600; }
 .mini.fs td:nth-child(3) { text-transform: none; white-space: nowrap; }
 .mini.fs td:nth-child(2) { white-space: nowrap; }
+.view3d { position: absolute; inset: 0; z-index: 1; overflow: hidden; touch-action: none; }
+.view3d canvas { display: block; cursor: grab; }
+.v3d-labels { position: absolute; inset: 0; pointer-events: none; font-size: 11px; font-variant-numeric: tabular-nums; }
+.v3d-labels span { position: absolute; left: 0; top: 0; white-space: nowrap; }

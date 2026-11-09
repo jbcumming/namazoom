@@ -151,6 +151,11 @@ kept in the URL hash.
   detection method (template matching from 2018 multiplies the counts), and a
   space-time density plot along the belt where episodic tremor-and-slip bursts
   show as streaks.
+- *3D* - the map's quakes (timeline years, magnitude, map area) at their depths
+  under the coastline, with plate boundaries and the Slab2 sinking-plate
+  contours: drag to turn, depth exaggeration ×1/×2/×4, slow spin, hover for
+  details, click to open a quake. three.js (`site/src/view3d.ts`), loaded only
+  when the tab is opened.
 - *Forecast* - the chance of M5+/M6+/M7+ quakes in the 7 days after the data
   ends, for the visible area and per half-degree square on the map, against the
   long-term average; and how the same method did on every week since 2016
