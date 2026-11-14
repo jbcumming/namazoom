@@ -28,7 +28,7 @@ export function scaleRange(cells: Cell[]): [number, number] {
   return hi > lo ? [lo, hi] : [lo, lo * 10];
 }
 
-const fmtRate = (v: number) => (v >= 10 ? fmt(Math.round(v)) : d3.format(".2~r")(v));
+export const fmtRate = (v: number) => (v >= 10 ? fmt(Math.round(v)) : d3.format(".2~r")(v));
 
 export interface ShakingInputs {
   status: "loading" | "ok";

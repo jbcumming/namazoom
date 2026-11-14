@@ -7,6 +7,12 @@ import { trenchSection } from "./panel-trench";
 import { OUTLOOK } from "./trench-history";
 import { el, fmt, hideTooltip, showTooltip, theme } from "./ui";
 
+/** Forecast map colours: a violet ramp, kept apart from the Shaking tab's green rates. */
+export function fcColors(): string[] {
+  const css = getComputedStyle(document.documentElement);
+  return d3.range(7).map((i) => css.getPropertyValue(`--fc-${i + 1}`).trim());
+}
+
 export interface ForecastInputs {
   status: "loading" | "ok" | "missing";
   data: Forecast | null;

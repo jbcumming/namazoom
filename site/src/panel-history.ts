@@ -2,9 +2,9 @@
 // visible map area and the timeline's years.
 import * as Plot from "@observablehq/plot";
 import * as d3 from "d3";
-import type { QuakeProps } from "./quakes";
+import { fmtDate, type QuakeProps } from "./quakes";
 import { el, fmt, hideTooltip, rowAction, showTooltip, theme } from "./ui";
-import { quakePlace } from "./names";
+import { famous, quakePlace } from "./names";
 
 type QF = GeoJSON.Feature<GeoJSON.Point, QuakeProps>;
 
@@ -46,6 +46,13 @@ const sup = (n: number) => String(n).split("").map((c) => SUP[Number(c)] ?? c).j
 const yearOf = (t: number) => new Date((t + 9 * 3600) * 1000).getUTCFullYear();
 const dateOf = (t: number) => new Date((t + 9 * 3600) * 1000).toISOString().slice(0, 10);
 
+/** "the Nankai earthquake (M8.0, 21 Dec 1946)", or "an M7.2 off Miyagi Prefecture on 4 May 1980". */
+function topName(p: QuakeProps): string {
+  const f = famous(p.t, p.mag);
+  return f ? `the ${f.name} (M${p.mag!.toFixed(1)}, ${fmtDate(p.t)})`
+    : `M${p.mag!.toFixed(1)} on ${fmtDate(p.t)}${p.region ? `, ${quakePlace(p).replace(/^./, (c) => c.toLowerCase())}` : ""}`;
+}
+
 export function renderHistory(host: HTMLElement, inp: HistoryInputs) {
   const t = theme();
   const w = Math.max(260, host.clientWidth - 32);
@@ -64,7 +71,7 @@ export function renderHistory(host: HTMLElement, inp: HistoryInputs) {
   const topShare = energyJ(top.properties.mag!) / total;
   parts.push(el("h2", "", "Energy released"));
   parts.push(el("p", "lead",
-    `The largest quake here, M${top.properties.mag!.toFixed(1)} on ${dateOf(top.properties.t)}, released ` +
+    `The largest quake here, ${topName(top.properties)}, released ` +
     `${d3.format(".0%")(topShare)} of the seismic energy of all ${fmt(q.length)} M5+ quakes in this view.`));
 
   const byYear = d3.rollups(q, (v) => d3.sum(v, (f) => energyJ(f.properties.mag!)), (f) => yearOf(f.properties.t))

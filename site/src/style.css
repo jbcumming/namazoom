@@ -40,6 +40,14 @@
   --hot-5: #106b07;
   --hot-6: #05541f;
   --hot-7: #013e1f;
+  /* forecast chances: its own hue (violet) so it can't be mixed up with the shaking rates */
+  --fc-1: #d6cdf2;
+  --fc-2: #b8a8e8;
+  --fc-3: #9a84db;
+  --fc-4: #7d62cc;
+  --fc-5: #6243b8;
+  --fc-6: #48289c;
+  --fc-7: #30137a;
   /* fallback basemap */
   --map-sea: #dde5ec;
   --map-land: #f6f5f1;
@@ -86,6 +94,13 @@
     --hot-5: #59ac51;
     --hot-6: #2e9848;
     --hot-7: #0d8147;
+  --fc-1: #3a2f66;
+  --fc-2: #4d3c8a;
+  --fc-3: #634dab;
+  --fc-4: #7b63c8;
+  --fc-5: #977fdc;
+  --fc-6: #b5a2ec;
+  --fc-7: #d7cbf8;
     --map-sea: #121416;
     --map-land: #24241f;
     --map-coast: #4a4a46;
@@ -130,6 +145,13 @@
   --hot-5: #59ac51;
   --hot-6: #2e9848;
   --hot-7: #0d8147;
+  --fc-1: #3a2f66;
+  --fc-2: #4d3c8a;
+  --fc-3: #634dab;
+  --fc-4: #7b63c8;
+  --fc-5: #977fdc;
+  --fc-6: #b5a2ec;
+  --fc-7: #d7cbf8;
   --map-sea: #121416;
   --map-land: #24241f;
   --map-coast: #4a4a46;
@@ -183,6 +205,12 @@ body.panel-closed .panel { display: none; }
 .map-overlay > * { pointer-events: auto; }
 .top-right { top: 10px; right: 10px; align-items: flex-end; }
 .bottom-left { left: 10px; bottom: 34px; } /* clear of the attribution line */
+.top-center { top: 10px; left: 50%; transform: translateX(-50%); align-items: center; max-width: calc(100% - 120px); }
+.map-hint { font-weight: 600; color: var(--text-primary); text-align: center; }
+.hint-cancel { font: inherit; font-weight: 400; padding: 0 4px; border: none; background: none; color: var(--focus); text-decoration: underline; cursor: pointer; }
+.lg-toggle-btn { align-self: flex-start; font: inherit; font-weight: 600; color: var(--text-primary); border: none; background: none; padding: 0; cursor: pointer; }
+.lg-swatch { width: 12px; height: 10px; border-radius: 2px; display: inline-block; }
+.lg-ramp { display: inline-flex; gap: 1px; }
 .pill {
   background: var(--surface-1); border: 1px solid var(--border); border-radius: 999px;
   padding: 3px 10px; font-size: 0.8rem; margin: 0;

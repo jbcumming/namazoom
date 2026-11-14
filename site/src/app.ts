@@ -15,9 +15,9 @@ import { DAY, FORESHOCK_DAYS, MIN_MAINSHOCK, WINDOW_DAYS, sequence, type Shock }
 import { PRESETS, renderDepth } from "./panel-depth";
 import { PLACES, renderLocation, type Place } from "./panel-location";
 import { renderHistory } from "./panel-history";
-import { HOT_STEPS, hotColors, renderShaking, scaleRange } from "./panel-shaking";
+import { HOT_STEPS, fmtRate, hotColors, renderShaking, scaleRange } from "./panel-shaking";
 import { renderLfe } from "./panel-lfe";
-import { renderForecast } from "./panel-forecast";
+import { fcColors, renderForecast } from "./panel-forecast";
 import { P_EDGES, chance, fmtPct, fmtWindow, pClass, sumCells, type Forecast } from "./forecast";
 import type { LfeColumns } from "./lfe";
 import { CELL_DEG, grid, LEVELS, logClass, stationRates, type Cell, type StationCounts } from "./hotspots";
@@ -44,6 +44,8 @@ const state = {
   tab: "magnitudes",
   selected: null as { props: QuakeProps; coords: [number, number] } | null,
 };
+
+const narrow = () => matchMedia("(max-width: 760px)").matches; // phone layout: panel under the map
 
 const store = new QuakeStore();
 const [grData] = await Promise.all([fetch("./data/gr.json").then((r) => r.json() as Promise<GrData>), store.init()]);
@@ -164,11 +166,22 @@ map.on("load", () => {
 
 /** Select a quake by catalogue id: find it in its year's data. A shared link keeps the tab it
  * was on (the selection chip shows above it); a quick pick opens the Quake tab. */
-async function restoreQuake(id: string, openTab = false) {
+async function findQuake(id: string) {
   const y = yearFromId(id);
+  if (!Number.isFinite(y)) return null;
   await store.ensureYears([y]);
-  const f = store.features(yearStart(y), yearEnd(y), 3).features.find((x) => x.properties.id === id);
-  if (f) select({ props: f.properties, coords: f.geometry.coordinates as [number, number] }, openTab);
+  return store.features(yearStart(y), yearEnd(y), 3).features.find((x) => x.properties.id === id) ?? null;
+}
+
+/** Set when a link names a quake the map data doesn't have (shown on the Quake tab). */
+let missingQuake: string | null = null;
+
+async function restoreQuake(id: string, openTab = false) {
+  const f = await findQuake(id);
+  if (f) { missingQuake = null; select({ props: f.properties, coords: f.geometry.coordinates as [number, number] }, openTab); return; }
+  missingQuake = id;
+  if (state.selected) select(null);
+  setTab("quake");
 }
 
 /** Buttons that open well-known quakes (Quake tab empty state). */
@@ -300,6 +313,7 @@ function setOverlay(name: keyof typeof overlays, on: boolean) {
   for (const id of OVERLAY_LAYERS[name]) {
     if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", vis(name));
   }
+  if (state.tab === "3d") draw3d();
 }
 
 const KIND_LABEL: Record<string, string> = {
@@ -491,8 +505,12 @@ async function select(sel: typeof state.selected, openTab = true) {
   // Picked from a list while the map looks elsewhere: bring the epicentre into view.
   if (sel && openTab && !map.getBounds().contains(sel.coords)) map.easeTo({ center: sel.coords, zoom: Math.max(map.getZoom(), 5) });
   // Selecting opens the Quake tab; clearing stays on the current tab.
-  if (sel && openTab) setTab("quake");
-  else { updateSelChip(); renderPanel(); }
+  if (sel) missingQuake = null;
+  if (sel && openTab) {
+    setTab("quake");
+    // On a phone the panel sits under the map: bring the details into view.
+    if (narrow()) $("tabs").scrollIntoView({ behavior: "smooth", block: "start" });
+  } else { updateSelChip(); renderPanel(); }
   if (sel) loadAftershocks(sel, token);
   if (sel && sel.props.mag !== null && sel.props.mag >= 5.5) loadForeshock();
   if (!sel || !sel.props.felt) return;
@@ -752,6 +770,7 @@ async function drawHotspots() {
     hot.range = scaleRange(hot.cells);
     hot.key = key;
     renderPanel();
+    renderLegend();
   }
   if (state.tab !== "shaking") return;
   const [lo, hi] = hot.range;
@@ -802,10 +821,12 @@ function addLfeLayer() {
 async function drawLfe() {
   const src = map.getSource("lfe") as GeoJSONSource | undefined;
   if (!src) return;
-  if (state.tab !== "slow") { src.setData({ type: "FeatureCollection", features: [] }); lfeKey = ""; return; }
+  if (state.tab !== "slow") { src.setData({ type: "FeatureCollection", features: [] }); lfeKey = ""; $("lfe-loading").hidden = true; return; }
+  const pill = $("lfe-loading");
+  pill.hidden = false; // the file is large and drawing ~180k points takes a few seconds
   lfePromise ??= fetch("./data/lfe.json").then((r) => r.json());
   const c = (lfeData = await lfePromise);
-  if (state.tab !== "slow") return;
+  if (state.tab !== "slow") { pill.hidden = true; return; }
   lfeKey = `${state.from}-${state.to}`;
   const lo = yearStart(state.from), hi = yearEnd(state.to);
   const features: GeoJSON.Feature<GeoJSON.Point>[] = [];
@@ -814,6 +835,7 @@ async function drawLfe() {
     features.push({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [c.lon[i], c.lat[i]] } });
   }
   src.setData({ type: "FeatureCollection", features });
+  map.once("idle", () => { pill.hidden = true; });
   renderPanel();
 }
 
@@ -839,7 +861,7 @@ let fcPromise: Promise<Forecast | null> | null = null;
 
 function addForecastLayer() {
   map.addSource("forecast", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-  const colors = hotColors();
+  const colors = fcColors();
   const m: (number | string)[] = [];
   colors.forEach((c, i) => m.push(i, c));
   map.addLayer({
@@ -955,6 +977,7 @@ async function setPlace(place: Place | null) {
   loc.place = place;
   loc.picking = false;
   map.getCanvas().style.cursor = "";
+  syncMapHint();
   loc.status = place ? "loading" : "idle";
   loc.quakes = []; loc.stations = [];
   drawLocation(); renderPanel();
@@ -967,12 +990,14 @@ async function setPlace(place: Place | null) {
 }
 
 /** Open a quake from the felt list in the Quake tab (full catalogue details when loaded). */
-function selectFelt(q: FeltQuake) {
+async function selectFelt(q: FeltQuake) {
   if (!q.id || q.lat === null || q.lon === null) return;
-  const f = shownQuakes.find((x) => x.properties.id === q.id);
+  // Most felt quakes are below M5 and not loaded yet: fetch their year for the full details.
+  const f = shownQuakes.find((x) => x.properties.id === q.id) ?? await findQuake(q.id);
+  // Under M3 the map data has no entry: show what the shaking record gives.
   const props: QuakeProps = f ? f.properties
-    : { t: q.t, mag: q.mag, depth: q.depth, shindo: "", cls: "", felt: true, id: q.id };
-  select({ props, coords: [q.lon, q.lat] });
+    : { t: q.t, mag: q.mag, depth: q.depth, shindo: "", cls: "-", felt: true, id: q.id }; // cls "-": type unknown
+  select({ props, coords: f ? f.geometry.coordinates as [number, number] : [q.lon, q.lat] });
 }
 
 // Hover and click on the epicentres of quakes felt at the chosen place.
@@ -1001,6 +1026,34 @@ map.on("click", "place-felt", (e) => {
   if (q) selectFelt(q);
 });
 
+/** Turn off "Pick on map" and "Draw your own line" (Esc, or leaving their tab). */
+function cancelMapModes() {
+  const was = sectionState.drawing || loc.picking;
+  sectionState.drawing = false; sectionState.first = null; loc.picking = false;
+  map.getCanvas().style.cursor = "";
+  syncMapHint();
+  if (was) { drawSection(); renderPanel(); }
+}
+
+/** On-map prompt while a click places something instead of selecting a quake. */
+function syncMapHint() {
+  const hint = $("map-hint");
+  const text = loc.picking ? "Click the map to choose a place"
+    : sectionState.drawing ? (sectionState.first ? "Click where the line should end" : "Click where the line should start")
+    : "";
+  hint.hidden = !text;
+  hint.replaceChildren(text, " · ");
+  const cancel = el("button", "hint-cancel", "Cancel (Esc)") as HTMLButtonElement;
+  cancel.type = "button";
+  cancel.addEventListener("click", cancelMapModes);
+  hint.append(cancel);
+}
+
+/** Phones show the panel under the map: bring the map back when a click on it is needed. */
+function showMapOnPhone() {
+  if (narrow()) $("map").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 // Clicking empty map clears the selected quake.
 map.on("click", (e) => {
   if (!state.selected || loc.picking || sectionState.drawing) return;
@@ -1025,14 +1078,15 @@ map.on("click", (e) => {
     sectionState.first = null;
     map.getCanvas().style.cursor = "";
   }
+  syncMapHint();
   drawSection();
   renderPanel();
 });
 
 function applyTimeFilter() {
   if (!map.getLayer("quakes")) return;
-  // A selected quake's station dots and ring belong to its own time, not the playback's.
-  for (const id of ["footprint", "selected", "wavefront"]) {
+  // A selected quake's station dots belong to its own time, not the playback's (its ring stays).
+  for (const id of ["footprint", "wavefront"]) {
     if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", state.anim ? "none" : "visible");
   }
   if (state.anim) {
@@ -1172,11 +1226,10 @@ $("exit-play").addEventListener("click", stop);
 // Esc undoes the most recent kind of thing: a half-done map pick, then playback, then the selection.
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
-  if (sectionState.drawing || loc.picking) {
-    sectionState.drawing = false; sectionState.first = null; loc.picking = false;
-    map.getCanvas().style.cursor = "";
-    drawSection(); renderPanel();
-  } else if (state.anim) stop();
+  // Esc in a dropdown or text box only closes that control.
+  if ((e.target as HTMLElement | null)?.closest?.("select, input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea")) return;
+  if (sectionState.drawing || loc.picking) cancelMapModes();
+  else if (state.anim) stop();
   else if (state.selected) select(null);
 });
 
@@ -1185,6 +1238,7 @@ document.addEventListener("keydown", (e) => {
 const TABS = ["magnitudes", "depth", "quake", "location", "history", "shaking", "slow", "forecast", "3d"];
 
 function setTab(tab: string) {
+  if (tab !== state.tab) cancelMapModes(); // a pick or line belongs to the tab that started it
   state.tab = tab;
   updateUrl();
   document.body.classList.remove("panel-closed");
@@ -1288,7 +1342,9 @@ function renderPanelBody() {
         sectionState.drawing = !sectionState.drawing;
         sectionState.first = null;
         map.getCanvas().style.cursor = sectionState.drawing ? "crosshair" : "";
+        syncMapHint();
         drawSection(); renderPanel();
+        if (sectionState.drawing) showMapOnPhone();
       },
       onWidth: (km) => {
         if (sectionState.section) sectionState.section = { ...sectionState.section, halfWidthKm: km };
@@ -1313,7 +1369,7 @@ function renderPanelBody() {
       status: fc.status, data: fc.data,
       view: fc.data ? sumCells(fc.data, all ? null : { w: b.getWest(), s: b.getSouth(), e: b.getEast(), n: b.getNorth() }) : null,
       areaLabel: all ? "all of Japan" : "the visible map area",
-      colors: hotColors(), edges: P_EDGES,
+      colors: fcColors(), edges: P_EDGES,
     });
   } else if (state.tab === "shaking") {
     renderShaking($("pane-shaking"), {
@@ -1329,6 +1385,7 @@ function renderPanelBody() {
     const b = map.getBounds();
     const cells = visibleCells();
     const quakes = store.features(yearStart(state.from), yearEnd(state.to), 5).features.filter((f) => {
+      if (cells === null) return true; // "all of Japan": not just what fits on screen
       const [lon, lat] = f.geometry.coordinates;
       return lon >= b.getWest() && lon <= b.getEast() && lat >= b.getSouth() && lat <= b.getNorth();
     });
@@ -1343,7 +1400,12 @@ function renderPanelBody() {
       allStations: shindo.stations,
       years: store.index.years,
       onPlace: (p) => { setPlace(p); map.flyTo({ center: p.lonlat, zoom: 7 }); },
-      onPick: () => { loc.picking = !loc.picking; map.getCanvas().style.cursor = loc.picking ? "crosshair" : ""; renderPanel(); },
+      onPick: () => {
+        loc.picking = !loc.picking;
+        map.getCanvas().style.cursor = loc.picking ? "crosshair" : "";
+        syncMapHint(); renderPanel();
+        if (loc.picking) showMapOnPhone();
+      },
       onGeolocate: () => {
         navigator.geolocation?.getCurrentPosition(
           (pos) => { const p: Place = { name: "your location", lonlat: [pos.coords.longitude, pos.coords.latitude] }; setPlace(p); map.flyTo({ center: p.lonlat, zoom: 7 }); },
@@ -1377,8 +1439,14 @@ function renderPanelBody() {
       if (fs) extra.append(fs);
       extra.append(clear);
     }
-    renderQuake($("pane-quake-body"), state.selected?.props ?? null, state.selected?.coords, footprint,
-      state.selected ? extra : quakeExamples());
+    let empty: HTMLElement | null = null;
+    if (!state.selected) {
+      empty = el("div");
+      if (missingQuake) empty.append(el("p", "note", `The linked quake (${missingQuake}) isn't in the map data, which ` +
+        "covers quakes of M3 and above. Smaller felt quakes can be opened from the My location tab."));
+      empty.append(quakeExamples());
+    }
+    renderQuake($("pane-quake-body"), state.selected?.props ?? null, state.selected?.coords, footprint, empty ?? extra);
   }
 }
 
@@ -1393,8 +1461,11 @@ new ResizeObserver(() => { clearTimeout(moveTimer); moveTimer = window.setTimeou
 // Theme changes: swap basemap flavour and re-add the quake layers.
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", async () => {
   const { style: next } = await basemapStyle(isDark());
-  map.setStyle(next);
+  // A diffed setStyle may keep the old style object and skip "style.load" while still dropping
+  // our sources, so replace the style outright and listen before starting.
   map.once("style.load", addQuakeLayers);
+  map.setStyle(next, { diff: false });
+  renderLegend();
   renderPanel();
   if (state.tab === "3d") draw3d();
 });
@@ -1451,8 +1522,49 @@ function renderLegend() {
     });
     rows.unshift(fr);
   }
-  host.replaceChildren(...rows);
+  // The squares on the Forecast and Shaking tabs measure different things: name each one.
+  const ramp = (title: string, tip: string, colors: string[], lo: string, hi: string) => {
+    const r = el("div", "lg-row");
+    const t_ = el("span", "lg-title", title); t_.title = tip;
+    const bar = el("span", "lg-ramp");
+    for (const c of colors) { const sw = el("span", "lg-swatch"); sw.style.background = c; bar.append(sw); }
+    r.append(t_, el("span", "", lo), bar, el("span", "", hi));
+    rows.unshift(r);
+  };
+  if (state.tab === "forecast" && !state.anim) {
+    ramp("Squares: chance of M5+ in 7 days", "Each half-degree square's forecast chance of at least one M5+ quake in the next 7 days",
+      fcColors(), `<${fmtPct(P_EDGES[0])}`, `≥${fmtPct(P_EDGES[P_EDGES.length - 1])}`);
+  } else if (state.tab === "shaking" && hot.cells.length) {
+    ramp(`Squares: times per year at ${LEVELS[hot.level].label.replace(/ \(.*\)/, "")}`, "Average yearly count at the seismic stations in each square, over the timeline's years",
+      hotColors(), fmtRate(hot.range[0]), fmtRate(hot.range[1]));
+  }
+  const btn = el("button", "lg-toggle-btn", legendOpen ? "Legend ▾" : "Legend ▸") as HTMLButtonElement;
+  btn.type = "button";
+  btn.setAttribute("aria-expanded", String(legendOpen));
+  btn.addEventListener("click", () => { legendOpen = !legendOpen; renderLegend(); });
+  host.replaceChildren(btn, ...(legendOpen ? rows : []));
 }
+// Open on wide screens; on a phone the legend would cover a quarter of the map.
+let legendOpen = !narrow();
+
+// A link pasted into a tab that already has the site open changes only the hash.
+// (Our own updates use replaceState, which doesn't fire this.)
+window.addEventListener("hashchange", () => {
+  const h = parseHash(location.hash, TABS, store.index.years);
+  if (state.anim) stop();
+  const [y0, y1] = store.index.years;
+  const [from, to] = h.from !== undefined ? [h.from, h.to!] : [y0, y1];
+  const minMag = h.minMag ?? 5;
+  if (from !== state.from || to !== state.to || minMag !== state.minMag) {
+    state.from = from; state.to = to; state.minMag = minMag;
+    $<HTMLSelectElement>("min-mag").value = String(minMag);
+    syncTimeline(); refreshData();
+  }
+  if (h.view) map.jumpTo({ center: [h.view.lon, h.view.lat], zoom: h.view.zoom });
+  setTab(h.tab ?? "magnitudes");
+  if (h.quake && h.quake !== state.selected?.props.id) restoreQuake(h.quake);
+  else if (!h.quake && state.selected) select(null);
+});
 
 renderLegend();
 renderIntro();

@@ -48,8 +48,10 @@ export function renderQuake(host: HTMLElement, q: QuakeProps | null, coords: [nu
   row("Depth", q.depth === null ? "unknown" : `${q.depth.toFixed(q.depth < 10 ? 1 : 0)} km`);
   if (q.region) row("Region", regionLabel(q.region));
   row("Epicentre", `${coords[1].toFixed(3)}°N, ${coords[0].toFixed(3)}°E`);
-  row("Max shindo", q.shindo ? SHINDO[q.shindo] ?? q.shindo : q.felt ? "felt" : "not felt / not reported");
-  row("Type", q.prelim ? "not yet classified" : CLASS[q.cls] ?? "located by another agency");
+  // Without a catalogue value, the strongest station reading stands in.
+  const top = fp.status === "ok" ? Math.max(-1, ...fp.readings!.map((r) => classOf(r.code))) : -1;
+  row("Max shindo", q.shindo ? SHINDO[q.shindo] ?? q.shindo : top >= 0 ? CLASSES[top].label : q.felt ? "felt" : "not felt / not reported");
+  if (q.cls !== "-") row("Type", q.prelim ? "not yet classified" : CLASS[q.cls] ?? "located by another agency");
   row(q.prelim ? "ID" : "Catalogue ID", q.id);
 
   const size = q.mag === null ? "Felt earthquake" : `M${q.mag.toFixed(1)} earthquake`;
