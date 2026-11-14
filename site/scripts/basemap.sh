@@ -14,8 +14,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PMTILES=${PMTILES:-../tools/pmtiles}
-BBOX=120,22,150,47   # a little wider than the 24-46N, 122-148E data box
-MAXZOOM=11           # the app's maximum zoom; MapLibre over-zooms beyond it
+BBOX=121,23,149,47   # the 24-46N, 122-148E data box plus 1 degree
+# The app zooms to 11; MapLibre over-zooms the z10 tiles there (slightly less street detail).
+# This halves the file (about 89 MB), under GitHub's 100 MB per-file limit.
+MAXZOOM=10
 
 assets() {
   local tmp
@@ -26,6 +28,8 @@ assets() {
   rm -rf public/basemap-assets
   mkdir -p public/basemap-assets/sprites
   cp -r "$tmp"/basemaps-assets-main/fonts public/basemap-assets/fonts
+  # Only used for labels in Devanagari script, which this map's area doesn't have.
+  rm -rf "public/basemap-assets/fonts/Noto Sans Devanagari Regular v1"
   cp -r "$tmp"/basemaps-assets-main/sprites/v4 public/basemap-assets/sprites/v4
   du -sh public/basemap-assets
 }
