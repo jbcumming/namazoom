@@ -72,11 +72,26 @@ export function renderLocation(host: HTMLElement, inp: LocationInputs) {
   } else if (inp.status === "loading" || !inp.allStations) {
     parts.push(el("p", "sub", `Loading readings near ${inp.place.name}…`));
   } else if (!inp.stations.length) {
-    parts.push(el("p", "note", `No intensity stations within ${inp.radiusKm} km of ${inp.place.name}. Try a larger distance.`));
+    parts.push(el("p", "note", `No intensity stations within ${inp.radiusKm} km of ${inp.place.name}. Try a larger distance.`),
+      lookingAhead(inp.place));
   } else {
     parts.push(...summary(inp, host.clientWidth));
   }
   host.replaceChildren(...parts);
+}
+
+/** This tab is the past; the official outlook for the same spot is NIED's J-SHIS hazard map. */
+function lookingAhead(place: Place): HTMLElement {
+  const [lon, lat] = place.lonlat;
+  const p = el("p", "note");
+  const a = document.createElement("a");
+  // J-SHIS map links take center=lon,lat (from its API documentation).
+  a.href = `https://www.j-shis.bosai.go.jp/map/?lang=en&zoom=12&center=${lon.toFixed(5)},${lat.toFixed(5)}`;
+  a.target = "_blank"; a.rel = "noopener";
+  a.textContent = "Open J-SHIS at this spot ↗";
+  p.append("This is how often it has shaken. For the official chance of strong shaking here in the coming decades, " +
+    "see J-SHIS, the national hazard map from NIED (Japan's disaster research institute). ", a);
+  return p;
 }
 
 function summary(inp: LocationInputs, width: number): HTMLElement[] {
@@ -100,7 +115,7 @@ function summary(inp: LocationInputs, width: number): HTMLElement[] {
     stat("Shindo 4 or more", fmt(atLeast(3)), "most people startled"),
     stat("Strongest", strongest ? (CLASSES[strongest.cls]?.label ?? "felt") : "–", strongest ? when(strongest.t) : undefined),
   );
-  out.push(stats);
+  out.push(stats, lookingAhead(inp.place!));
 
   // Felt quakes per year, stacked by intensity.
   const w = Math.max(260, width - 32);
