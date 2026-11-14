@@ -109,6 +109,7 @@ const radius = radiusPlus(0);
 const beforeLabels = () => map.getStyle().layers.find((l) => l.type === "symbol")?.id;
 
 function addQuakeLayers() {
+  if (map.getSource("quakes")) return; // overlapping theme switches can queue this twice
   const before = beforeLabels();
   addSlabLayers(before);
   map.addSource("quakes", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
@@ -158,6 +159,9 @@ const fitJapan = () => map.fitBounds([[box.lon_min, box.lat_min], [box.lon_max, 
 map.on("load", () => {
   // The container may have been sized before the panel layout settled.
   map.resize();
+  // Compact attribution opens expanded; on a phone it covers the legend button, and the
+  // full credit is in the footer anyway. It stays one tap away behind its (i) button.
+  if (narrow()) document.querySelector(".maplibregl-compact-show")?.classList.remove("maplibregl-compact-show");
   if (fromUrl.view) map.jumpTo({ center: [fromUrl.view.lon, fromUrl.view.lat], zoom: fromUrl.view.zoom });
   else fitJapan();
   addQuakeLayers();
@@ -990,10 +994,13 @@ async function setPlace(place: Place | null) {
 }
 
 /** Open a quake from the felt list in the Quake tab (full catalogue details when loaded). */
+let feltToken = 0;
 async function selectFelt(q: FeltQuake) {
   if (!q.id || q.lat === null || q.lon === null) return;
+  const token = ++feltToken;
   // Most felt quakes are below M5 and not loaded yet: fetch their year for the full details.
   const f = shownQuakes.find((x) => x.properties.id === q.id) ?? await findQuake(q.id);
+  if (token !== feltToken) return; // a later click won
   // Under M3 the map data has no entry: show what the shaking record gives.
   const props: QuakeProps = f ? f.properties
     : { t: q.t, mag: q.mag, depth: q.depth, shindo: "", cls: "-", felt: true, id: q.id }; // cls "-": type unknown
@@ -1531,7 +1538,7 @@ function renderLegend() {
     r.append(t_, el("span", "", lo), bar, el("span", "", hi));
     rows.unshift(r);
   };
-  if (state.tab === "forecast" && !state.anim) {
+  if (state.tab === "forecast") {
     ramp("Squares: chance of M5+ in 7 days", "Each half-degree square's forecast chance of at least one M5+ quake in the next 7 days",
       fcColors(), `<${fmtPct(P_EDGES[0])}`, `≥${fmtPct(P_EDGES[P_EDGES.length - 1])}`);
   } else if (state.tab === "shaking" && hot.cells.length) {
@@ -1551,6 +1558,7 @@ let legendOpen = !narrow();
 // (Our own updates use replaceState, which doesn't fire this.)
 window.addEventListener("hashchange", () => {
   const h = parseHash(location.hash, TABS, store.index.years);
+  missingQuake = null; // a note about an earlier link
   if (state.anim) stop();
   const [y0, y1] = store.index.years;
   const [from, to] = h.from !== undefined ? [h.from, h.to!] : [y0, y1];
