@@ -335,6 +335,13 @@ body.panel-closed .panel { display: none; }
 .mini th { text-align: left; font-weight: 400; color: var(--text-secondary); border-bottom: 1px solid var(--axis); padding: 2px 6px 2px 0; }
 .mini td { border-bottom: 1px solid var(--grid); padding: 2px 6px 2px 0; }
 .clear-btn { margin-top: 14px; }
+.sel-chip { display: flex; align-items: stretch; gap: 0; margin: 8px 16px 0; border: 1px solid var(--border);
+  border-radius: 8px; background: var(--surface-1); font-size: 0.82rem; flex: none; }
+.sel-chip[hidden] { display: none; }
+.sel-chip button { border: none; background: none; border-radius: 8px; color: var(--text-primary); padding: 5px 10px; }
+.sel-show { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sel-clear { flex: none; color: var(--text-secondary) !important; border-left: 1px solid var(--border) !important; border-radius: 0 8px 8px 0 !important; }
+.sel-chip button:hover { background: var(--page); }
 .note { font-size: 0.82rem; color: var(--text-primary); background: var(--page); border-left: 3px solid var(--axis); padding: 6px 10px; margin: 6px 0; }
 .depth-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
 .presets { display: flex; flex-wrap: wrap; gap: 6px; }

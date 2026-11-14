@@ -166,7 +166,8 @@ async function restoreQuake(id: string) {
   const y = yearFromId(id);
   await store.ensureYears([y]);
   const f = store.features(yearStart(y), yearEnd(y), 3).features.find((x) => x.properties.id === id);
-  if (f) select({ props: f.properties, coords: f.geometry.coordinates as [number, number] });
+  // Keep the tab the link was on; the selection chip shows above it.
+  if (f) select({ props: f.properties, coords: f.geometry.coordinates as [number, number] }, false);
 }
 
 let urlTimer = 0;
@@ -428,7 +429,7 @@ function replay() {
   replayRaf = requestAnimationFrame(frame);
 }
 
-async function select(sel: typeof state.selected) {
+async function select(sel: typeof state.selected, openTab = true) {
   stopReplay();
   if (sel) sel = { ...sel, props: { ...sel.props, prelim: store.isPrelim(sel.props.t) } };
   const token = ++selectToken;
@@ -437,7 +438,9 @@ async function select(sel: typeof state.selected) {
   map.setFilter("selected", ["==", ["get", "id"], sel?.props.id ?? ""]);
   footprint = sel?.props.felt ? { status: "loading" } : { status: "none" };
   showFootprint();
-  setTab("quake");
+  // Selecting opens the Quake tab; clearing stays on the current tab.
+  if (sel && openTab) setTab("quake");
+  else { updateSelChip(); renderPanel(); }
   if (sel) loadAftershocks(sel, token);
   if (sel && sel.props.mag !== null && sel.props.mag >= 5.5) loadForeshock();
   if (!sel || !sel.props.felt) return;
@@ -934,6 +937,14 @@ map.on("click", "place-felt", (e) => {
   if (q) selectFelt(q);
 });
 
+// Clicking empty map clears the selected quake.
+map.on("click", (e) => {
+  if (!state.selected || loc.picking || sectionState.drawing) return;
+  const layers = ["quakes", "place-felt", "selected"].filter((l) => map.getLayer(l));
+  if (map.queryRenderedFeatures(e.point, { layers }).length) return;
+  select(null);
+});
+
 map.on("click", (e) => {
   if (!loc.picking) return;
   setPlace({ name: `${e.lngLat.lat.toFixed(2)}°N, ${e.lngLat.lng.toFixed(2)}°E`, lonlat: [e.lngLat.lng, e.lngLat.lat] });
@@ -1105,6 +1116,7 @@ function setTab(tab: string) {
     btn.tabIndex = t === tab ? 0 : -1;
     $(`pane-${t}`).hidden = t !== tab;
   }
+  updateSelChip();
   renderPanel();
   drawSection();
   drawLocation();
@@ -1117,6 +1129,18 @@ function setTab(tab: string) {
   map.resize();
 }
 for (const t of TABS) $(`tab-${t}`).addEventListener("click", () => setTab(t));
+
+/** "Selected: M7.0 · 14 Jan 1978 ✕" above every tab but the Quake tab (which has its own clear button). */
+function updateSelChip() {
+  const s = state.selected;
+  $("sel-chip").hidden = !s || state.tab === "quake";
+  if (!s) return;
+  const p = s.props;
+  $("sel-show").textContent =
+    `Selected: ${p.mag === null ? "felt quake" : `M${p.mag.toFixed(1)}`} · ${fmtDate(p.t)}${p.region ? ` · ${p.region}` : ""}`;
+}
+$("sel-show").addEventListener("click", () => setTab("quake"));
+$("sel-clear").addEventListener("click", () => select(null));
 $("tabs").addEventListener("keydown", (e) => {
   const i = TABS.indexOf(state.tab);
   if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
