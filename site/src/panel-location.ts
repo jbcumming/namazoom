@@ -3,7 +3,8 @@ import * as Plot from "@observablehq/plot";
 import * as d3 from "d3";
 import { stationsByYear, type FeltQuake, type NearbyStation } from "./location";
 import { CLASSES, shindoColors, type Stations } from "./shindo";
-import { el, fmt, hideTooltip, showTooltip, theme } from "./ui";
+import { famous } from "./names";
+import { el, fmt, hideTooltip, rowAction, shindoScale, showTooltip, theme } from "./ui";
 
 export interface Place { name: string; lonlat: [number, number] }
 
@@ -51,6 +52,7 @@ export function renderLocation(host: HTMLElement, inp: LocationInputs) {
   geo.type = "button";
   geo.addEventListener("click", () => inp.onGeolocate());
   const radius = document.createElement("select");
+  radius.setAttribute("aria-label", "Distance from the place");
   for (const r of [10, 25, 50]) {
     const o = document.createElement("option");
     o.value = String(r); o.textContent = `within ${r} km`; o.selected = r === inp.radiusKm;
@@ -60,7 +62,7 @@ export function renderLocation(host: HTMLElement, inp: LocationInputs) {
   controls.append(presets, pick, geo, radius);
 
   const parts: HTMLElement[] = [
-    el("h2", "", "My location"),
+    el("h2", "", inp.place ? `My location: ${inp.place.name}` : "My location"),
     el("p", "sub", "How often the ground shook near a place, from the readings of seismic intensity stations nearby. " +
       "Each quake is counted once, at the strongest intensity recorded within the distance you choose."),
     controls,
@@ -95,7 +97,7 @@ function summary(inp: LocationInputs, width: number): HTMLElement[] {
   const strongest = q.reduce<FeltQuake | null>((a, b) => (!a || b.cls > a.cls || (b.cls === a.cls && (b.instrumental ?? 0) > (a.instrumental ?? 0)) ? b : a), null);
   stats.append(
     stat("Quakes felt", fmt(q.length), `since ${first}`),
-    stat("Shindo 4 or more", fmt(atLeast(3))),
+    stat("Shindo 4 or more", fmt(atLeast(3)), "most people startled"),
     stat("Strongest", strongest ? (CLASSES[strongest.cls]?.label ?? "felt") : "–", strongest ? when(strongest.t) : undefined),
   );
   out.push(stats);
@@ -153,18 +155,15 @@ function summary(inp: LocationInputs, width: number): HTMLElement[] {
     tr.append(
       el("td", "", when(x.t)),
       el("td", "", CLASSES[x.cls].label + (x.instrumental !== null ? ` (${x.instrumental.toFixed(1)})` : "")),
-      el("td", "", x.mag === null ? (x.id ? "M?" : "no hypocentre") : `M${x.mag.toFixed(1)}`),
+      el("td", "", (x.mag === null ? (x.id ? "M?" : "no hypocentre") : `M${x.mag.toFixed(1)}`) +
+        (famous(x.t, x.mag) ? ` ${famous(x.t, x.mag)!.short}` : "")),
       el("td", "", x.epiKm === null ? "–" : `${fmt(Math.round(x.epiKm))} km away`),
     );
-    if (x.id) {
-      tr.classList.add("clickable");
-      tr.title = "Show this quake";
-      tr.addEventListener("click", () => inp.onSelectQuake(x));
-    }
+    if (x.id) rowAction(tr, "Show this quake", () => inp.onSelectQuake(x));
   }
   const tw = el("div", "chart");
   tw.append(el("div", "chart-title", "Strongest shaking recorded nearby (click a row to show the quake)"), table);
-  out.push(tw);
+  out.push(tw, shindoScale(CLASS_COLORS));
 
   const noHyp = q.filter((x) => !x.id).length;
   const nearest = inp.stations.slice(0, 3).map((s) => `${st.name[s.index] || st.id[s.index]} (${s.distKm.toFixed(1)} km)`).join(", ");

@@ -9,11 +9,11 @@ export type AftershockState =
   | { status: "loading" }
   | { status: "ok"; main: Shock; seq: Sequence; dataEnd: number };
 
-/** 0.01 -> "15 min", 0.1 -> "2.4 h", 10 -> "10 d". */
+/** 0.01 -> "14 min", 0.1 -> "2.4 h", 2.54 -> "2.5 days", 10 -> "10 days". */
 function fmtDays(d: number): string {
-  if (d >= 1) return `${d3.format("~g")(d)} d`;
+  if (d >= 1) { const n = d >= 10 ? Math.round(d) : +d.toPrecision(2); return `${n} ${n === 1 ? "day" : "days"}`; }
   const h = d * 24;
-  return h >= 1 ? `${d3.format("~g")(Number(h.toPrecision(2)))} h` : `${Math.round(h * 60)} min`;
+  return h >= 1 ? `${+h.toPrecision(2)} h` : `${Math.round(h * 60)} min`;
 }
 const dayTicks = [0.01, 0.1, 1, 10, 100];
 

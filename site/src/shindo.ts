@@ -27,17 +27,21 @@ export interface Reading {
 }
 
 // Intensity classes in order. Old-scale 5/6 (until Sep 1996) sit with 5-/6-.
+// `feel`: what each level is like, shortened from JMA's explanation table
+// (気象庁震度階級関連解説表, https://www.jma.go.jp/jma/kishou/know/shindo/kaisetsu.html).
 export const CLASSES = [
-  { codes: ["1"], label: "1" },
-  { codes: ["2"], label: "2" },
-  { codes: ["3"], label: "3" },
-  { codes: ["4"], label: "4" },
-  { codes: ["A", "5"], label: "5−" },
-  { codes: ["B"], label: "5+" },
-  { codes: ["C", "6"], label: "6−" },
-  { codes: ["D"], label: "6+" },
-  { codes: ["7"], label: "7" },
+  { codes: ["1"], label: "1", feel: "Felt by a few people sitting still indoors." },
+  { codes: ["2"], label: "2", feel: "Felt by many people sitting still indoors; hanging lights sway slightly." },
+  { codes: ["3"], label: "3", feel: "Felt by most people indoors; dishes in cupboards rattle." },
+  { codes: ["4"], label: "4", feel: "Most people are startled; hanging lights swing a lot, unstable ornaments may fall." },
+  { codes: ["A", "5"], label: "5−", feel: "Many people want to hold on to something; dishes and books may fall, unsecured furniture may move." },
+  { codes: ["B"], label: "5+", feel: "Hard to walk without holding on; unsecured furniture may topple, unreinforced block walls may collapse." },
+  { codes: ["C", "6"], label: "6−", feel: "Hard to stay standing; much unsecured furniture moves or topples, doors may jam; older wooden houses may be damaged." },
+  { codes: ["D"], label: "6+", feel: "You can only crawl; most unsecured furniture topples; many older wooden houses lean or collapse." },
+  { codes: ["7"], label: "7", feel: "You are thrown about; many older wooden houses collapse, and even newer buildings may be damaged." },
 ];
+/** "Shindo 4: Most people are startled; …" */
+export const shindoFeel = (i: number) => (CLASSES[i] ? `Shindo ${CLASSES[i].label}: ${CLASSES[i].feel}` : "");
 export const classOf = (code: string) => CLASSES.findIndex((c) => c.codes.includes(code)); // -1 for '9' (felt, unknown)
 
 /** One colour per class, from the --shindo-1..9 tokens in style.css: an ordered

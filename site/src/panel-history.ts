@@ -3,7 +3,8 @@
 import * as Plot from "@observablehq/plot";
 import * as d3 from "d3";
 import type { QuakeProps } from "./quakes";
-import { el, fmt, hideTooltip, showTooltip, theme } from "./ui";
+import { el, fmt, hideTooltip, rowAction, showTooltip, theme } from "./ui";
+import { quakePlace } from "./names";
 
 type QF = GeoJSON.Feature<GeoJSON.Point, QuakeProps>;
 
@@ -133,10 +134,9 @@ export function renderHistory(host: HTMLElement, inp: HistoryInputs) {
     for (const f of [...bad].reverse()) {
       const p = f.properties;
       const tr = body.insertRow();
-      tr.className = "clickable";
       const what = [DAMAGE[p.dmg ?? ""], TSUNAMI[p.tsu ?? ""]].filter(Boolean).join("; ");
-      tr.append(el("td", "", dateOf(p.t)), el("td", "", p.mag!.toFixed(1)), el("td", "", (p.region ?? "").toLowerCase()), el("td", "", what));
-      tr.addEventListener("click", () => inp.onSelect(f));
+      tr.append(el("td", "", dateOf(p.t)), el("td", "", p.mag!.toFixed(1)), el("td", "", quakePlace(p)), el("td", "", what));
+      rowAction(tr, "Show this quake", () => inp.onSelect(f));
     }
     const wrap = el("div", "table-scroll");
     wrap.append(table);

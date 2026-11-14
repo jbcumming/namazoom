@@ -3,7 +3,7 @@
 import * as d3 from "d3";
 import { CELL_DEG, LEVELS, MIN_YEARS, type Cell } from "./hotspots";
 import type { Stations } from "./shindo";
-import { el, fmt } from "./ui";
+import { el, fmt, rowAction } from "./ui";
 
 export const HOT_STEPS = 7;
 
@@ -102,15 +102,13 @@ export function renderShaking(host: HTMLElement, inp: ShakingInputs) {
   for (const c of top) {
     const busiest = c.stations.reduce((a, b) => (b.rate > a.rate ? b : a));
     const tr = body.insertRow();
-    tr.className = "clickable";
-    tr.title = "Show on the map";
     tr.append(
       el("td", "", `${(c.lat + CELL_DEG / 2).toFixed(1)}°N ${(c.lon + CELL_DEG / 2).toFixed(1)}°E`),
       el("td", "", fmtRate(c.rate)),
       el("td", "", String(c.stations.length)),
       el("td", "", inp.stations.name[busiest.station] || inp.stations.id[busiest.station]),
     );
-    tr.addEventListener("click", () => inp.onCell(c));
+    rowAction(tr, "Show on the map", () => inp.onCell(c));
   }
   const tw = el("div", "chart");
   tw.append(el("div", "chart-title", "Hottest squares (click to show on the map)"), table);

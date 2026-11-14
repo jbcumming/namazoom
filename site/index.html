@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Japan Quake Map</title>
+    <title>Japan earthquakes since 1919</title>
     <meta name="description" content="A century of earthquakes recorded by the Japan Meteorological Agency, on a map." />
     <link rel="stylesheet" href="./src/style.css" />
   </head>
@@ -21,7 +21,7 @@
           <div id="view3d" class="view3d" hidden></div>
           <div class="map-overlay top-right">
             <div id="playhead" class="playhead" hidden></div>
-            <div id="loading" class="pill" hidden>Loading…</div>
+            <div id="loading" class="pill" role="status">Loading earthquake data…</div>
           </div>
           <div class="map-overlay bottom-left">
             <div id="map-legend" class="map-legend"></div>
@@ -31,6 +31,7 @@
 
         <div class="timeline" aria-label="Time range">
           <button type="button" id="play" class="play" aria-label="Play through the period">▶</button>
+          <button type="button" id="exit-play" class="exit-play" hidden title="Leave playback and show the whole period (Esc)">✕ Whole period</button>
           <div class="range">
             <div class="range-track"><div id="range-fill" class="range-fill"></div><div id="range-prelim" class="range-prelim" hidden></div><div id="progress" class="progress" hidden></div></div>
             <input type="range" id="range-from" step="1" aria-label="Start year" />
@@ -75,6 +76,7 @@
         </div>
 
         <section role="tabpanel" id="pane-magnitudes" aria-labelledby="tab-magnitudes" class="pane">
+          <div id="intro-host"></div>
           <div class="seg" role="radiogroup" aria-label="Magnitude view">
             <label><input type="radio" name="mag-mode" value="single" checked /> This period</label>
             <label><input type="radio" name="mag-mode" value="eras" /> Compare eras</label>
@@ -111,7 +113,7 @@
       </aside>
     </div>
     <footer class="source-foot" id="source-foot"></footer>
-    <div class="tooltip" id="tooltip" role="status" hidden></div>
+    <div class="tooltip" id="tooltip" hidden></div>
     <script type="module" src="./src/app.ts"></script>
   </body>
 </html>

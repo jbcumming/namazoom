@@ -25,7 +25,8 @@ import { formatHash, parseHash, yearFromId } from "./urlstate";
 import { LocationStore, type FeltQuake, type NearbyStation } from "./location";
 import { swath, type LonLat, type Section } from "./section";
 import { Marker } from "maplibre-gl";
-import { CLASSES, classOf, shindoColors, ShindoStore } from "./shindo";
+import { CLASSES, classOf, shindoColors, shindoFeel, ShindoStore } from "./shindo";
+import { FAMOUS, famous, quakePlace, regionLabel } from "./names";
 import { MAX_YEARS_FOR_M3, QuakeStore, fmtDate, yearEnd, yearOf, yearStart, yearsNeeded, type QuakeProps } from "./quakes";
 import { $, DEPTH_EDGES, DEPTH_LABELS, el, fmt, hideTooltip, isDark, showTooltip, theme } from "./ui";
 
@@ -161,13 +162,59 @@ map.on("load", () => {
   if (fromUrl.quake) restoreQuake(fromUrl.quake);
 });
 
-/** Select a quake from a shared link: find it in its year's data. */
-async function restoreQuake(id: string) {
+/** Select a quake by catalogue id: find it in its year's data. A shared link keeps the tab it
+ * was on (the selection chip shows above it); a quick pick opens the Quake tab. */
+async function restoreQuake(id: string, openTab = false) {
   const y = yearFromId(id);
   await store.ensureYears([y]);
   const f = store.features(yearStart(y), yearEnd(y), 3).features.find((x) => x.properties.id === id);
-  // Keep the tab the link was on; the selection chip shows above it.
-  if (f) select({ props: f.properties, coords: f.geometry.coordinates as [number, number] }, false);
+  if (f) select({ props: f.properties, coords: f.geometry.coordinates as [number, number] }, openTab);
+}
+
+/** Buttons that open well-known quakes (Quake tab empty state). */
+function quakeExamples(): HTMLElement {
+  const row = el("div", "presets");
+  for (const short of ["Kantō 1923", "Kobe 1995", "Tōhoku 2011", "Kumamoto 2016", "Noto 2024"]) {
+    const f = FAMOUS.find((x) => x.short === short)!;
+    const b = el("button", "", short) as HTMLButtonElement;
+    b.type = "button"; b.title = f.name;
+    b.addEventListener("click", () => restoreQuake(f.id, true));
+    row.append(b);
+  }
+  return row;
+}
+
+/** First-visit orientation at the top of the opening tab; dismissed for good with "Hide". */
+function renderIntro() {
+  const host = $("intro-host");
+  let hidden = false;
+  try { hidden = localStorage.getItem("intro-hidden") === "1"; } catch { /* storage blocked: show it */ }
+  if (hidden) { host.replaceChildren(); return; }
+  const card = el("div", "intro");
+  const head = el("div", "intro-head");
+  const close = el("button", "intro-close", "Hide") as HTMLButtonElement;
+  close.type = "button";
+  close.addEventListener("click", () => {
+    try { localStorage.setItem("intro-hidden", "1"); } catch { /* fine: hidden for this visit */ }
+    host.replaceChildren();
+  });
+  head.append(el("h2", "", "Start here"), close);
+  card.append(head, el("p", "",
+    "Each dot is an earthquake recorded by the Japan Meteorological Agency since 1919: its colour shows how deep it " +
+    "was, its size the magnitude. Drag the timeline below to choose years, press ▶ to watch them unfold, and click " +
+    "any dot for details. Some places to start:"));
+  const row = el("div", "presets");
+  const btn = (text: string, fn: () => void) => {
+    const b = el("button", "", text) as HTMLButtonElement;
+    b.type = "button"; b.addEventListener("click", fn); row.append(b);
+  };
+  btn("How often has Tokyo shaken?", () => { setTab("location"); setPlace(PLACES[0]); map.flyTo({ center: PLACES[0].lonlat, zoom: 7 }); });
+  btn("The 2011 Tōhoku quake", () => restoreQuake(FAMOUS.find((f) => f.short === "Tōhoku 2011")!.id, true));
+  btn("This week's forecast", () => setTab("forecast"));
+  btn("Destructive quakes", () => setTab("history"));
+  card.append(row, el("p", "sub",
+    "This first tab counts quakes by magnitude, which is the most technical view; the other tabs are above."));
+  host.replaceChildren(card);
 }
 
 let urlTimer = 0;
@@ -299,6 +346,8 @@ map.on("mousemove", "quakes", (e) => {
     r.append(el("span", "", p.mag === null ? "magnitude unknown" : `M${Number(p.mag).toFixed(1)}`),
       el("strong", "", p.depth === null || p.depth === undefined ? "" : `${Math.round(Number(p.depth))} km deep`));
     tip.append(r);
+    const where = quakePlace({ t: Number(p.t), mag: p.mag === null ? null : Number(p.mag), region: p.region });
+    if (where) tip.append(el("div", "", where));
     if (store.isPrelim(Number(p.t))) tip.append(el("div", "t-note", "Preliminary: values may still change"));
     tip.append(el("div", "t-head", "Click for details"));
   });
@@ -431,6 +480,7 @@ function replay() {
 
 async function select(sel: typeof state.selected, openTab = true) {
   stopReplay();
+  hideTooltip();
   if (sel) sel = { ...sel, props: { ...sel.props, prelim: store.isPrelim(sel.props.t) } };
   const token = ++selectToken;
   state.selected = sel;
@@ -438,6 +488,8 @@ async function select(sel: typeof state.selected, openTab = true) {
   map.setFilter("selected", ["==", ["get", "id"], sel?.props.id ?? ""]);
   footprint = sel?.props.felt ? { status: "loading" } : { status: "none" };
   showFootprint();
+  // Picked from a list while the map looks elsewhere: bring the epicentre into view.
+  if (sel && openTab && !map.getBounds().contains(sel.coords)) map.easeTo({ center: sel.coords, zoom: Math.max(map.getZoom(), 5) });
   // Selecting opens the Quake tab; clearing stays on the current tab.
   if (sel && openTab) setTab("quake");
   else { updateSelChip(); renderPanel(); }
@@ -475,6 +527,8 @@ map.on("mousemove", "footprint", (e) => {
   showTooltip(e.originalEvent.clientX, e.originalEvent.clientY, (tip) => {
     tip.append(el("div", "t-head", p.name));
     const r = el("div", "t-row"); r.append(el("span", "", "Shindo"), el("strong", "", SHINDO_TIP[p.code] ?? "felt")); tip.append(r);
+    const k = classOf(p.code);
+    if (k >= 0) tip.append(el("div", "t-note", CLASSES[k].feel));
     if (Number(p.iv) >= 0) { const r2 = el("div", "t-row"); r2.append(el("span", "", "Instrumental"), el("strong", "", Number(p.iv).toFixed(1))); tip.append(r2); }
     const r3 = el("div", "t-row"); r3.append(el("span", "", "Distance"), el("strong", "", `${fmt(Number(p.dist))} km`)); tip.append(r3);
   });
@@ -504,6 +558,8 @@ async function refreshData() {
     $("loading").hidden = true;
   }
   if (token !== dataToken || !map.getSource("quakes")) return;
+  $("loading").hidden = true; // also covers the first visit, when it shows from the start
+  $("loading").textContent = "Loading…";
   const fc = store.features(lo, hi, minMag);
   (map.getSource("quakes") as GeoJSONSource).setData(fc);
   shownQuakes = fc.features;
@@ -555,8 +611,10 @@ async function draw3d(resetCamera = false) {
   const bounds = { w: b.getWest(), s: b.getSouth(), e: b.getEast(), n: b.getNorth() };
   const key = [bounds.w, bounds.s, bounds.e, bounds.n].map((x) => x.toFixed(2)).join(",");
   if (key !== v3d.boundsKey) { v3d.boundsKey = key; resetCamera = true; } // a new area: frame it
+  // During playback, the same window as the map: the trail up to the playhead.
+  const [t0, t1] = state.anim ? [state.playhead - state.trail, state.playhead] : [-Infinity, Infinity];
   let quakes = shownQuakes
-    .filter((f) => f.properties.depth !== null && f.properties.mag !== null)
+    .filter((f) => f.properties.depth !== null && f.properties.mag !== null && f.properties.t >= t0 && f.properties.t <= t1)
     .filter((f) => { const [lo, la] = f.geometry.coordinates; return lo >= bounds.w && lo <= bounds.e && la >= bounds.s && la <= bounds.n; });
   v3d.capped = quakes.length > MAX_3D;
   if (v3d.capped) quakes = [...quakes].sort((a, c) => c.properties.mag! - a.properties.mag!).slice(0, MAX_3D);
@@ -568,10 +626,10 @@ async function draw3d(resetCamera = false) {
   v3d.scene.set({
     quakes: quakes.map((f) => ({
       lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], depth: f.properties.depth!, mag: f.properties.mag!,
-      id: f.properties.id, label: `${fmtDate(f.properties.t)}${f.properties.region ? `, ${f.properties.region}` : ""}`,
+      id: f.properties.id, label: [fmtDate(f.properties.t), quakePlace(f.properties)].filter(Boolean).join(", "),
     })),
-    coast: coastRings ?? [], plates: lines(overlayData.plates),
-    slabs: (overlayData.slabs?.features ?? []).map((f) => ({ depthKm: Number(f.properties?.depth), lines: lines({ type: "FeatureCollection", features: [f] }) })),
+    coast: coastRings ?? [], plates: overlays.plates ? lines(overlayData.plates) : [],
+    slabs: (overlays.slabs ? overlayData.slabs?.features ?? [] : []).map((f) => ({ depthKm: Number(f.properties?.depth), lines: lines({ type: "FeatureCollection", features: [f] }) })),
     bounds, exaggeration: v3d.ex, depthEdges: DEPTH_EDGES,
     colors: { background: t.surface, coast: t.secondary, plates: t.text, slab: t.series[0], box: t.axis, text: t.muted, depth: t.depth },
   }, resetCamera);
@@ -588,7 +646,9 @@ function render3dPane() {
     "600 km, and the Philippine Sea plate under western Japan. Blue lines: the top of the sinking plates every 20–100 km " +
     "(USGS Slab2). Drag to turn, scroll or pinch to zoom, right-drag or two fingers to move; click a quake to open it."));
   parts.push(el("p", "lead", v3d.scene
-    ? `${fmt(v3d.n)} quakes` + (v3d.capped ? ` (the ${fmt(MAX_3D)} largest)` : "") + `, ${state.from === state.to ? state.from : `${state.from}–${state.to}`}, M${effectiveMinMag()}+.`
+    ? `${fmt(v3d.n)} quakes` + (v3d.capped ? ` (the ${fmt(MAX_3D)} largest)` : "") + `, ${state.anim
+        ? `playback at ${new Date((state.playhead + 9 * 3600) * 1000).toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" })}`
+        : state.from === state.to ? state.from : `${state.from}–${state.to}`}, M${effectiveMinMag()}+.`
     : "Loading the 3D view…"));
   const row = el("div", "seg");
   for (const ex of [1, 2, 4]) {
@@ -643,7 +703,7 @@ function drawSection() {
   if (src) {
     src.setData({
       type: "FeatureCollection",
-      features: visible && s ? [
+      features: visible && s && !sectionState.drawing ? [
         { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [swath(s)] } },
         { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [s.a, s.b] } },
       ] : [],
@@ -858,12 +918,16 @@ function addLocationLayers() {
   map.addSource("place", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
   map.addLayer({ id: "place-radius", type: "line", source: "place", filter: ["==", ["geometry-type"], "Polygon"],
     paint: { "line-color": theme().text, "line-width": 1.5, "line-dasharray": [2, 1] } });
+  // Thousands of epicentres: drawn under the place names, smaller than the quake dots,
+  // with shindo 1-2 faint so the stronger ones and the chosen place stay readable.
   map.addLayer({ id: "place-felt", type: "circle", source: "place", filter: ["==", ["geometry-type"], "Point"],
     paint: {
-      "circle-radius": radius, "circle-color": footprintColor(), "circle-opacity": 0.85,
-      "circle-stroke-color": theme().text, "circle-stroke-width": 0.4,
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, ["*", 0.7, baseRadius], 9, ["*", 1.8, baseRadius]],
+      "circle-color": footprintColor(),
+      "circle-opacity": ["case", ["<=", ["get", "k"], 1], 0.3, 0.85],
+      "circle-stroke-color": theme().text, "circle-stroke-width": ["case", ["<=", ["get", "k"], 1], 0, 0.4],
     },
-    layout: { "circle-sort-key": ["get", "k"] } });
+    layout: { "circle-sort-key": ["get", "k"] } }, beforeLabels());
 }
 
 function drawLocation() {
@@ -967,6 +1031,10 @@ map.on("click", (e) => {
 
 function applyTimeFilter() {
   if (!map.getLayer("quakes")) return;
+  // A selected quake's station dots and ring belong to its own time, not the playback's.
+  for (const id of ["footprint", "selected", "wavefront"]) {
+    if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", state.anim ? "none" : "visible");
+  }
   if (state.anim) {
     const lo = state.playhead - state.trail;
     const hi = state.playhead;
@@ -1015,6 +1083,8 @@ function syncTimeline() {
     band.title = `Hatched: preliminary data (from ${fmtDate(store.index.prelimFrom)})`;
   }
   updateUrl();
+  $("exit-play").hidden = !state.anim;
+  if ($("map-legend").childElementCount) renderLegend(); // the shindo row hides during playback
   $("play").textContent = state.playing ? "❚❚" : "▶";
   $("play").setAttribute("aria-label", state.playing ? "Pause" : "Play through the period");
 }
@@ -1045,6 +1115,7 @@ $<HTMLSelectElement>("trail").addEventListener("change", (e) => {
 let raf = 0;
 let lastFrame = 0;
 let lastYear = 0;
+let last3d = 0;
 function frame(now: number) {
   if (!state.playing) return;
   const years = state.to - state.from + 1;
@@ -1056,6 +1127,7 @@ function frame(now: number) {
   const y = yearOf(state.playhead);
   if (y !== lastYear || state.playhead > loadedRange[1] - 86400) { lastYear = y; refreshData(); }
   applyTimeFilter();
+  if (state.tab === "3d" && now - last3d > 300) { last3d = now; draw3d(); }
   const d = new Date((state.playhead + 9 * 3600) * 1000);
   $("playhead").textContent = d.toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });
   const fill = $("range-fill");
@@ -1096,10 +1168,16 @@ function stop() {
   refreshData();
 }
 $("play").addEventListener("click", () => (state.playing ? pause() : play()));
+$("exit-play").addEventListener("click", stop);
+// Esc undoes the most recent kind of thing: a half-done map pick, then playback, then the selection.
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
-  if (state.selected) select(null);
-  else if (state.anim) stop();
+  if (sectionState.drawing || loc.picking) {
+    sectionState.drawing = false; sectionState.first = null; loc.picking = false;
+    map.getCanvas().style.cursor = "";
+    drawSection(); renderPanel();
+  } else if (state.anim) stop();
+  else if (state.selected) select(null);
 });
 
 // ---------------------------------------------------------------- panel ---
@@ -1136,8 +1214,9 @@ function updateSelChip() {
   $("sel-chip").hidden = !s || state.tab === "quake";
   if (!s) return;
   const p = s.props;
+  const where = quakePlace(p);
   $("sel-show").textContent =
-    `Selected: ${p.mag === null ? "felt quake" : `M${p.mag.toFixed(1)}`} · ${fmtDate(p.t)}${p.region ? ` · ${p.region}` : ""}`;
+    `Selected: ${p.mag === null ? "felt quake" : `M${p.mag.toFixed(1)}`} · ${fmtDate(p.t)}${where ? ` · ${where}` : ""}`;
 }
 $("sel-show").addEventListener("click", () => setTab("quake"));
 $("sel-clear").addEventListener("click", () => select(null));
@@ -1160,7 +1239,25 @@ function visibleCells() {
   return cellsInBounds(grData, b.getWest(), b.getSouth(), b.getEast(), b.getNorth());
 }
 
+const FOCUSABLE = "button, select, input, a[href], [tabindex='0']";
+const focusKey = (e: Element) => `${e.tagName}|${(e.textContent ?? "").trim().slice(0, 40)}|${(e as HTMLInputElement).value ?? ""}`;
+
+/** Re-render the open tab. Panes are rebuilt from scratch, so put keyboard focus back on the
+ * matching control (same text, else same position) instead of losing it to <body>. */
 function renderPanel() {
+  const pane = $(`pane-${state.tab}`);
+  const a = document.activeElement;
+  const inPane = a && a !== document.body && pane.contains(a);
+  const before = inPane ? [...pane.querySelectorAll(FOCUSABLE)] : [];
+  const idx = inPane ? before.indexOf(a) : -1;
+  const key = inPane ? focusKey(a) : "";
+  renderPanelBody();
+  if (!inPane || pane.contains(a)) return;
+  const after = [...pane.querySelectorAll<HTMLElement>(FOCUSABLE)];
+  (after.find((e) => focusKey(e) === key) ?? after[Math.min(idx, after.length - 1)])?.focus({ preventScroll: true });
+}
+
+function renderPanelBody() {
   if (document.body.classList.contains("panel-closed")) return;
   if (state.tab === "magnitudes") {
     const host = $("mag-body");
@@ -1176,7 +1273,7 @@ function renderPanel() {
       plates: (overlayData.plates?.features ?? []) as never,
       drawing: sectionState.drawing,
       scopeNote: state.anim
-        ? "Paused playback shows only part of the period; press Esc to return to the full range."
+        ? "Paused playback shows only part of the period; press \"✕ Whole period\" by the play button (or Esc) to return to the full range."
         : `Showing M${shownMinMag}+ quakes from ${years}, as on the map. ` +
           (shownMinMag >= 5 ? `For M3+, narrow the timeline to ${MAX_YEARS_FOR_M3} years or less and choose M3+.` : ""),
       onPreset: (p) => {
@@ -1271,7 +1368,7 @@ function renderPanel() {
         const missing = footprint.readings!.length - timed;
         extra.append(el("h2", "", "Replay"), el("p", "sub",
           "Stations light up at the time they recorded the shaking. The dashed rings are model P and S wave fronts " +
-          `(${P_KMS} and ${S_KMS} km/s) for comparison.` + (missing ? ` ${fmt(missing)} readings have no recorded time and are left out.` : "")), rb);
+          `(${P_KMS} and ${S_KMS} km/s) for comparison.` + (missing ? ` ${fmt(missing)} ${missing === 1 ? "reading has" : "readings have"} no recorded time and ${missing === 1 ? "is" : "are"} left out.` : "")), rb);
       }
     }
     if (state.selected) {
@@ -1281,7 +1378,7 @@ function renderPanel() {
       extra.append(clear);
     }
     renderQuake($("pane-quake-body"), state.selected?.props ?? null, state.selected?.coords, footprint,
-      state.selected ? extra : undefined);
+      state.selected ? extra : quakeExamples());
   }
 }
 
@@ -1306,7 +1403,7 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", async () =
 function renderLegend() {
   const t = theme();
   const host = $("map-legend");
-  const layers = el("div", "lg-row");
+  const layers = el("div", "lg-row lg-lines");
   layers.append(el("span", "lg-title", "Lines"));
   const toggle = el("label", "lg-key lg-toggle");
   const cb = document.createElement("input");
@@ -1322,7 +1419,7 @@ function renderLegend() {
   const slabLine = el("span", "lg-line"); slabLine.style.borderTop = `2px solid ${t.depth[2]}`;
   slabToggle.append(cb2, document.createTextNode("Sinking plate depth "), slabLine);
   layers.append(toggle, slabToggle);
-  const depth = el("div", "lg-row");
+  const depth = el("div", "lg-row lg-depth");
   depth.append(el("span", "lg-title", "Depth"));
   DEPTH_LABELS.forEach((label, i) => {
     const k = el("span", "lg-key");
@@ -1330,7 +1427,7 @@ function renderLegend() {
     k.append(dot, document.createTextNode(label));
     depth.append(k);
   });
-  const size = el("div", "lg-row");
+  const size = el("div", "lg-row lg-size");
   size.append(el("span", "lg-title", "Size"));
   for (const [m, r] of [[3, 1.6], [5, 3.6], [7, 9]] as const) {
     const k = el("span", "lg-key");
@@ -1339,12 +1436,15 @@ function renderLegend() {
     size.append(k);
   }
   const rows = [depth, size, layers];
-  if (footprint.status === "ok" || (state.tab === "location" && loc.place !== null)) {
+  if ((footprint.status === "ok" && !state.anim) || (state.tab === "location" && loc.place !== null)) {
     const shindo_ = shindoColors();
-    const fr = el("div", "lg-row");
-    fr.append(el("span", "lg-title", "Shindo"));
+    const fr = el("div", "lg-row lg-shindo");
+    const title = el("span", "lg-title", "Shindo");
+    title.title = "How strongly the ground shook at each station (JMA scale). Hover a level for what it feels like.";
+    fr.append(title);
     CLASSES.forEach((c, i) => {
       const k = el("span", "lg-key");
+      k.title = shindoFeel(i);
       const dot = el("span", "lg-dot"); dot.style.background = shindo_[i];
       k.append(dot, document.createTextNode(c.label));
       fr.append(k);
@@ -1355,6 +1455,7 @@ function renderLegend() {
 }
 
 renderLegend();
+renderIntro();
 syncTimeline();
 $<HTMLSelectElement>("min-mag").value = String(state.minMag);
 setTab(fromUrl.tab ?? "magnitudes");

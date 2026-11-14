@@ -4,7 +4,8 @@ import * as Plot from "@observablehq/plot";
 import * as d3 from "d3";
 import type { QuakeProps } from "./quakes";
 import { CLASSES, classOf, shindoColors, type Reading, type Stations } from "./shindo";
-import { el, fmt, hideTooltip, showTooltip, theme } from "./ui";
+import { el, fmt, hideTooltip, showTooltip, shindoScale, theme } from "./ui";
+import { famous, regionLabel } from "./names";
 
 const SHINDO: Record<string, string> = {
   "1": "1", "2": "2", "3": "3", "4": "4", "5": "5 (old scale)", "6": "6 (old scale)", "7": "7",
@@ -33,22 +34,26 @@ export function renderQuake(host: HTMLElement, q: QuakeProps | null, coords: [nu
   if (!q || !coords) {
     host.replaceChildren(
       el("h2", "", "Selected quake"),
-      el("p", "sub", "Click a quake on the map to see its details, where it was felt, and its aftershocks."),
+      el("p", "sub", "Click a quake on the map to see its details, where it was felt, and its aftershocks. Or start with one of these:"),
+      ...(extra ? [extra] : []),
     );
     return;
   }
+  const name = famous(q.t, q.mag);
   const dl = el("dl", "facts");
   const row = (k: string, v: string) => dl.append(el("dt", "", k), el("dd", "", v));
   row("Time (Japan)", when(q.t, 9, "JST"));
   row("Time (UTC)", when(q.t, 0, "UTC"));
   row("Magnitude", q.mag === null ? "not determined" : `M${q.mag.toFixed(1)} (JMA)`);
   row("Depth", q.depth === null ? "unknown" : `${q.depth.toFixed(q.depth < 10 ? 1 : 0)} km`);
+  if (q.region) row("Region", regionLabel(q.region));
   row("Epicentre", `${coords[1].toFixed(3)}°N, ${coords[0].toFixed(3)}°E`);
   row("Max shindo", q.shindo ? SHINDO[q.shindo] ?? q.shindo : q.felt ? "felt" : "not felt / not reported");
   row("Type", q.prelim ? "not yet classified" : CLASS[q.cls] ?? "located by another agency");
   row(q.prelim ? "ID" : "Catalogue ID", q.id);
 
-  const title = el("h2", "", q.mag === null ? "Felt earthquake" : `M${q.mag.toFixed(1)} earthquake`);
+  const size = q.mag === null ? "Felt earthquake" : `M${q.mag.toFixed(1)} earthquake`;
+  const title = el("h2", "", name ? `${name.name}, M${q.mag!.toFixed(1)}` : size);
   const parts: HTMLElement[] = [title];
   if (q.prelim) {
     title.append(" ", el("span", "badge-prelim", "Preliminary"));
@@ -112,7 +117,7 @@ function footprintSection(all: Reading[], stations: Stations, width: number): HT
       "Before October 1996 the scale had single grades 5 and 6 (not split into lower/upper); they are counted under 5− and 6−."));
   }
   if (unknown) barsWrap.append(el("p", "sub", `${fmt(unknown)} more reported it felt without an intensity.`));
-  out.push(barsWrap);
+  out.push(barsWrap, shindoScale(CLASS_COLORS));
 
   // Intensity vs distance: how shaking fades away from the source.
   const withInstr = readings.filter((r) => r.instrumental !== null);

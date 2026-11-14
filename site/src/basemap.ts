@@ -21,7 +21,7 @@ async function exists(path: string): Promise<boolean> {
 function seaAndLand() {
   const css = getComputedStyle(document.documentElement);
   const v = (n: string) => css.getPropertyValue(n).trim();
-  return { water: v("--map-sea"), earth: v("--map-land"), background: v("--map-land") };
+  return { water: v("--map-sea"), earth: v("--map-land"), background: v("--map-sea") }; // beyond the tile extract is open sea
 }
 
 export async function basemapStyle(dark: boolean): Promise<{ style: StyleSpecification; tiles: boolean }> {

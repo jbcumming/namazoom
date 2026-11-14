@@ -4,6 +4,7 @@ import * as Plot from "@observablehq/plot";
 import * as d3 from "d3";
 import { atMag, chance, fmtPct, fmtWindow, overForecast, type CellSum, type Forecast, type RelBin } from "./forecast";
 import { trenchSection } from "./panel-trench";
+import { OUTLOOK } from "./trench-history";
 import { el, fmt, hideTooltip, showTooltip, theme } from "./ui";
 
 export interface ForecastInputs {
@@ -72,10 +73,22 @@ export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
   }
   const p5 = chance(v.lam5);
   const ratio = v.base5 > 0 ? v.lam5 / v.base5 : NaN;
-  parts.push(el("p", "lead",
-    `Chance of at least one M5+ quake: ${fmtPct(p5)}. The long-term average for this area is ${fmtPct(chance(v.base5))}` +
-    (Number.isFinite(ratio) ? (ratio >= 1.5 ? `; the forecast is ${ratio.toFixed(1)} times that.` :
-      ratio <= 0.67 ? `; the forecast is below it (${ratio.toFixed(1)} times).` : "; the forecast is close to it.") : ".")));
+
+  // In short: this week against usual, and the official long-term chances, before the detail.
+  const level = !Number.isFinite(ratio) ? "" : ratio >= 1.5 ? `above usual (${ratio.toFixed(1)} times)`
+    : ratio <= 0.67 ? "below usual" : "about usual";
+  const p30 = (zone: string, quake: string) => OUTLOOK.find((o) => o.zone === zone && o.quake.startsWith(quake))?.p30 ?? "?";
+  const sum = el("div", "summary");
+  const line1 = el("p");
+  line1.append(`This week, ${inp.areaLabel}: `, el("strong", "", fmtPct(p5)),
+    ` chance of at least one M5+ quake; usually ${fmtPct(chance(v.base5))}` + (level ? `, so ${level}.` : "."));
+  const line2 = el("p");
+  line2.append("Long term, the government's official 30-year chances: an M7-class quake under southern Kantō (Tokyo area) ",
+    el("strong", "", p30("Sagami", "M7 class")), "; a Nankai Trough M8–9 ", el("strong", "", p30("Nankai", "M8–9, slip")),
+    ` (or ${p30("Nankai", "M8–9, dates")} by another model). More in "The long view" below.`);
+  sum.append(line1, line2);
+  parts.splice(1, 0, sum);
+  // (The summary at the top gives this week's M5+ chance against usual.)
 
   // Chances by magnitude.
   const table = document.createElement("table");
@@ -109,6 +122,7 @@ export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
 
   // ---------------------------------------------------------------- the test ---
   const ts = f.test;
+  const testStart = parts.length;
   parts.push(el("h2", "", "How well has this worked?"));
   parts.push(el("p", "sub",
     `The same method forecast every week from ${ts.from.slice(0, 4)} on, with its settings fitted to ${f.testFit.from.slice(0, 4)}–` +
@@ -218,6 +232,14 @@ export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
     }
     parts.push(tb);
   }
+
+  // The back-test and the record, folded away: useful, but long.
+  const testParts = parts.splice(testStart);
+  const tdet = document.createElement("details");
+  tdet.className = "notes";
+  const tsum = el("summary", "", `How well has this worked? Tested on every week since ${ts.from.slice(0, 4)}, and the record so far`);
+  tdet.append(tsum, ...testParts.slice(1)); // the h2 is replaced by the summary
+  parts.push(tdet);
 
   // Method notes.
   const det = document.createElement("details");

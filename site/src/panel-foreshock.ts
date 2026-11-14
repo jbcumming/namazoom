@@ -31,7 +31,10 @@ export function renderForeshock(st: ForeshockState, t: number, mag: number | nul
   }
   const r = baseRates(d, row);
   const R = d.radiusKm;
-  box.append(el("p", "lead",
+  if (!r.sameSize.n) {
+    box.append(el("p", "lead", `No earlier quakes of M${r.sameSize.lo.toFixed(1)}–${r.sameSize.hi.toFixed(1)} since ` +
+      `${r.firstYear} to compare it with: it is larger than anything before it in this record.`));
+  } else box.append(el("p", "lead",
     `Before this quake, ${fmt(r.sameSize.k)} of ${fmt(r.sameSize.n)} quakes of M${r.sameSize.lo.toFixed(1)}–${r.sameSize.hi.toFixed(1)} ` +
     `since ${r.firstYear} (${pct(r.sameSize.k, r.sameSize.n)}) were followed within ${d.days} days by a larger one within ${R} km.`));
 
