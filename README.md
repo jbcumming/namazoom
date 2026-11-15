@@ -1,6 +1,6 @@
-# QuakeTracker
+# Namazoom
 
-A static website visualising the Japan Meteorological Agency's historical
+Namazoom is a static website visualising the Japan Meteorological Agency's historical
 earthquake catalogue (地震月報 カタログ編), 1919 onwards.
 
 **Status:** all JMA files (1919-2024) are parsed and checked, and preliminary

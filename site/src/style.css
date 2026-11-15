@@ -52,6 +52,9 @@
   --map-sea: #dde5ec;
   --map-land: #f6f5f1;
   --map-coast: #a9a79f;
+  /* logo: lens rim and handle, and the "oo" of the name */
+  --lens: #2b2f36;
+  --brand-oo: #3a6fa5;
   --panel-width: 400px;
 }
 @media (prefers-color-scheme: dark) {
@@ -104,6 +107,8 @@
     --map-sea: #121416;
     --map-land: #24241f;
     --map-coast: #4a4a46;
+    --lens: #8b929d;
+    --brand-oo: #7aa7d6;
   }
 }
 :root[data-theme="dark"] {
@@ -155,6 +160,8 @@
   --map-sea: #121416;
   --map-land: #24241f;
   --map-coast: #4a4a46;
+  --lens: #8b929d;
+  --brand-oo: #7aa7d6;
 }
 
 * { box-sizing: border-box; }
@@ -184,27 +191,39 @@ button:hover, select:hover { border-color: var(--text-muted); }
   background: var(--surface-1); border-bottom: 1px solid var(--border); flex: none;
 }
 .topbar h1 { white-space: nowrap; }
-.sources-btn { margin-left: auto; }
+.brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.brand-icon { flex: none; }
+.brand-name { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.01em; }
+.brand-name .oo { color: var(--brand-oo); }
+.brand-tag { font-weight: 400; font-size: 0.85rem; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 520px) { .brand-tag { display: none; } }
+.about-btn { margin-left: auto; }
 
-/* ---- Sources box ---- */
-.sources {
-  width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 64px); padding: 0;
+/* ---- About box (logo, namazu, sources) ---- */
+.about {
+  width: min(600px, calc(100vw - 32px)); max-height: calc(100vh - 64px); padding: 0;
   border: 1px solid var(--border); border-radius: 12px; background: var(--surface-1); color: var(--text-primary);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
 }
-.sources::backdrop { background: rgba(0, 0, 0, 0.35); }
-.sources-head {
+.about::backdrop { background: rgba(0, 0, 0, 0.35); }
+.about-head {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 12px 16px; border-bottom: 1px solid var(--border);
 }
-.sources-head h2 { margin: 0; font-size: 1.05rem; }
-.sources-head button { padding: 2px 9px; }
-#sources-body { padding: 4px 16px 16px; font-size: 0.88rem; line-height: 1.5; }
-#sources-body h3 { font-size: 0.9rem; font-weight: 600; margin: 14px 0 4px; }
-#sources-body p { margin: 6px 0; }
-#sources-body ul { margin: 4px 0; padding-left: 1.2em; }
-#sources-body li { margin: 2px 0; }
-#sources-body a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.about-head h2 { margin: 0; font-size: 1.05rem; }
+.about-head button { padding: 2px 9px; }
+.about-body { padding: 4px 16px 16px; font-size: 0.88rem; line-height: 1.5; }
+.about-body h3 { font-size: 0.95rem; font-weight: 600; margin: 16px 0 4px; }
+.about-body h4 { font-size: 0.88rem; font-weight: 600; margin: 10px 0 2px; color: var(--text-secondary); }
+.about-body p { margin: 6px 0; }
+.about-body ul { margin: 4px 0; padding-left: 1.2em; }
+.about-body li { margin: 2px 0; }
+.about-body a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.about-body .more { font-size: 0.8rem; color: var(--text-secondary); }
+.namazu { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 14px; align-items: start; }
+.namazu h3 { margin-top: 4px; }
+.namazu-logo { width: 100%; height: auto; margin-top: 8px; }
+@media (max-width: 520px) { .namazu { grid-template-columns: minmax(0, 1fr); } .namazu-logo { width: 150px; } }
 
 /* ---- layout: map + right panel ---- */
 .app { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) var(--panel-width); }

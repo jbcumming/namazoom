@@ -3,14 +3,31 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Japan earthquakes since 1919</title>
-    <meta name="description" content="A century of earthquakes recorded by the Japan Meteorological Agency, on a map." />
+    <title>Namazoom · Japan earthquakes since 1919</title>
+    <meta name="description" content="Namazoom: a century of Japan's earthquakes on a map, from the Japan Meteorological Agency's records since 1919." />
+    <link rel="icon" href="./icon-32.png" sizes="32x32" type="image/png" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
     <link rel="stylesheet" href="./src/style.css" />
   </head>
   <body>
     <header class="topbar">
-      <h1 id="app-title">Japan earthquakes since 1919</h1>
-      <button type="button" id="sources-btn" class="sources-btn" aria-haspopup="dialog" aria-controls="sources">Sources</button>
+      <h1 id="app-title" class="brand">
+        <svg class="brand-icon" width="30" height="30" viewBox="0 0 32 32" aria-hidden="true"><defs><clipPath id="nz-ic"><circle cx="13" cy="13" r="10"/></clipPath><linearGradient id="nz-il" gradientUnits="userSpaceOnUse" x1="4.6" y1="0" x2="0.5" y2="0"><stop offset="0.00" stop-color="#c9a90c"/><stop offset="0.25" stop-color="#nz-ic6708"/><stop offset="0.50" stop-color="#c04307"/><stop offset="0.75" stop-color="#96022f"/><stop offset="1.00" stop-color="#520347"/></linearGradient><linearGradient id="nz-ir" gradientUnits="userSpaceOnUse" x1="21.4" y1="0" x2="25.6" y2="0"><stop offset="0.00" stop-color="#c9a90c"/><stop offset="0.25" stop-color="#nz-ic6708"/><stop offset="0.50" stop-color="#c04307"/><stop offset="0.75" stop-color="#96022f"/><stop offset="1.00" stop-color="#520347"/></linearGradient></defs>
+  <line x1="20" y1="20" x2="28.5" y2="28.5" stroke="#2b2f36" style="stroke: var(--lens, #2b2f36)" stroke-width="5.2" stroke-linecap="round"/>
+  <circle cx="13" cy="13" r="10" fill="#dde5ec"/>
+  <g clip-path="url(#nz-ic)">
+    <path d="M3 25 C3 16 7.5 11.5 13 11.5 C18.5 11.5 23 16 23 25 Z" fill="#4a6886" stroke="#1c2b3a" stroke-width="1.3"/>
+    <circle cx="10" cy="16.2" r="2.7" fill="#fff" stroke="#1c2b3a" stroke-width="0.8"/><circle cx="10.6" cy="16.6" r="1.5" fill="#1c2b3a"/>
+    <circle cx="16" cy="16.2" r="2.7" fill="#fff" stroke="#1c2b3a" stroke-width="0.8"/><circle cx="16.6" cy="16.6" r="1.5" fill="#1c2b3a"/>
+  </g>
+  <circle cx="13" cy="13" r="10" fill="none" stroke="#2b2f36" style="stroke: var(--lens, #2b2f36)" stroke-width="2.8"/>
+  <polyline points="4.6,19.4 3.6,18.2 2.8,20.8 1.9,17.2 1.0,19.6 0.5,18.6" fill="none" stroke="url(#nz-il)" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="21.4,19.4 22.4,18.2 23.2,20.8 24.1,17.2 25.0,19.6 25.6,18.6" fill="none" stroke="url(#nz-ir)" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="brand-name">Namaz<span class="oo">oo</span>m</span>
+        <span class="brand-tag">Japan earthquakes since 1919</span>
+      </h1>
+      <button type="button" id="about-btn" class="about-btn" aria-haspopup="dialog" aria-controls="about">About</button>
       <button type="button" id="panel-toggle" aria-controls="panel" aria-expanded="true">Panel</button>
     </header>
 
@@ -118,12 +135,52 @@
         <section role="tabpanel" id="pane-3d" aria-labelledby="tab-3d" class="pane" hidden></section>
       </aside>
     </div>
-    <dialog id="sources" class="sources" aria-labelledby="sources-h">
-      <div class="sources-head">
-        <h2 id="sources-h">Sources</h2>
-        <button type="button" id="sources-close" aria-label="Close">✕</button>
+    <dialog id="about" class="about" aria-labelledby="about-h">
+      <div class="about-head">
+        <h2 id="about-h">About Namazoom</h2>
+        <button type="button" id="about-close" aria-label="Close">✕</button>
       </div>
-      <div id="sources-body"></div>
+      <div class="about-body">
+        <p>A century of Japan's earthquakes on a map, from the Japan Meteorological Agency's records since 1919.</p>
+        <div class="namazu">
+          <svg class="namazu-logo" viewBox="0 0 250 170" role="img"
+            aria-label="The Namazoom logo: a catfish seen through a magnifying glass, its whiskers drawn as seismograms"><defs><clipPath id="nz-bc"><circle cx="112" cy="76" r="56"/></clipPath><linearGradient id="nz-bl" gradientUnits="userSpaceOnUse" x1="70" y1="0" x2="30" y2="0"><stop offset="0.00" stop-color="#c9a90c"/><stop offset="0.25" stop-color="#c76708"/><stop offset="0.50" stop-color="#c04307"/><stop offset="0.75" stop-color="#96022f"/><stop offset="1.00" stop-color="#520347"/></linearGradient><linearGradient id="nz-br" gradientUnits="userSpaceOnUse" x1="154" y1="0" x2="196" y2="0"><stop offset="0.00" stop-color="#c9a90c"/><stop offset="0.25" stop-color="#c76708"/><stop offset="0.50" stop-color="#c04307"/><stop offset="0.75" stop-color="#96022f"/><stop offset="1.00" stop-color="#520347"/></linearGradient></defs>
+  <line x1="152" y1="116" x2="196" y2="156" stroke="#2b2f36" style="stroke: var(--lens, #2b2f36)" stroke-width="18" stroke-linecap="round"/>
+  <line x1="158" y1="120" x2="190" y2="149" stroke="#575d68" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="112" cy="76" r="56" fill="#dde5ec"/>
+  <g clip-path="url(#nz-bc)">
+    <path d="M40 40 C70 60 90 50 120 70 C150 90 170 80 190 96" fill="none" stroke="#6da7ec" stroke-width="2" opacity="0.7"/>
+    <path d="M40 22 C76 40 96 30 130 48 C156 62 172 56 190 66" fill="none" stroke="#3987e5" stroke-width="2" opacity="0.6"/>
+    <path d="M58 140 C58 98 82 76 112 76 C142 76 166 98 166 140 Z" fill="#4a6886" stroke="#1c2b3a" stroke-width="3.2"/>
+    <path d="M70 130 C90 142 134 142 154 130 L160 150 L64 150 Z" fill="#dbe4ec"/>
+    <circle cx="94" cy="102" r="13" fill="#fff" stroke="#1c2b3a" stroke-width="2.6"/><circle cx="97" cy="104" r="7" fill="#1c2b3a"/><circle cx="100" cy="100" r="2.6" fill="#fff"/>
+    <circle cx="130" cy="102" r="13" fill="#fff" stroke="#1c2b3a" stroke-width="2.6"/><circle cx="133" cy="104" r="7" fill="#1c2b3a"/><circle cx="136" cy="100" r="2.6" fill="#fff"/>
+    <path d="M100 124 C106 130 118 130 124 124" fill="none" stroke="#1c2b3a" stroke-width="2.8" stroke-linecap="round"/>
+    <ellipse cx="80" cy="120" rx="6" ry="3.5" fill="#ef9f78" opacity="0.75"/><ellipse cx="144" cy="120" rx="6" ry="3.5" fill="#ef9f78" opacity="0.75"/>
+  </g>
+  <circle cx="112" cy="76" r="56" fill="none" stroke="#2b2f36" style="stroke: var(--lens, #2b2f36)" stroke-width="10"/>
+  <path d="M78 40 C86 32 98 28 110 28" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity="0.7"/>
+  <polyline points="68.0,120.0 65.0,117.0 62.0,120.9 59.0,109.8 56.0,123.8 53.0,105.8 50.0,120.7 47.0,107.7 44.0,115.1 41.0,108.5 38.0,110.5 35.0,108.5" fill="none" stroke="url(#nz-bl)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="156.0,120.0 159.0,117.0 162.0,120.9 165.0,109.8 168.0,123.8 171.0,105.8 174.0,120.7 177.0,107.7 180.0,115.1 183.0,108.5 186.0,110.5 189.0,108.5" fill="none" stroke="url(#nz-br)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div>
+            <h3>Namazu <span lang="ja">鯰</span></h3>
+            <p>In Japanese folklore, earthquakes come from the <em>namazu</em>, a giant catfish that lives in the mud beneath
+              Japan. The god of Kashima Shrine pins it down with a great stone, the <em>kaname-ishi</em> (要石), but when he
+              looks away the catfish thrashes and the ground shakes. After the great Edo earthquake of 1855, cheap catfish
+              prints (<em>namazu-e</em>, 鯰絵) filled the city.</p>
+            <p>The namazu is still Japan's earthquake mascot, on early-warning logos and road signs. The Namazoom logo is a
+              homage to it.</p>
+          </div>
+        </div>
+        <p class="more">Read more:
+          <a href="https://en.wikipedia.org/wiki/Namazu" target="_blank" rel="noopener">Wikipedia</a> ·
+          <a href="https://www.scientificamerican.com/blog/history-of-geology/namazu-the-earthshaker/" target="_blank" rel="noopener">Namazu the Earthshaker</a> (Scientific American) ·
+          <a href="https://publicdomainreview.org/collection/earthquakes-in-japanese-woodblock-prints/" target="_blank" rel="noopener">the 1855 prints</a> (Public Domain Review) ·
+          <a href="https://atlasobscura.com/places/kaname-ishi" target="_blank" rel="noopener">the keystone</a> (Atlas Obscura) ·
+          <a href="https://www.timeout.com/tokyo/news/tokyo-q-a-why-is-there-a-catfish-on-roadside-signs-062818" target="_blank" rel="noopener">catfish road signs</a> (Time Out Tokyo)</p>
+        <h3>Sources</h3>
+        <div id="about-sources"></div>
+      </div>
     </dialog>
     <div class="tooltip" id="tooltip" hidden></div>
     <script type="module" src="./src/app.ts"></script>

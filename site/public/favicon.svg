@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><style>.lens{stroke:#2b2f36}@media (prefers-color-scheme:dark){.lens{stroke:#8b929d}}</style>
+<defs><clipPath id="c7"><circle cx="13" cy="13" r="10"/></clipPath><linearGradient id="g7l" gradientUnits="userSpaceOnUse" x1="4.6" y1="0" x2="0.5" y2="0"><stop offset="0.00" stop-color="#c9a90c"/><stop offset="0.25" stop-color="#c76708"/><stop offset="0.50" stop-color="#c04307"/><stop offset="0.75" stop-color="#96022f"/><stop offset="1.00" stop-color="#520347"/></linearGradient><linearGradient id="g7r" gradientUnits="userSpaceOnUse" x1="21.4" y1="0" x2="25.6" y2="0"><stop offset="0.00" stop-color="#c9a90c"/><stop offset="0.25" stop-color="#c76708"/><stop offset="0.50" stop-color="#c04307"/><stop offset="0.75" stop-color="#96022f"/><stop offset="1.00" stop-color="#520347"/></linearGradient></defs>
+  <line x1="20" y1="20" x2="28.5" y2="28.5" class="lens" stroke-width="5.2" stroke-linecap="round"/>
+  <circle cx="13" cy="13" r="10" fill="#dde5ec"/>
+  <g clip-path="url(#c7)">
+    <path d="M3 25 C3 16 7.5 11.5 13 11.5 C18.5 11.5 23 16 23 25 Z" fill="#4a6886" stroke="#1c2b3a" stroke-width="1.3"/>
+    <circle cx="10" cy="16.2" r="2.7" fill="#fff" stroke="#1c2b3a" stroke-width="0.8"/><circle cx="10.6" cy="16.6" r="1.5" fill="#1c2b3a"/>
+    <circle cx="16" cy="16.2" r="2.7" fill="#fff" stroke="#1c2b3a" stroke-width="0.8"/><circle cx="16.6" cy="16.6" r="1.5" fill="#1c2b3a"/>
+  </g>
+  <circle cx="13" cy="13" r="10" fill="none" class="lens" stroke-width="2.8"/>
+  <polyline points="4.6,19.4 3.6,18.2 2.8,20.8 1.9,17.2 1.0,19.6 0.5,18.6" fill="none" stroke="url(#g7l)" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="21.4,19.4 22.4,18.2 23.2,20.8 24.1,17.2 25.0,19.6 25.6,18.6" fill="none" stroke="url(#g7r)" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
