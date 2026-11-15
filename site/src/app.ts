@@ -38,6 +38,7 @@ const state = {
   playhead: 0, // seconds, UTC
   magMode: "single" as MagSelection["mode"],
   tab: "quake",
+  view3d: false, // the Quake tab shows the 3D view instead of the map
   selected: null as { props: QuakeProps; coords: [number, number] } | null,
 };
 
@@ -47,7 +48,7 @@ const store = new QuakeStore();
 const [grData] = await Promise.all([fetch("./data/gr.json").then((r) => r.json() as Promise<GrData>), store.init()]);
 [state.from, state.to] = store.index.years;
 // A shared link may set the view; applied before the first render.
-const fromUrl = parseHash(location.hash, ["magnitudes", "quake", "location", "history", "shaking", "forecast", "3d"], store.index.years);
+const fromUrl = parseHash(location.hash, ["magnitudes", "quake", "location", "history", "shaking", "forecast"], store.index.years);
 if (fromUrl.from !== undefined) { state.from = fromUrl.from; state.to = fromUrl.to!; }
 if (fromUrl.minMag !== undefined) state.minMag = fromUrl.minMag;
 
@@ -218,7 +219,7 @@ function renderIntro() {
     const b = el("button", "", text) as HTMLButtonElement;
     b.type = "button"; b.addEventListener("click", fn); row.append(b);
   };
-  btn("Japan's plates in 3D", () => setTab("3d"));
+  btn("Japan's plates in 3D", () => setView3d(true));
   btn("How often has Tokyo shaken?", () => { setTab("location"); setPlace(PLACES[0]); map.flyTo({ center: PLACES[0].lonlat, zoom: 7 }); });
   btn("This week's forecast", () => setTab("forecast"));
   btn("Destructive quakes", () => setTab("history"));
@@ -236,6 +237,7 @@ function updateUrl() {
       ...(state.from !== y0 || state.to !== y1 ? { from: state.from, to: state.to } : {}),
       ...(state.minMag !== 5 ? { minMag: state.minMag } : {}),
       ...(state.tab !== "quake" ? { tab: state.tab } : {}),
+      ...(in3d() ? { view3d: true } : {}),
       ...(state.selected ? { quake: state.selected.props.id } : {}),
       view: { lat: c.lat, lon: c.lng, zoom: map.getZoom() },
     });
@@ -311,7 +313,7 @@ function setOverlay(name: keyof typeof overlays, on: boolean) {
     if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", vis(name));
   }
   if (name === "tremor") { if (on) loadTremor(); return; } // map only, not in 3D
-  if (state.tab === "3d") draw3d();
+  if (in3d()) draw3d();
 }
 
 const KIND_LABEL: Record<string, string> = {
@@ -458,6 +460,7 @@ function stopReplay() {
 
 function replay() {
   if (footprint.status !== "ok" || !state.selected) return;
+  if (in3d()) setView3d(false); // the stations light up on the map
   stopReplay();
   const timed = footprint.readings!.filter((r) => r.obsSec !== null && r.obsSec >= 0 && r.distanceKm !== null);
   if (!timed.length) return;
@@ -508,7 +511,7 @@ async function select(sel: typeof state.selected, openTab = true) {
     setTab("quake");
     // On a phone the panel sits under the map: bring the details into view.
     if (narrow()) $("tabs").scrollIntoView({ behavior: "smooth", block: "start" });
-  } else { updateSelChip(); renderPanel(); if (state.tab === "3d") draw3d(); }
+  } else { updateSelChip(); renderPanel(); if (in3d()) draw3d(); }
   if (sel) loadAftershocks(sel, token);
   if (sel && sel.props.mag !== null && sel.props.mag >= 5.5) loadForeshock();
   if (!sel || !sel.props.felt) return;
@@ -583,7 +586,7 @@ async function refreshData() {
   loadedRange = [lo, hi];
   applyTimeFilter();
   updateStatus(fc.features.length, minMag);
-  if (state.tab === "3d") draw3d();
+  if (in3d()) draw3d();
 }
 let loadedRange: [number, number] = [0, 0];
 let shownQuakes: GeoJSON.Feature<GeoJSON.Point, QuakeProps>[] = [];
@@ -615,12 +618,12 @@ function loadCoast(): Promise<void> {
 }
 const MAX_3D = 60000;
 
-/** Show the 3D scene instead of the map on the 3D tab, with the map's quakes in its current view. */
+/** Show the 3D scene instead of the map while the Quake tab is in 3D, with the map's quakes (timeline and magnitude). */
 async function draw3d(resetCamera = false) {
-  const on = state.tab === "3d";
+  const on = in3d();
   $("view3d").hidden = !on;
   $("map").style.visibility = on ? "hidden" : "";
-  if (!on) return;
+  if (!on) { $("v3d-controls").hidden = true; return; }
   if (!v3d.scene) {
     if (v3d.loading) return;
     v3d.loading = true;
@@ -636,7 +639,7 @@ async function draw3d(resetCamera = false) {
     };
     v3d.loading = false;
     resetCamera = true;
-    if (state.tab !== "3d") { draw3d(); return; }
+    if (!in3d()) { draw3d(); return; }
   }
   const bounds = JAPAN_3D;
   // During playback, the same window as the map: the trail up to the playhead.
@@ -662,46 +665,69 @@ async function draw3d(resetCamera = false) {
     colors: { background: t.surface, coast: t.secondary, land: t.text, plates: t.text, slab: t.series[0], box: t.axis, text: t.muted,
       sel: t.text, depth: t.depth },
   }, resetCamera);
+  render3dControls();
   renderPanel();
 }
 
-function render3dPane() {
-  const host = $("pane-3d");
-  const parts: HTMLElement[] = [el("h2", "", "3D: quakes at their depths")];
-  parts.push(el("p", "sub",
-    "The quakes on the map, placed at their depths under the coastline. Deep quakes trace " +
-    "the plates sinking under Japan: the Pacific plate dipping west from the Japan and Kuril trenches down to about " +
-    "600 km, and the Philippine Sea plate under western Japan. Blue lines: the top of the sinking plates every 20–100 km " +
-    "(USGS Slab2). Drag to turn, scroll or pinch to zoom, right-drag or two fingers to move; click a quake to open it."));
-  parts.push(el("p", "lead", v3d.scene
+const in3d = () => state.view3d && state.tab === "quake";
+
+/** The Quake tab's Map / 3D switch. */
+function setView3d(on: boolean) {
+  state.view3d = on;
+  hideTooltip();
+  if (on) stopReplay();
+  if (state.tab !== "quake") { setTab("quake"); return; }
+  updateUrl();
+  syncViewSwitch();
+  renderPanel();
+  draw3d();
+}
+function syncViewSwitch() {
+  $("view-switch").hidden = state.tab !== "quake";
+  $("view-map").setAttribute("aria-pressed", String(!in3d()));
+  $("view-3d").setAttribute("aria-pressed", String(in3d()));
+  document.body.classList.toggle("in3d", in3d());
+}
+$("view-map").addEventListener("click", () => setView3d(false));
+$("view-3d").addEventListener("click", () => setView3d(true));
+
+/** In the Quake panel while nothing is open: what the 3D view shows and how to move it. */
+function render3dIntro() {
+  const card = el("div", "intro");
+  card.append(el("h2", "", "3D: quakes at their depths"), el("p", "",
+    "Each quake is placed at its depth under the coastline. Deep quakes trace the plates sinking under Japan: the " +
+    "Pacific plate dipping west from the Japan and Kuril trenches down to about 600 km, and the Philippine Sea plate " +
+    "under western Japan. Blue lines: the top of the sinking plates every 20–100 km (USGS Slab2). Colours are depth " +
+    "and size is magnitude, as on the map."), el("p", "sub",
+    "Drag to turn, scroll or pinch to zoom, right-drag or two fingers to move; click a quake to open it here. Depths " +
+    "are to scale, so the plates look thin: the islands are about 2,500 km long and the deepest quakes 700 km down."));
+  card.append(el("p", "sub", v3d.scene
     ? `${fmt(v3d.n)} quakes` + (v3d.capped ? ` (the ${fmt(MAX_3D)} largest)` : "") + `, ${state.anim
         ? `playback at ${new Date((state.playhead + 9 * 3600) * 1000).toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" })}`
-        : state.from === state.to ? state.from : `${state.from}–${state.to}`}, M${effectiveMinMag()}+.`
+        : state.from === state.to ? state.from : `${state.from}–${state.to}`}, M${effectiveMinMag()}+: set the years and ` +
+      "magnitude on the timeline."
     : "Loading the 3D view…"));
+  $("v3d-host").replaceChildren(card);
+}
+
+/** Over the 3D view: Reset view, Zoom to quake when one is open, or why it isn't shown. */
+function render3dControls() {
+  const host = $("v3d-controls");
+  host.hidden = !in3d();
+  if (host.hidden) return;
+  const row = el("div", "v3d-buttons");
+  const btn = (text: string, fn: () => void) => {
+    const b = el("button", "", text) as HTMLButtonElement;
+    b.type = "button"; b.addEventListener("click", fn); row.append(b);
+  };
+  btn("Reset view", () => draw3d(true));
+  const parts: HTMLElement[] = [row];
+  const q = selected3d(), b = JAPAN_3D;
   if (state.selected) {
-    const q = selected3d(), b = JAPAN_3D;
-    const note = el("p", "sub v3d-note");
-    if (!q) note.textContent = "The open quake has no recorded depth, so it can't be placed here.";
-    else if (q.lon < b.w || q.lon > b.e || q.lat < b.s || q.lat > b.n) {
-      note.textContent = "The open quake is outside the area shown here.";
-    } else {
-      note.append(`The open quake is ringed, ${fmt(Math.round(q.depth))} km down, with a dashed line up to its epicentre. `);
-      const go = el("button", "", "Zoom to it") as HTMLButtonElement;
-      go.type = "button";
-      go.addEventListener("click", () => v3d.scene?.focus(q));
-      note.append(go);
-    }
-    parts.push(note);
+    if (!q) parts.push(el("p", "pill muted", "This quake has no recorded depth, so it can't be placed in 3D."));
+    else if (q.lon < b.w || q.lon > b.e || q.lat < b.s || q.lat > b.n) parts.push(el("p", "pill muted", "This quake is outside the 3D area."));
+    else btn("Zoom to quake", () => v3d.scene?.focus(q));
   }
-  const reset = el("button", "", "Reset view") as HTMLButtonElement;
-  reset.type = "button";
-  reset.addEventListener("click", () => draw3d(true));
-  const ctl = el("div", "seg");
-  ctl.append(reset);
-  parts.push(ctl, el("p", "sub",
-    "Set the years and magnitude on the timeline below. Colours are depth, as on the map; size is magnitude. " +
-    "Depths are to scale, so the sinking plates look thin: the islands are about 2,500 km long and the deepest " +
-    "quakes 700 km down."));
   host.replaceChildren(...parts);
 }
 
@@ -1144,7 +1170,7 @@ function frame(now: number) {
   const y = yearOf(state.playhead);
   if (y !== lastYear || state.playhead > loadedRange[1] - 86400) { lastYear = y; refreshData(); }
   applyTimeFilter();
-  if (state.tab === "3d" && now - last3d > 300) { last3d = now; draw3d(); }
+  if (in3d() && now - last3d > 300) { last3d = now; draw3d(); }
   const d = new Date((state.playhead + 9 * 3600) * 1000);
   $("playhead").textContent = d.toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });
   const fill = $("range-fill");
@@ -1199,10 +1225,11 @@ document.addEventListener("keydown", (e) => {
 
 // ---------------------------------------------------------------- panel ---
 
-const TABS = ["quake", "3d", "location", "history", "shaking", "forecast", "magnitudes"];
+const TABS = ["quake", "location", "history", "shaking", "forecast", "magnitudes"];
 
 function setTab(tab: string) {
   if (tab !== state.tab) cancelMapModes(); // a pick belongs to the tab that started it
+  if (tab !== "quake") state.view3d = false; // 3D is a view of the Quake tab only
   state.tab = tab;
   updateUrl();
   document.body.classList.remove("panel-closed");
@@ -1213,6 +1240,7 @@ function setTab(tab: string) {
     $(`pane-${t}`).hidden = t !== tab;
   }
   updateSelChip();
+  syncViewSwitch();
   renderPanel();
   drawLocation();
   drawHotspots();
@@ -1284,8 +1312,6 @@ function renderPanelBody() {
     if ($<HTMLDetailsElement>("mag-more").open) {
       renderMagnitudes(host, grData, { from: state.from, to: state.to, cells, areaLabel, mode: state.magMode });
     }
-  } else if (state.tab === "3d") {
-    render3dPane();
   } else if (state.tab === "forecast") {
     if (fc.status === "loading") drawForecast();
     const b = map.getBounds();
@@ -1342,7 +1368,10 @@ function renderPanelBody() {
       onSelectQuake: selectFelt,
     });
   } else if (state.tab === "quake") {
-    $("intro-host").hidden = !!state.selected; // the Start here card only while nothing is open
+    // While nothing is open: the Start here card, or in 3D what the 3D view shows.
+    $("intro-host").hidden = !!state.selected || in3d();
+    $("v3d-host").hidden = !!state.selected || !in3d();
+    if (in3d() && !state.selected) render3dIntro();
     const clear = el("button", "clear-btn", "Clear selection (Esc)") as HTMLButtonElement;
     clear.type = "button";
     clear.addEventListener("click", () => select(null));
@@ -1394,7 +1423,7 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", async () =
   map.setStyle(next, { diff: false });
   renderLegend();
   renderPanel();
-  if (state.tab === "3d") draw3d();
+  if (in3d()) draw3d();
 });
 
 // Legend for the map symbols (depth colours, sizes).
@@ -1416,7 +1445,7 @@ function renderLegend() {
   cb2.addEventListener("change", () => setOverlay("slabs", cb2.checked));
   const slabLine = el("span", "lg-line"); slabLine.style.borderTop = `2px solid ${t.depth[2]}`;
   slabToggle.append(cb2, document.createTextNode("Sinking plate depth "), slabLine);
-  const tremorToggle = el("label", "lg-key lg-toggle");
+  const tremorToggle = el("label", "lg-key lg-toggle lg-tremor"); // map only: hidden in 3D
   tremorToggle.title = "Weak, deep tremor from the plates slowly slipping (JMA's low-frequency earthquakes)";
   const cb3 = document.createElement("input");
   cb3.type = "checkbox"; cb3.checked = overlays.tremor;
@@ -1496,6 +1525,7 @@ window.addEventListener("hashchange", () => {
     syncTimeline(); refreshData();
   }
   if (h.view) map.jumpTo({ center: [h.view.lon, h.view.lat], zoom: h.view.zoom });
+  state.view3d = !!h.view3d;
   setTab(h.tab ?? "quake");
   if (h.quake && h.quake !== state.selected?.props.id) restoreQuake(h.quake);
   else if (!h.quake && state.selected) select(null);
@@ -1505,6 +1535,7 @@ renderLegend();
 renderIntro();
 syncTimeline();
 $<HTMLSelectElement>("min-mag").value = String(state.minMag);
+state.view3d = !!fromUrl.view3d;
 setTab(fromUrl.tab ?? "quake");
 // Sources, in the About box (header button). Attribution as JMA's terms of use ask: the
 // source named and linked, and a note that the data has been processed. The

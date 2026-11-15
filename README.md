@@ -135,11 +135,12 @@ kept in the URL hash.
   quake in the first 24 hours, from quakes before the selected one only
   (`pipeline/build/foreshock.py`; since 1923, 140 of 2,522 M5.5+ quakes, 5.6%;
   11.6% when the first day brought a quake within 0.5 of it, 0.9% when no M4+).
-- *3D* - the map's quakes (timeline years, magnitude; all of Japan) at their
-  true depths under the coastline, with plate boundaries and the Slab2
-  sinking-plate contours: drag to turn, hover for details, click to open a
-  quake; the open quake is ringed, with a line up to its epicentre. three.js (`site/src/view3d.ts`), loaded only
-  when the tab is opened.
+  A Map / 3D switch on the map shows the same quakes (timeline years and
+  magnitude, all of Japan) at their true depths under the coastline, with the
+  plate boundaries and Slab2 sinking-plate contours: drag to turn, hover for
+  details, click to open a quake in the panel; the open quake is ringed, with a
+  line up to its epicentre. three.js (`site/src/view3d.ts`), loaded the first
+  time 3D is opened. Replay switches back to the map.
 - *My location* - quakes felt near a point (city presets, map pick or browser
   location): per year by strongest nearby intensity, stations operating
   nearby, strongest shakings, their epicentres on the map.

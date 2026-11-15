@@ -34,7 +34,7 @@ export function renderQuake(host: HTMLElement, q: QuakeProps | null, coords: [nu
   if (!q || !coords) {
     host.replaceChildren(
       el("h2", "", "Selected quake"),
-      el("p", "sub", "Click a quake on the map to see its details, where it was felt, and its aftershocks. Or start with one of these:"),
+      el("p", "sub", "Click a quake to see its details, where it was felt, and its aftershocks. Or start with one of these:"),
       ...(extra ? [extra] : []),
     );
     return;

@@ -1,5 +1,6 @@
 // Shareable view state in the URL hash, e.g.
 //   #y=2010-2012&m=3&tab=quake&q=J2011031114461812_3810_14286&v=38.10,142.86,6.5
+// (3d=1: the Quake tab's 3D view.)
 // Unknown or malformed parts are ignored, so old links degrade gracefully.
 
 export interface UrlState {
@@ -7,6 +8,7 @@ export interface UrlState {
   to?: number;
   minMag?: number;
   tab?: string;
+  view3d?: boolean;
   quake?: string;
   view?: { lat: number; lon: number; zoom: number };
 }
@@ -23,6 +25,8 @@ export function parseHash(hash: string, tabs: string[], years: [number, number])
   if ([3, 4, 5, 6, 7, 8, 9].includes(m)) out.minMag = m;
   const tab = p.get("tab");
   if (tab && tabs.includes(tab)) out.tab = tab;
+  // 3D was a tab of its own before it became a view of the Quake tab.
+  if (p.get("3d") === "1" || tab === "3d") { out.view3d = true; if (tabs.includes("quake")) out.tab = "quake"; }
   const q = p.get("q");
   if (q && /^[JUI]\d{16}_-?\d+_-?\d+$/.test(q)) out.quake = q;
   const v = p.get("v")?.split(",").map(Number);
@@ -37,6 +41,7 @@ export function formatHash(s: UrlState): string {
   if (s.from !== undefined && s.to !== undefined) p.set("y", s.from === s.to ? `${s.from}` : `${s.from}-${s.to}`);
   if (s.minMag !== undefined) p.set("m", String(s.minMag));
   if (s.tab) p.set("tab", s.tab);
+  if (s.view3d) p.set("3d", "1");
   if (s.quake) p.set("q", s.quake);
   if (s.view) p.set("v", `${s.view.lat.toFixed(2)},${s.view.lon.toFixed(2)},${s.view.zoom.toFixed(1)}`);
   return `#${p.toString().replace(/%2C/g, ",")}`;

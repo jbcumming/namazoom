@@ -241,6 +241,17 @@ body.panel-closed .panel { display: none; }
 .map-overlay { position: absolute; z-index: 2; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
 .map-overlay > * { pointer-events: auto; }
 .top-right { top: 10px; right: 10px; align-items: flex-end; }
+.top-left { top: 10px; left: 10px; align-items: flex-start; }
+.map-overlay[hidden], .view-switch[hidden] { display: none; }
+/* Quake tab: Map / 3D switch, and the 3D view's own buttons */
+.view-switch { display: inline-flex; background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px;
+  overflow: hidden; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12); }
+.view-switch button { border: none; border-radius: 0; padding: 5px 14px; font-weight: 600; color: var(--text-secondary);
+  background: transparent; }
+.view-switch button[aria-pressed="true"] { background: var(--text-primary); color: var(--surface-1); }
+.v3d-buttons { display: flex; gap: 6px; }
+.v3d-buttons button { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12); }
+body.in3d .lg-tremor { display: none; }
 .bottom-left { left: 10px; bottom: 34px; } /* clear of the attribution line */
 .top-center { top: 10px; left: 50%; transform: translateX(-50%); align-items: center; max-width: calc(100% - 120px); }
 .map-hint { font-weight: 600; color: var(--text-primary); text-align: center; }
@@ -443,7 +454,6 @@ tr.clickable:focus-visible { outline: 2px solid var(--focus); outline-offset: -2
 .v3d-labels span { position: absolute; left: 0; top: 0; white-space: nowrap; }
 .v3d-labels .v3d-sel { font-size: 12px; font-weight: 600; color: var(--text-primary); padding: 1px 6px; border-radius: 4px;
   background: color-mix(in srgb, var(--surface-1) 85%, transparent); }
-.v3d-note button { padding: 1px 8px; margin-left: 2px; }
 /* Magnitudes: the plain "how often" lead, with the full chart folded below */
 .mag-lead td:nth-child(3), .mag-lead th:nth-child(3) { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
 .mag-more > summary { font-weight: 600; }

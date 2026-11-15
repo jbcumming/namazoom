@@ -36,7 +36,12 @@
         <div class="map-frame">
           <div id="map"></div>
           <div id="view3d" class="view3d" hidden></div>
+          <div id="v3d-controls" class="map-overlay top-left" hidden></div>
           <div class="map-overlay top-right">
+            <div id="view-switch" class="view-switch" role="group" aria-label="View">
+              <button type="button" id="view-map" aria-pressed="true">Map</button>
+              <button type="button" id="view-3d" aria-pressed="false" title="The quakes at their depths, under Japan">3D</button>
+            </div>
             <div id="playhead" class="playhead" hidden></div>
             <div id="loading" class="pill" role="status">Loading earthquake data…</div>
           </div>
@@ -83,7 +88,6 @@
       <aside class="panel" id="panel" aria-label="Data">
         <div class="tabs" role="tablist" id="tabs">
           <button role="tab" id="tab-quake" aria-controls="pane-quake">Quake</button>
-          <button role="tab" id="tab-3d" aria-controls="pane-3d">3D</button>
           <button role="tab" id="tab-location" aria-controls="pane-location">My location</button>
           <button role="tab" id="tab-history" aria-controls="pane-history">History</button>
           <button role="tab" id="tab-shaking" aria-controls="pane-shaking">Shaking</button>
@@ -124,6 +128,7 @@
 
         <section role="tabpanel" id="pane-quake" aria-labelledby="tab-quake" class="pane">
           <div id="intro-host"></div>
+          <div id="v3d-host" hidden></div>
           <div id="pane-quake-body"></div>
         </section>
 
@@ -131,7 +136,6 @@
         <section role="tabpanel" id="pane-history" aria-labelledby="tab-history" class="pane" hidden></section>
         <section role="tabpanel" id="pane-shaking" aria-labelledby="tab-shaking" class="pane" hidden></section>
         <section role="tabpanel" id="pane-forecast" aria-labelledby="tab-forecast" class="pane" hidden></section>
-        <section role="tabpanel" id="pane-3d" aria-labelledby="tab-3d" class="pane" hidden></section>
       </aside>
     </div>
     <dialog id="about" class="about" aria-labelledby="about-h">

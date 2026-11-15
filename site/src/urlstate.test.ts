@@ -23,6 +23,13 @@ describe("url state", () => {
     expect(parseHash("", TABS, YEARS)).toEqual({});
   });
 
+  it("keeps the 3D view, and opens old 3D-tab links in it", () => {
+    expect(parseHash(formatHash({ tab: "quake", view3d: true }), TABS, YEARS)).toEqual({ tab: "quake", view3d: true });
+    expect(parseHash("#tab=3d&q=J2011031114461812_3810_14286", TABS, YEARS))
+      .toEqual({ tab: "quake", view3d: true, quake: "J2011031114461812_3810_14286" });
+    expect(parseHash("#3d=0", TABS, YEARS)).toEqual({});
+  });
+
   it("accepts every magnitude in the Show menu", () => {
     for (const m of [3, 4, 5, 6, 7, 8, 9]) expect(parseHash(`#m=${m}`, TABS, YEARS)).toEqual({ minMag: m });
   });
