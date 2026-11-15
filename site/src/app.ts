@@ -1,4 +1,4 @@
-import { Map as MLMap, NavigationControl, setWorkerUrl, type ExpressionSpecification, type GeoJSONSource } from "maplibre-gl";
+import { Map as MLMap, NavigationControl, setWorkerUrl, type ExpressionSpecification, type FilterSpecification, type GeoJSONSource } from "maplibre-gl";
 // MapLibre finds its worker relative to its own file, which bundling breaks;
 // let Vite bundle the worker and hand MapLibre the resulting URL.
 import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
@@ -130,6 +130,7 @@ function addQuakeLayers() {
   addHotspotLayer();
   addTremorLayer(before);
   addForecastLayer();
+  addZoneLayers();
   // Rings round destructive quakes (damage class 3+ or a damaging tsunami), while their list is open.
   map.addLayer({
     id: "destructive", type: "circle", source: "quakes",
@@ -895,6 +896,47 @@ map.on("mouseleave", "tremor", hideTooltip);
 const fc = { data: null as Forecast | null, status: "loading" as "loading" | "ok" | "missing" };
 let fcPromise: Promise<Forecast | null> | null = null;
 
+/** The official source area of a great trench quake, shown from the Forecast tab's 30-year table. */
+let fcZone: string | null = null;
+let zonesPromise: Promise<GeoJSON.FeatureCollection | null> | null = null;
+const loadZones = () => (zonesPromise ??= fetch("./data/overlays/trench_zones.json").then((r) => (r.ok ? r.json() : null)).catch(() => null));
+
+function addZoneLayers() {
+  map.addSource("trench-zones", { type: "geojson", data: "./data/overlays/trench_zones.json",
+    attribution: "Source areas: J-SHIS (NIED), processed" });
+  const t = theme();
+  const filter = ["==", ["get", "zone"], fcZone ?? ""] as unknown as FilterSpecification;
+  const visibility = state.tab === "forecast" ? "visible" : "none";
+  map.addLayer({ id: "trench-zone-fill", type: "fill", source: "trench-zones", filter, layout: { visibility },
+    paint: { "fill-color": t.text, "fill-opacity": 0.12 } });
+  map.addLayer({ id: "trench-zone-line", type: "line", source: "trench-zones", filter, layout: { visibility },
+    paint: { "line-color": t.text, "line-width": 2.5 } });
+}
+
+/** Show one quake's source area (or none), and bring it into view. */
+async function setZone(id: string | null) {
+  fcZone = id;
+  syncZones();
+  renderPanel();
+  if (!id) return;
+  const fc = await loadZones();
+  const f = fc?.features.find((x: GeoJSON.Feature) => x.properties?.zone === id);
+  if (!f || fcZone !== id) return;
+  const pts = (f.geometry as GeoJSON.MultiPolygon).coordinates.flat(2);
+  const lons = pts.map((p) => p[0]), lats = pts.map((p) => p[1]);
+  map.fitBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
+    { padding: 60, maxZoom: 7, duration: 900 });
+  showMapOnPhone();
+}
+function syncZones() {
+  const visibility = state.tab === "forecast" ? "visible" : "none";
+  for (const id of ["trench-zone-fill", "trench-zone-line"]) {
+    if (!map.getLayer(id)) continue;
+    map.setFilter(id, ["==", ["get", "zone"], fcZone ?? ""]);
+    map.setLayoutProperty(id, "visibility", visibility);
+  }
+}
+
 function addForecastLayer() {
   map.addSource("forecast", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
   const colors = fcColors();
@@ -1287,6 +1329,7 @@ function setTab(tab: string) {
   drawLocation();
   drawHotspots();
   drawForecast();
+  syncZones();
   draw3d();
   if (map.getLayer("quakes")) applyTimeFilter();
   syncDestructive();
@@ -1363,6 +1406,7 @@ function renderPanelBody() {
       view: fc.data ? sumCells(fc.data, all ? null : { w: b.getWest(), s: b.getSouth(), e: b.getEast(), n: b.getNorth() }) : null,
       areaLabel: all ? "all of Japan" : "the visible map area",
       colors: fcColors(), edges: P_EDGES,
+      zones: { zone: fcZone, onZone: setZone },
     });
   } else if (state.tab === "shaking") {
     renderShaking($("pane-shaking"), {
@@ -1613,6 +1657,8 @@ setTab(fromUrl.tab ?? "quake");
       li("Coastline when the map tiles are missing: ", link("https://www.naturalearthdata.com", "Natural Earth")),
       li("Depth of the sinking plates: ", link("https://doi.org/10.5066/F7PV6JNV", "USGS Slab2"), " (Hayes, 2018)"),
       li("Plate boundaries: ", link("https://doi.org/10.1029/2001GC000252", "PB2002"), " (Bird, 2003), ODC-By"),
+      li("Source areas of the great trench quakes: ", link("https://www.j-shis.bosai.go.jp/", "J-SHIS"),
+        " (防災科学技術研究所 NIED), seismic activity model 2024, outlines simplified by this site"),
     ),
   );
   const dlg = $<HTMLDialogElement>("about");

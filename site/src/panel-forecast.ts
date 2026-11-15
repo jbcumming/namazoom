@@ -3,7 +3,7 @@
 import * as Plot from "@observablehq/plot";
 import * as d3 from "d3";
 import { atMag, chance, fmtPct, fmtWindow, overForecast, type CellSum, type Forecast, type RelBin } from "./forecast";
-import { trenchSection } from "./panel-trench";
+import { trenchSection, type ZoneInputs } from "./panel-trench";
 import { el, fmt, hideTooltip, showTooltip, theme } from "./ui";
 
 /** Forecast map colours: a violet ramp, kept apart from the Shaking tab's green rates. */
@@ -19,6 +19,7 @@ export interface ForecastInputs {
   areaLabel: string;
   colors: string[];
   edges: number[];
+  zones: ZoneInputs;
 }
 
 const RTICKS = [1e-4, 1e-3, 1e-2, 1e-1, 1];
@@ -68,7 +69,7 @@ export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
   const w = Math.max(260, host.clientWidth - 32);
   if (inp.status === "missing") {
     host.replaceChildren(...parts, el("p", "sub", "No forecast in this build. Run ./run.sh build (step: forecast)."),
-      ...trenchSection(w));
+      ...trenchSection(w, inp.zones));
     return;
   }
   if (inp.status === "loading" || !inp.data || !inp.view) {
@@ -82,7 +83,7 @@ export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
   const win = fmtWindow(f.live.t0, f.live.days);
 
   if (!v.cells) {
-    host.replaceChildren(...parts, el("p", "sub", "No forecast squares in the visible area; zoom out."), ...trenchSection(w));
+    host.replaceChildren(...parts, el("p", "sub", "No forecast squares in the visible area; zoom out."), ...trenchSection(w, inp.zones));
     return;
   }
   const p5 = chance(v.lam5);
@@ -260,5 +261,5 @@ export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
       "a larger chance than one square.",
   ]) det.append(el("p", "", text));
   parts.push(det);
-  host.replaceChildren(...parts, ...trenchSection(w));
+  host.replaceChildren(...parts, ...trenchSection(w, inp.zones));
 }

@@ -160,7 +160,10 @@ kept in the URL hash.
   timeline, with the government's (HERP) 30-year chances for 1 Jan 2026,
   transcribed in `site/src/trench-history.ts`, and a slip budget per quake type
   (plate rate from PB2002 × years since the last one: what a fully locked fault
-  could release, an upper bound).
+  could release, an upper bound). Clicking a quake in that table shows its official source area on the
+  map: J-SHIS's seismic activity model (NIED, 2024), every rupture pattern
+  gridded at 0.1° and outlined by `pipeline/build/trench_zones.py` (J-SHIS's
+  terms allow processed data with credit, not the raw files).
 
 **Forecast.** `pipeline/forecast/etas.py` is a space-time ETAS model (Ogata
 1988, 1998; background by stochastic declustering, Zhuang, Ogata & Vere-Jones

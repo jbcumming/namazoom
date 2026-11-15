@@ -1,7 +1,7 @@
 // Forecast tab, long-term section: the historical great trench quakes on a timeline,
 // beside HERP's official 30-year probabilities (data in trench-history.ts).
 import * as Plot from "@observablehq/plot";
-import { el, theme } from "./ui";
+import { el, rowAction, theme } from "./ui";
 import { AS_OF, HERP_LTE, HERP_SUMMARY, OUTLOOK, ROWS, slipBudget, type TrenchEvent } from "./trench-history";
 
 const X0 = 650, X1 = 2030;
@@ -23,7 +23,9 @@ function link(href: string, text: string) {
   return a;
 }
 
-export function trenchSection(width: number): HTMLElement[] {
+export interface ZoneInputs { zone: string | null; onZone(id: string | null): void }
+
+export function trenchSection(width: number, zones: ZoneInputs): HTMLElement[] {
   const t = theme();
   const out: HTMLElement[] = [el("h2", "", "The long view: official 30-year chances")];
   out.push(el("p", "sub",
@@ -94,10 +96,17 @@ export function trenchSection(width: number): HTMLElement[] {
     const sb = slipBudget(o, yearNow);
     const sbText = !sb ? "–" : Math.abs(sb[1] - sb[0]) < 0.5 ? `~${fmtM(sb[1])}` : `~${num(sb[0])}–${fmtM(sb[1])}`;
     tr.append(el("td", "", o.quake), el("td", "", o.last), el("td", "", o.interval), el("td", "", o.p30), el("td", "", sbText));
+    const area = o.area;
+    if (area) {
+      if (area === zones.zone) tr.classList.add("on");
+      rowAction(tr, area === zones.zone ? "Hide its area on the map" : "Show its area on the map",
+        () => zones.onZone(area === zones.zone ? null : area));
+    }
   }
   const wrap = el("div", "trench-wrap");
   wrap.append(tb);
-  out.push(el("div", "chart-title", `Chance of each quake within 30 years (calculated for ${AS_OF})`), wrap, c);
+  out.push(el("div", "chart-title", `Chance of each quake within 30 years (calculated for ${AS_OF})`),
+    el("p", "sub", "Click a quake to see the area it would break on the map."), wrap, c);
 
   const notes = el("details", "notes");
   const src = el("p");
@@ -111,6 +120,9 @@ export function trenchSection(width: number): HTMLElement[] {
     el("p", "", "*Slip budget, this site's own figure: how far the plates have moved since the last such quake (Bird 2003 " +
       "rates), the most the fault could slip if fully locked. Faults are only partly locked, so it's an upper bound, and " +
       "it says how big the next quake could be, not when. For scale, 2011 slipped about 12 m on average."),
+    el("p", "", "The areas on the map are outlines of every rupture HERP's evaluation allows for each quake, from " +
+      "J-SHIS (NIED's national hazard map service), simplified by this site. The tsunami quake near the Japan Trench and " +
+      "the southern Kantō M7 have none: they can happen anywhere along a wide zone."),
     el("p", "", "Older records are thinner: before 1361 on the Nankai Trough and about 1600 on the Japan Trench, quakes " +
       "may be missing, so gaps there don't mean it was quiet."),
     src);

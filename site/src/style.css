@@ -423,6 +423,7 @@ label.inline { font-size: 0.85rem; color: var(--text-secondary); }
 tr.clickable { cursor: pointer; }
 tr.clickable:hover td, tr.clickable:focus-visible td { background: var(--page); }
 tr.clickable:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+tr.clickable.on td { background: var(--page); font-weight: 600; color: var(--text-primary); }
 .exit-play { white-space: nowrap; font-size: 0.8rem; }
 .intro { border: 1px solid var(--border); border-radius: 10px; background: var(--page); padding: 4px 12px 10px; margin: 12px 0 4px; }
 .intro-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

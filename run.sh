@@ -15,7 +15,7 @@
 # Steps are skipped when their output already exists, so a second run only
 # rebuilds the site itself. Downloads need network access to
 # www.data.jma.go.jp, www.jma.go.jp, raw.githubusercontent.com, www.sciencebase.gov,
-# build.protomaps.com and codeload.github.com.
+# build.protomaps.com, codeload.github.com and www.j-shis.bosai.go.jp.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -71,6 +71,7 @@ build() {
   step "Site data (quakes, footprints, felt history, G-R counts, overlays)"
   uv run python -m pipeline.build.site_data
   uv run python -m pipeline.build.overlays
+  uv run python -m pipeline.build.trench_zones --fetch  # J-SHIS source areas, downloaded once
   uv run python -m pipeline.build.foreshock >/dev/null && echo "foreshock base rates written (site/public/data/foreshock.json)"
   if [[ "${FORECAST:-1}" != 0 ]]; then
     step "7-day forecast (ETAS; the first run fits the model, ~15 min)"
