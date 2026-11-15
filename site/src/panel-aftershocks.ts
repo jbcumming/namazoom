@@ -37,9 +37,8 @@ export function renderAftershocks(st: AftershockState, width: number): HTMLEleme
   const a = seq.after;
   const truncated = main.t + WINDOW_DAYS * 86400 > dataEnd;
   box.append(el("p", "sub",
-    `M3+ quakes within ${fmt(Math.round(seq.radiusKm))} km of the epicentre in the ${WINDOW_DAYS} days after ` +
-    `(about the rupture length expected for M${main.mag.toFixed(1)}, after Wells & Coppersmith 1994)` +
-    (truncated ? "; the catalogue ends before the year is up." : ".")));
+    `M3+ quakes within ${fmt(Math.round(seq.radiusKm))} km in the year after` +
+    (truncated ? " (the data ends before the year is up)." : ".")));
 
   const largest = a.reduce<(typeof a)[number] | null>((m, s) => (!m || s.mag > m.mag ? s : m), null);
   const stats = el("div", "readout");
@@ -56,16 +55,10 @@ export function renderAftershocks(st: AftershockState, width: number): HTMLEleme
     stat("Foreshocks M3+", fmt(seq.before.length), `in the ${FORESHOCK_DAYS} days before`),
   );
   box.append(stats);
-  if (largest) {
-    const gap = main.mag - largest.mag;
-    box.append(el("p", "sub",
-      `Largest aftershock ${gap.toFixed(1)} magnitude units below the mainshock. Båth's law says this gap is typically about 1.2, ` +
-      "whatever the mainshock's size."));
-  }
-  if (a.length < 10) {
-    box.append(el("p", "sub", "Too few M3+ aftershocks to chart their decay."));
-    return box;
-  }
+  if (a.length < 10) return box;
+  const charts = el("details", "notes");
+  charts.append(el("summary", "", "How the aftershocks died away"));
+  box.append(charts);
 
   const w = Math.max(260, width - 32);
   const bins = rateBins(a.map((s) => s.days));
@@ -94,11 +87,10 @@ export function renderAftershocks(st: AftershockState, width: number): HTMLEleme
     marks,
   });
   const c1 = el("div", "chart");
-  c1.append(el("div", "chart-title", "How fast the aftershocks die away (Omori's law)"), decay);
-  box.append(c1, el("p", "sub",
-    "On log–log axes a steady decay is a straight line; its slope p is usually close to 1, meaning the rate falls " +
-    "roughly as 1/time. " + (fit ? `Fitted from ${fit.n} time bins after the first ${fmtDays(0.1)}, ` +
-      "when small aftershocks are still being missed in the mainshock's shaking." : "Not enough data for a fit.")));
+  c1.append(el("div", "chart-title", "Aftershocks per day"), decay);
+  charts.append(c1, el("p", "sub",
+    "Aftershocks fade fast: the rate falls roughly as 1 / time (Omori's law, p close to 1). " +
+    (fit ? `The dashed line is the fit, after the first ${fmtDays(0.1)}, when small ones are still missed.` : "")));
 
   const r = d3.scaleSqrt().domain([3, 9]).range([1.4, 8]).clamp(true);
   const mt = Plot.plot({
@@ -116,6 +108,6 @@ export function renderAftershocks(st: AftershockState, width: number): HTMLEleme
   });
   const c2 = el("div", "chart");
   c2.append(el("div", "chart-title", "Aftershock magnitudes over time"), mt);
-  box.append(c2);
+  charts.append(c2);
   return box;
 }

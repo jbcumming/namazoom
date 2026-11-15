@@ -52,7 +52,6 @@ export function renderQuake(host: HTMLElement, q: QuakeProps | null, coords: [nu
   const top = fp.status === "ok" ? Math.max(-1, ...fp.readings!.map((r) => classOf(r.code))) : -1;
   row("Max shindo", q.shindo ? SHINDO[q.shindo] ?? q.shindo : top >= 0 ? CLASSES[top].label : q.felt ? "felt" : "not felt / not reported");
   if (q.cls !== "-") row("Type", q.prelim ? "not yet classified" : CLASS[q.cls] ?? "located by another agency");
-  row(q.prelim ? "ID" : "Catalogue ID", q.id);
 
   const size = q.mag === null ? "Felt earthquake" : `M${q.mag.toFixed(1)} earthquake`;
   const title = el("h2", "", name ? `${name.name}, M${q.mag!.toFixed(1)}` : size);
@@ -121,6 +120,9 @@ function footprintSection(all: Reading[], stations: Stations, width: number): HT
   if (unknown) barsWrap.append(el("p", "sub", `${fmt(unknown)} more reported it felt without an intensity.`));
   out.push(barsWrap, shindoScale(CLASS_COLORS));
 
+  // Folded: how shaking fades with distance, and the strongest readings.
+  const more = el("details", "notes");
+  more.append(el("summary", "", "More about the shaking"));
   // Intensity vs distance: how shaking fades away from the source.
   const withInstr = readings.filter((r) => r.instrumental !== null);
   const useInstr = withInstr.length >= readings.length / 2;
@@ -162,9 +164,7 @@ function footprintSection(all: Reading[], stations: Stations, width: number): HT
       });
     });
     svg.addEventListener("pointerleave", hideTooltip);
-    const wrap = el("div", "chart");
-    wrap.append(el("div", "chart-title", useInstr ? "Shaking fades with distance" : "Reported intensity by distance"), svg);
-    out.push(wrap);
+    more.append(el("div", "chart-title", useInstr ? "Shaking fades with distance" : "Reported intensity by distance"), svg);
   }
 
   // Strongest readings.
@@ -180,8 +180,7 @@ function footprintSection(all: Reading[], stations: Stations, width: number): HT
       el("td", "", (CLASSES[classOf(r.code)]?.label ?? "felt") + (r.instrumental !== null ? ` (${r.instrumental.toFixed(1)})` : "")),
       el("td", "", r.distanceKm === null ? "area" : `${fmt(Math.round(r.distanceKm))} km`));
   }
-  const details = el("details", "table-view");
-  details.append(el("summary", "", "Strongest readings"), table);
-  out.push(details);
+  more.append(el("div", "chart-title", "Strongest readings"), table);
+  out.push(more);
   return out;
 }

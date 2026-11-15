@@ -10,8 +10,8 @@ const hours = (h: number) => (h < 48 ? `${d3.format("~g")(h)} hours` : `${d3.for
 
 export function renderForeshock(st: ForeshockState, t: number, mag: number | null): HTMLElement | null {
   if (mag === null || mag < 5.5) return null;
-  const box = el("div", "foreshock");
-  box.append(el("h2", "", "Could it have been a foreshock?"));
+  const box = el("details", "notes fold foreshock");
+  box.append(el("summary", "", "Could it have been a foreshock?"));
   if (st.status !== "ok") {
     box.append(el("p", "sub", st.status === "loading" ? "Loading…" : "No foreshock statistics in this build."));
     return box;
@@ -50,7 +50,7 @@ export function renderForeshock(st: ForeshockState, t: number, mag: number | nul
     box.append(el("p", "sub", row.gap24 === null || row.gap24 === undefined
       ? `In its first 24 hours no M${d.followerMag}+ quake followed within ${R} km.`
       : `In its first 24 hours the largest quake within ${R} km was M${(row.m - row.gap24).toFixed(1)}, ` +
-        `${row.gap24.toFixed(1)} below it (Båth's law: typically about 1.2 for a mainshock's largest aftershock).`));
+        `${row.gap24.toFixed(1)} below it.`));
   }
 
   const tb = document.createElement("table");
@@ -74,9 +74,7 @@ export function renderForeshock(st: ForeshockState, t: number, mag: number | nul
       : `The ${d.days} days aren't over in the data yet.`;
   box.append(el("p", "lead", outcome));
 
-  const det = document.createElement("details");
-  det.className = "notes";
-  det.append(el("summary", "", "About these numbers"));
+  const det = el("div");
   for (const text of [
     "Context, not a prediction: most quakes are not followed by a larger one, and a small gap only raises the chance " +
       "from a few percent to around one in ten. Official advisories come from JMA (the Nankai Trough and the " +

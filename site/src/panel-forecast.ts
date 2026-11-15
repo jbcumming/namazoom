@@ -87,7 +87,7 @@ function viewBlock(inp: ForecastInputs): HTMLElement {
     const tr = body.insertRow();
     tr.append(el("td", "", `M${m}+`), el("td", "", fmtPct(chance(lam))), el("td", "", fmtPct(chance(base))));
   }
-  box.append(sum, el("p", "sub", `${win} (Japan time), quakes down to ${f.maxDepth} km. For the area on the map: zoom or pan to change it.`), table);
+  box.append(sum, el("p", "sub", `${win} (Japan time), quakes up to ${f.maxDepth} km deep. For the area on the map: zoom or pan to change it.`), table);
   return box;
 }
 

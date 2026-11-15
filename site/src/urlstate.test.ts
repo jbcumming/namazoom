@@ -35,6 +35,13 @@ describe("url state", () => {
     expect(parseHash("#tab=history", ["quake", "shaking"], YEARS)).toEqual({ tab: "quake" });
   });
 
+  it("keeps the Shaking tab's place, a city or a point", () => {
+    expect(parseHash("#tab=shaking&at=Tokyo", ["quake", "shaking"], YEARS)).toEqual({ tab: "shaking", place: "Tokyo" });
+    expect(parseHash(formatHash({ tab: "shaking", place: "35.70,139.70" }), ["quake", "shaking"], YEARS))
+      .toEqual({ tab: "shaking", place: "35.70,139.70" });
+    expect(parseHash("#at=<script>", ["quake"], YEARS)).toEqual({});
+  });
+
   it("accepts every magnitude in the Show menu", () => {
     for (const m of [3, 4, 5, 6, 7, 8, 9]) expect(parseHash(`#m=${m}`, TABS, YEARS)).toEqual({ minMag: m });
   });

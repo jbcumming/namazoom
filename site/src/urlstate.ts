@@ -9,6 +9,7 @@ export interface UrlState {
   minMag?: number;
   tab?: string;
   view3d?: boolean;
+  place?: string; // the Shaking tab's place: a city name, or "lat,lon"
   quake?: string;
   view?: { lat: number; lon: number; zoom: number };
 }
@@ -31,6 +32,8 @@ export function parseHash(hash: string, tabs: string[], years: [number, number])
   else if (tab && MERGED[tab] && tabs.includes(MERGED[tab])) out.tab = MERGED[tab];
   // 3D was a tab of its own before it became a view of the Quakes tab.
   if (p.get("3d") === "1" || tab === "3d") { out.view3d = true; if (tabs.includes("quake")) out.tab = "quake"; }
+  const at = p.get("at");
+  if (at && (/^[A-Za-z]{2,20}$/.test(at) || /^-?\d{1,2}(\.\d+)?,-?\d{1,3}(\.\d+)?$/.test(at))) out.place = at;
   const q = p.get("q");
   if (q && /^[JUI]\d{16}_-?\d+_-?\d+$/.test(q)) out.quake = q;
   const v = p.get("v")?.split(",").map(Number);
@@ -46,6 +49,7 @@ export function formatHash(s: UrlState): string {
   if (s.minMag !== undefined) p.set("m", String(s.minMag));
   if (s.tab) p.set("tab", s.tab);
   if (s.view3d) p.set("3d", "1");
+  if (s.place) p.set("at", s.place);
   if (s.quake) p.set("q", s.quake);
   if (s.view) p.set("v", `${s.view.lat.toFixed(2)},${s.view.lon.toFixed(2)},${s.view.zoom.toFixed(1)}`);
   return `#${p.toString().replace(/%2C/g, ",")}`;

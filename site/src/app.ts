@@ -252,6 +252,7 @@ function updateUrl() {
       ...(state.minMag !== 5 ? { minMag: state.minMag } : {}),
       ...(state.tab !== "quake" ? { tab: state.tab } : {}),
       ...(in3d() ? { view3d: true } : {}),
+      ...(state.tab === "shaking" && loc.place && loc.place.name !== "your location" ? { place: placeParam(loc.place) } : {}),
       ...(state.selected ? { quake: state.selected.props.id } : {}),
       // Not while the map is centred on "Use my location": a shared link would show where you are.
       ...(viewIsPrivate ? {} : { view: { lat: c.lat, lon: c.lng, zoom: map.getZoom() } }),
@@ -507,7 +508,8 @@ function replay() {
       features: [ring(P_KMS, tSec, "P"), ring(S_KMS, tSec, "S")].filter((f): f is GeoJSON.Feature => f !== null) });
     const ph = $("playhead");
     ph.hidden = false;
-    ph.textContent = `+${tSec.toFixed(tSec < 100 ? 1 : 0)} s  (×${speed})`;
+    const m = Math.floor(tSec / 60), sec = Math.floor(tSec % 60);
+    ph.textContent = `${m ? `${m} min ${sec} s` : `${sec} s`} after · ${speed}× speed`;
     if (tSec < last + 2 * speed) replayRaf = requestAnimationFrame(frame);
     else { replayRaf = 0; setTimeout(() => { if (!replayRaf) stopReplay(); }, 1500); }
   };
@@ -1070,6 +1072,19 @@ function drawLocation() {
   renderLegend();
 }
 
+/** The Shaking tab's place in a link: a city's name, or its point to 0.01°. */
+function placeParam(p: Place): string {
+  return PLACES.some((c) => c.name === p.name) ? p.name : `${p.lonlat[1].toFixed(2)},${p.lonlat[0].toFixed(2)}`;
+}
+function placeFromParam(s: string | undefined): Place | null {
+  if (!s) return null;
+  const city = PLACES.find((c) => c.name.toLowerCase() === s.toLowerCase());
+  if (city) return city;
+  const [lat, lon] = s.split(",").map(Number);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+  return { name: `${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E`, lonlat: [lon, lat] };
+}
+
 async function setPlace(place: Place | null) {
   const token = ++locToken;
   loc.place = place;
@@ -1078,7 +1093,7 @@ async function setPlace(place: Place | null) {
   syncMapHint();
   loc.status = place ? "loading" : "idle";
   loc.quakes = []; loc.stations = [];
-  drawLocation(); drawHotspots(); renderPanel();
+  drawLocation(); drawHotspots(); renderPanel(); updateUrl();
   if (!place) return;
   const stations = await shindo.loadStations();
   const r = await locStore.query(stations, place.lonlat[0], place.lonlat[1], loc.radiusKm);
@@ -1137,6 +1152,17 @@ function cancelMapModes() {
 }
 
 /** On-map prompt while a click places something instead of selecting a quake. */
+/** A short note in the map's top pill, for a few seconds (works on phones, unlike hover titles). */
+let hintTimer = 0;
+function flashHint(text: string) {
+  if (loc.picking) return; // the pill is busy with "Click the map to choose a place"
+  const hint = $("map-hint");
+  hint.replaceChildren(text);
+  hint.hidden = false;
+  clearTimeout(hintTimer);
+  hintTimer = window.setTimeout(() => { if (!loc.picking) hint.hidden = true; }, 7000);
+}
+
 function syncMapHint() {
   const hint = $("map-hint");
   const text = loc.picking ? "Click the map to choose a place" : "";
@@ -1210,8 +1236,10 @@ function syncTimeline() {
   const label = $("range-label");
   label.textContent = state.from === state.to ? `${state.from}` : `${state.from}–${state.to}`;
   if (store.index.prelimFrom && state.to >= yearOf(store.index.prelimFrom)) {
-    const b = el("span", "badge-prelim", "Preliminary");
+    const b = el("button", "badge-prelim", "Preliminary") as HTMLButtonElement;
+    b.type = "button";
     b.title = `Quakes from ${fmtDate(store.index.prelimFrom)} on are preliminary: JMA's provisional values, which may change`;
+    b.addEventListener("click", () => flashHint(b.title));
     label.append(" ", b);
   }
   const span = store.index.years[1] - store.index.years[0];
@@ -1472,10 +1500,9 @@ function renderPanelBody() {
         const rb = el("button", "primary", "▶ Replay the shaking") as HTMLButtonElement;
         rb.type = "button";
         rb.addEventListener("click", replay);
-        const missing = footprint.readings!.length - timed;
         extra.append(el("h2", "", "Replay"), el("p", "sub",
-          "Stations light up at the time they recorded the shaking. The dashed rings are model P and S wave fronts " +
-          `(${P_KMS} and ${S_KMS} km/s) for comparison.` + (missing ? ` ${fmt(missing)} ${missing === 1 ? "reading has" : "readings have"} no recorded time and ${missing === 1 ? "is" : "are"} left out.` : "")), rb);
+          "Stations light up when they recorded the shaking. The dashed rings show how far the first (P) and the " +
+          "stronger (S) waves would have spread."), rb);
       }
     }
     if (state.selected) {
@@ -1587,7 +1614,10 @@ function renderLegend() {
   tremorToggle.title = "Weak, deep tremor from the plates slowly slipping (JMA's low-frequency earthquakes)";
   const cb3 = document.createElement("input");
   cb3.type = "checkbox"; cb3.checked = overlays.tremor;
-  cb3.addEventListener("change", () => setOverlay("tremor", cb3.checked));
+  cb3.addEventListener("change", () => {
+    setOverlay("tremor", cb3.checked);
+    if (cb3.checked) flashHint("Orange: weak, deep tremor where the plates slip slowly. Hover or tap a dot for more.");
+  });
   const tremorDot = el("span", "lg-dot"); tremorDot.style.background = t.series[1];
   tremorToggle.append(cb3, document.createTextNode("Slow-slip tremor "), tremorDot);
   layers.append(toggle, slabToggle, tremorToggle);
@@ -1666,6 +1696,8 @@ window.addEventListener("hashchange", () => {
   if (h.view) map.jumpTo({ center: [h.view.lon, h.view.lat], zoom: h.view.zoom });
   state.view3d = !!h.view3d;
   setTab(h.tab ?? "quake");
+  const p = placeFromParam(h.place);
+  if ((p?.name ?? null) !== (loc.place?.name ?? null) && loc.place?.name !== "your location") setPlace(p);
   if (h.quake && h.quake !== state.selected?.props.id) restoreQuake(h.quake);
   else if (!h.quake && state.selected) select(null);
 });
@@ -1676,6 +1708,7 @@ syncTimeline();
 $<HTMLSelectElement>("min-mag").value = String(state.minMag);
 state.view3d = !!fromUrl.view3d;
 setTab(fromUrl.tab ?? "quake");
+if (fromUrl.place) setPlace(placeFromParam(fromUrl.place));
 // Sources, in the About box (header button). Attribution as JMA's terms of use ask: the
 // source named and linked, and a note that the data has been processed. The
 // map's attribution control repeats the short form.

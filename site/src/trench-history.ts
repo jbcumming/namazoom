@@ -141,7 +141,7 @@ export const OUTLOOK: TrenchOutlook[] = [
   { zone: "Kuril", quake: "Off Tokachi, M8.0–8.6", area: "tokachi", last: "2003", interval: "80 yr", p30: "~20%", rate: PLATE_RATE.Kuril, lastYears: [2003, 2003] },
   { zone: "Kuril", quake: "Off Nemuro, M7.8–8.5", area: "nemuro", last: "1973", interval: "65 yr", p30: "~90%", rate: PLATE_RATE.Kuril, lastYears: [1973, 1973] },
   { zone: "Japan Trench", quake: "Tōhoku type, M9", area: "jt9", last: "2011", interval: "~550–600 yr", p30: "~0%", rate: PLATE_RATE["Japan Trench"], lastYears: [2011, 2011] },
-  { zone: "Japan Trench", quake: "Tsunami quake near the trench, Mt 8.6–9.0", last: "2011", interval: "4 in ~410 yr", p30: "~30%", rate: PLATE_RATE["Japan Trench"], lastYears: [2011, 2011] },
+  { zone: "Japan Trench", quake: "Tsunami quake near the trench, M8.6–9.0", last: "2011", interval: "4 in ~410 yr", p30: "~30%", rate: PLATE_RATE["Japan Trench"], lastYears: [2011, 2011] },
   { zone: "Sagami", quake: "M8 class (as 1703, 1923)", area: "sagami", last: "1923", interval: "180–590 yr", p30: "~0–6%", rate: PLATE_RATE.Sagami, lastYears: [1923, 1923] },
   { zone: "Sagami", quake: "M7 class anywhere under southern Kantō", last: "–", interval: "–", p30: "~70%" },
   { zone: "Nankai", quake: "M8–9, slip-dependent model", area: "nankai", last: "1944/46", interval: "~97 yr (next)", p30: "60–90%+", rate: PLATE_RATE.Nankai, lastYears: [1944, 1946] },
