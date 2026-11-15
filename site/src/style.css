@@ -443,3 +443,7 @@ tr.clickable:focus-visible { outline: 2px solid var(--focus); outline-offset: -2
 .v3d-labels span { position: absolute; left: 0; top: 0; white-space: nowrap; }
 .how { margin: 6px 0; padding-left: 1.2em; }
 .how li { margin: 3px 0; }
+/* Magnitudes: the plain "how often" lead, with the full chart folded below */
+.mag-lead td:nth-child(3), .mag-lead th:nth-child(3) { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+.mag-more > summary { font-weight: 600; }
+.mag-lead .muted { color: var(--text-muted); }

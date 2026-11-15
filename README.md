@@ -121,10 +121,7 @@ plate (USGS Slab2, Hayes 2018), contoured at the quake colour boundaries.
 Views are shareable: years, filter, tab, selected quake and map position are
 kept in the URL hash.
 
-**Tabs** (follow the visible map area and the timeline's years):
-- *Magnitudes* - Gutenberg-Richter curves with Mc and b estimated in the browser
-  (a port of the pipeline estimator, parity-tested against Python); era
-  comparison as yearly rates.
+**Tabs** (follow the visible map area and the timeline's years; the site opens on Quake):
 - *Quake* - the selected quake: details; shindo footprint (stations coloured
   by intensity, intensity vs distance, strongest readings); replay of the
   shaking at recorded station times beside model P/S wave fronts; aftershocks
@@ -135,6 +132,11 @@ kept in the URL hash.
   quake in the first 24 hours, from quakes before the selected one only
   (`pipeline/build/foreshock.py`; since 1923, 140 of 2,522 M5.5+ quakes, 5.6%;
   11.6% when the first day brought a quake within 0.5 of it, 0.9% when no M4+).
+- *3D* - the map's quakes (timeline years, magnitude; all of Japan or the map area) at their depths
+  under the coastline, with plate boundaries and the Slab2 sinking-plate
+  contours: drag to turn, depth exaggeration ×1/×2/×4, slow spin, hover for
+  details, click to open a quake. three.js (`site/src/view3d.ts`), loaded only
+  when the tab is opened.
 - *My location* - quakes felt near a point (city presets, map pick or browser
   location): per year by strongest nearby intensity, stations operating
   nearby, strongest shakings, their epicentres on the map.
@@ -149,11 +151,6 @@ kept in the URL hash.
   detection method (template matching from 2018 multiplies the counts), and a
   space-time density plot along the belt where episodic tremor-and-slip bursts
   show as streaks.
-- *3D* - the map's quakes (timeline years, magnitude, map area) at their depths
-  under the coastline, with plate boundaries and the Slab2 sinking-plate
-  contours: drag to turn, depth exaggeration ×1/×2/×4, slow spin, hover for
-  details, click to open a quake. three.js (`site/src/view3d.ts`), loaded only
-  when the tab is opened.
 - *Forecast* - the chance of M5+/M6+/M7+ quakes in the 7 days after the data
   ends, for the visible area and per half-degree square on the map, against the
   long-term average; and how the same method did on every week since 2016
@@ -163,6 +160,11 @@ kept in the URL hash.
   transcribed in `site/src/trench-history.ts`, and a slip budget per quake type
   (plate rate from PB2002 × years since the last one: what a fully locked fault
   could release, an upper bound).
+- *Magnitudes* - how often quakes of each size happen in the area (yearly
+  averages, each size over the eras in which it was fully recorded); below it,
+  folded away, Gutenberg-Richter curves with Mc and b estimated in the browser
+  (a port of the pipeline estimator, parity-tested against Python) and era
+  comparison as yearly rates.
 
 **Forecast.** `pipeline/forecast/etas.py` is a space-time ETAS model (Ogata
 1988, 1998; background by stochastic declustering, Zhuang, Ogata & Vere-Jones

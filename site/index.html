@@ -83,22 +83,24 @@
 
       <aside class="panel" id="panel" aria-label="Data">
         <div class="tabs" role="tablist" id="tabs">
-          <button role="tab" id="tab-magnitudes" aria-controls="pane-magnitudes">Magnitudes</button>
           <button role="tab" id="tab-quake" aria-controls="pane-quake">Quake</button>
+          <button role="tab" id="tab-3d" aria-controls="pane-3d">3D</button>
           <button role="tab" id="tab-location" aria-controls="pane-location">My location</button>
           <button role="tab" id="tab-history" aria-controls="pane-history">History</button>
           <button role="tab" id="tab-shaking" aria-controls="pane-shaking">Shaking</button>
           <button role="tab" id="tab-slow" aria-controls="pane-slow">Slow slip</button>
           <button role="tab" id="tab-forecast" aria-controls="pane-forecast">Forecast</button>
-          <button role="tab" id="tab-3d" aria-controls="pane-3d">3D</button>
+          <button role="tab" id="tab-magnitudes" aria-controls="pane-magnitudes">Magnitudes</button>
         </div>
         <div class="sel-chip" id="sel-chip" hidden>
           <button type="button" class="sel-show" id="sel-show" title="Show in the Quake tab"></button>
           <button type="button" class="sel-clear" id="sel-clear" aria-label="Clear selected quake (Esc)" title="Clear selection (Esc)">✕</button>
         </div>
 
-        <section role="tabpanel" id="pane-magnitudes" aria-labelledby="tab-magnitudes" class="pane">
-          <div id="intro-host"></div>
+        <section role="tabpanel" id="pane-magnitudes" aria-labelledby="tab-magnitudes" class="pane" hidden>
+          <div id="mag-lead"></div>
+          <details class="notes mag-more" id="mag-more">
+          <summary>The full chart: quakes at every size</summary>
           <div class="seg" role="radiogroup" aria-label="Magnitude view">
             <label><input type="radio" name="mag-mode" value="single" checked /> This period</label>
             <label><input type="radio" name="mag-mode" value="eras" /> Compare eras</label>
@@ -118,10 +120,12 @@
             <p>JMA-located natural earthquakes with a magnitude, epicentre in 24–46°N, 122–148°E. Magnitudes are JMA's
               own; for the largest quakes that is the moment magnitude (e.g. 2011 Tōhoku, M9.0).</p>
           </details>
+          </details>
         </section>
 
 
-        <section role="tabpanel" id="pane-quake" aria-labelledby="tab-quake" class="pane" hidden>
+        <section role="tabpanel" id="pane-quake" aria-labelledby="tab-quake" class="pane">
+          <div id="intro-host"></div>
           <div id="pane-quake-body"></div>
         </section>
 

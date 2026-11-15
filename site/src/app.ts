@@ -5,7 +5,7 @@ import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&ur
 import "maplibre-gl/dist/maplibre-gl.css";
 import { basemapStyle } from "./basemap";
 import type { GrData } from "./gr";
-import { cellsInBounds, renderMagnitudes, type MagSelection } from "./panel-magnitudes";
+import { cellsInBounds, renderMagLead, renderMagnitudes, type MagSelection } from "./panel-magnitudes";
 import { renderQuake, type Footprint } from "./panel-quake";
 import { renderAftershocks, type AftershockState } from "./panel-aftershocks";
 import { renderForeshock, type ForeshockState } from "./panel-foreshock";
@@ -39,7 +39,7 @@ const state = {
   anim: false, // in playback view (playing or paused on a frame)
   playhead: 0, // seconds, UTC
   magMode: "single" as MagSelection["mode"],
-  tab: "magnitudes",
+  tab: "quake",
   selected: null as { props: QuakeProps; coords: [number, number] } | null,
 };
 
@@ -215,18 +215,17 @@ function renderIntro() {
   card.append(head, el("p", "",
     "Each dot is an earthquake recorded by the Japan Meteorological Agency since 1919: its colour shows how deep it " +
     "was, its size the magnitude. Drag the timeline below to choose years, press ▶ to watch them unfold, and click " +
-    "any dot for details. Some places to start:"));
+    "any dot to open it here. Some places to start:"));
   const row = el("div", "presets");
   const btn = (text: string, fn: () => void) => {
     const b = el("button", "", text) as HTMLButtonElement;
     b.type = "button"; b.addEventListener("click", fn); row.append(b);
   };
+  btn("Japan's plates in 3D", () => setTab("3d"));
   btn("How often has Tokyo shaken?", () => { setTab("location"); setPlace(PLACES[0]); map.flyTo({ center: PLACES[0].lonlat, zoom: 7 }); });
-  btn("The 2011 Tōhoku quake", () => restoreQuake(FAMOUS.find((f) => f.short === "Tōhoku 2011")!.id, true));
   btn("This week's forecast", () => setTab("forecast"));
   btn("Destructive quakes", () => setTab("history"));
-  card.append(row, el("p", "sub",
-    "This first tab counts quakes by magnitude, which is the most technical view; the other tabs are above."));
+  card.append(row);
   host.replaceChildren(card);
 }
 
@@ -239,7 +238,7 @@ function updateUrl() {
     const hash = formatHash({
       ...(state.from !== y0 || state.to !== y1 ? { from: state.from, to: state.to } : {}),
       ...(state.minMag !== 5 ? { minMag: state.minMag } : {}),
-      ...(state.tab !== "magnitudes" ? { tab: state.tab } : {}),
+      ...(state.tab !== "quake" ? { tab: state.tab } : {}),
       ...(state.selected ? { quake: state.selected.props.id } : {}),
       view: { lat: c.lat, lon: c.lng, zoom: map.getZoom() },
     });
@@ -1205,7 +1204,7 @@ document.addEventListener("keydown", (e) => {
 
 // ---------------------------------------------------------------- panel ---
 
-const TABS = ["magnitudes", "quake", "location", "history", "shaking", "slow", "forecast", "3d"];
+const TABS = ["quake", "3d", "location", "history", "shaking", "slow", "forecast", "magnitudes"];
 
 function setTab(tab: string) {
   if (tab !== state.tab) cancelMapModes(); // a pick belongs to the tab that started it
@@ -1286,7 +1285,11 @@ function renderPanelBody() {
     const host = $("mag-body");
     const cells = visibleCells();
     const areaLabel = cells === null ? "all of Japan" : `the visible map area (${cells.size} 2° squares)`;
-    renderMagnitudes(host, grData, { from: state.from, to: state.to, cells, areaLabel, mode: state.magMode });
+    renderMagLead($("mag-lead"), grData, { from: state.from, to: state.to, cells, areaLabel, mode: "single" });
+    // The chart is folded away; draw it only when open (it sizes itself to the panel).
+    if ($<HTMLDetailsElement>("mag-more").open) {
+      renderMagnitudes(host, grData, { from: state.from, to: state.to, cells, areaLabel, mode: state.magMode });
+    }
   } else if (state.tab === "slow") {
     if (!lfeData || lfeKey !== `${state.from}-${state.to}`) drawLfe();
     renderLfe($("pane-slow"), {
@@ -1352,6 +1355,7 @@ function renderPanelBody() {
       onSelectQuake: selectFelt,
     });
   } else if (state.tab === "quake") {
+    $("intro-host").hidden = !!state.selected; // the Start here card only while nothing is open
     const clear = el("button", "clear-btn", "Clear selection (Esc)") as HTMLButtonElement;
     clear.type = "button";
     clear.addEventListener("click", () => select(null));
@@ -1385,6 +1389,7 @@ function renderPanelBody() {
   }
 }
 
+$("mag-more").addEventListener("toggle", () => renderPanel());
 for (const r of document.querySelectorAll<HTMLInputElement>('input[name="mag-mode"]')) {
   r.addEventListener("change", () => { state.magMode = r.value as MagSelection["mode"]; renderPanel(); });
 }
@@ -1497,7 +1502,7 @@ window.addEventListener("hashchange", () => {
     syncTimeline(); refreshData();
   }
   if (h.view) map.jumpTo({ center: [h.view.lon, h.view.lat], zoom: h.view.zoom });
-  setTab(h.tab ?? "magnitudes");
+  setTab(h.tab ?? "quake");
   if (h.quake && h.quake !== state.selected?.props.id) restoreQuake(h.quake);
   else if (!h.quake && state.selected) select(null);
 });
@@ -1506,7 +1511,7 @@ renderLegend();
 renderIntro();
 syncTimeline();
 $<HTMLSelectElement>("min-mag").value = String(state.minMag);
-setTab(fromUrl.tab ?? "magnitudes");
+setTab(fromUrl.tab ?? "quake");
 // Sources, in the About box (header button). Attribution as JMA's terms of use ask: the
 // source named and linked, and a note that the data has been processed. The
 // map's attribution control repeats the short form.

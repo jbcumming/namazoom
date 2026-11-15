@@ -285,3 +285,68 @@ function renderTable(host: HTMLElement, series: Series[]) {
   wrap.append(table);
   host.append(wrap, el("p", "sub", single ? "* below Mc: undercounted." : "Yearly rates. * below Mc: undercounted."));
 }
+
+/** "Once every 9 years", "about 18 a year": a yearly rate in words. */
+export function howOften(n: number, years: number, period: string): string {
+  if (years <= 3) return n === 0 ? `none in ${period}` : `${fmt(n)} in ${period}`;
+  if (n === 0) return `none in ${years} years`;
+  const rate = n / years;
+  if (rate >= 1.5) return `about ${fmt(Math.round(rate))} a year`;
+  if (rate >= 0.67) return "about one a year";
+  return `about once every ${fmt(Math.round(years / n))} years`;
+}
+
+/**
+ * The plain-language lead: how often quakes of each size happen in the area, as yearly
+ * averages over the timeline's years. Detection improved over time, so each size is
+ * averaged only over the eras in which it was fully recorded (era Mc at or below it).
+ */
+export function renderMagLead(host: HTMLElement, data: GrData, sel: MagSelection) {
+  const last = data.years[1];
+  const head = el("h2", "", "How often quakes of each size happen");
+  if (sel.from > last) {
+    host.replaceChildren(head, el("p", "note", `These counts use the finalised catalogue, which ends in ${last}. ` +
+      `Move the start of the timeline to ${last} or earlier.`));
+    return;
+  }
+  const to = Math.min(sel.to, last);
+  const years = to - sel.from + 1;
+  const span = (a: number, b: number) => (a === b ? `${a}` : `${a}–${b}`);
+  // Each era's completeness: from the area if it has enough quakes, else from all of Japan.
+  const parts = erasFor(data).flatMap(([a, b]) => {
+    const lo = Math.max(a, sel.from), hi = Math.min(b, to);
+    if (lo > hi) return [];
+    const mc = estimateMc(histogram(data, { from: a, to: b, cells: sel.cells })).mc
+      ?? estimateMc(histogram(data, { from: a, to: b, cells: null })).mc ?? 5;
+    return [{ lo, hi, mc, h: histogram(data, { from: lo, to: hi, cells: sel.cells }) }];
+  });
+  const atLeast = (h: Map<number, number>, m: number) => { let n = 0; for (const [m10, c] of h) if (m10 >= m * 10) n += c; return n; };
+  const table = document.createElement("table");
+  table.className = "mini mag-lead";
+  const hr = table.createTHead().insertRow();
+  for (const t of ["", years <= 3 ? "Quakes" : "On average", "Count"]) hr.append(el("th", "", t));
+  const body = table.createTBody();
+  let partial = false;
+  for (let m = 3; m <= 8; m++) {
+    const used = parts.filter((p) => p.mc <= m + 1e-9);
+    if (!used.length) continue; // not fully recorded in any of these years
+    const yrs = d3.sum(used, (p) => p.hi - p.lo + 1);
+    const n = d3.sum(used, (p) => atLeast(p.h, m));
+    const from = d3.min(used, (p) => p.lo)!;
+    const cell = el("td", "", howOften(n, yrs, span(from, to)));
+    if (used.length < parts.length) {
+      partial = true;
+      // Completeness only improves with time here, so the years used run to the end.
+      if (years > 3) cell.append(el("span", "muted", ` (from ${from})`));
+    }
+    const tr = body.insertRow();
+    tr.append(el("td", "", `M${m}+`), cell, el("td", "", fmt(n)));
+  }
+  const notes: string[] = [];
+  if (years > 3) notes.push("Yearly averages: quakes cluster, so single years vary a lot.");
+  if (partial) notes.push("Smaller quakes weren't all recorded in earlier years, so those sizes are averaged only " +
+    "over the years when they were (\"from …\").");
+  if (sel.to > last) notes.push(`Counts stop at the end of ${last} (the finalised catalogue).`);
+  host.replaceChildren(head, el("p", "sub", `${sel.areaLabel[0].toUpperCase()}${sel.areaLabel.slice(1)}, ${span(sel.from, to)}.`),
+    table, el("p", "sub", notes.join(" ")));
+}
