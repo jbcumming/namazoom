@@ -15,11 +15,24 @@ export interface LfeInputs {
 
 export function renderLfe(host: HTMLElement, inp: LfeInputs) {
   const t = theme();
+  const how = el("ul", "sub how");
+  for (const text of [
+    "On the map: orange dots are low-frequency events in the period and area on screen; ordinary quakes are faded.",
+    "Events per week: each burst of slip shows as a spike.",
+    "Where and when: each burst is a streak. A slanted streak means the tremor moved along the belt over days.",
+    "Where to look: zoom to Shikoku, the Kii Peninsula or Tōkai and choose a few recent years.",
+  ]) how.append(el("li", "", text));
   const parts: HTMLElement[] = [
     el("h2", "", "Slow slip: low-frequency earthquakes"),
-    el("p", "sub", "Low-frequency earthquakes are weak, slow tremors rather than sharp ruptures. Deep under western Japan " +
-      "they mark where the sinking Philippine Sea plate slides slowly, at about 30 km depth, in bursts of " +
-      "\"episodic tremor and slip\" first described there (Obara, 2002). Others sit beneath volcanoes."),
+    el("p", "sub", "Not every movement between plates is a sudden quake. In places the boundary slides slowly for days " +
+      "to weeks in a slow slip event: too gentle to feel, but it gives off swarms of weak, deep tremors called " +
+      "low-frequency earthquakes. JMA lists them separately from ordinary quakes; this tab shows them."),
+    el("p", "sub", "The clearest belt runs under western Japan, from Tōkai through the Kii Peninsula to Shikoku, about " +
+      "30 km down on the sinking Philippine Sea plate (found by Obara, 2002). It lies just below the locked part of the " +
+      "plate boundary that breaks in the great Nankai Trough quakes, so it is watched closely. Bursts every few months " +
+      "are normal; JMA issues a Nankai Trough advisory only for slow slip that is clearly unusual. Other low-frequency " +
+      "events sit beneath volcanoes and come from magma and fluids, not plate slip."),
+    how,
   ];
   if (inp.status === "loading" || !inp.data) {
     host.replaceChildren(...parts, el("p", "sub", "Loading low-frequency events…"));
@@ -101,6 +114,6 @@ export function renderLfe(host: HTMLElement, inp: LfeInputs) {
   parts.push(el("p", "sub",
     "Counts jump in 2018 when JMA began locating many more of these events by template matching (comparing the " +
     "records with known events), so compare periods within one method. Low-frequency events are not counted in the " +
-    "magnitude statistics or shown on the main map; on this tab they are drawn as small orange dots."));
+    "magnitude statistics or shown on the main map."));
   host.replaceChildren(...parts);
 }

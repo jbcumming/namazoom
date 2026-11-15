@@ -51,7 +51,11 @@ function midText(r: number | null): string {
 }
 
 export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
-  const parts: HTMLElement[] = [el("h2", "", "Forecast: the next 7 days")];
+  const parts: HTMLElement[] = [el("h2", "", "Forecast: the next 7 days"), el("p", "sub",
+    "The chance of quakes in the coming week, from a statistical model this site runs on JMA's catalogue. Its main " +
+    "idea is that quakes cluster: after any quake, more are likely nearby for a while, and the chance fades over days " +
+    "to weeks. The model (ETAS) adds up that boost from every recent quake on top of each area's usual rate. It is " +
+    "not an official forecast or a warning, and it can't foresee a large quake in a quiet area; no method can yet.")];
   const w = Math.max(260, host.clientWidth - 32);
   if (inp.status === "missing") {
     host.replaceChildren(...parts, el("p", "sub", "No forecast in this build. Run ./run.sh build (step: forecast)."),
@@ -69,9 +73,8 @@ export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
   const win = fmtWindow(f.live.t0, f.live.days);
 
   parts.push(el("p", "sub",
-    `Shallow quakes (down to ${f.maxDepth} km), ${win} (Japan time), ${inp.areaLabel}. ` +
-    "Quakes make further quakes more likely nearby for a while; this statistical model (ETAS) adds that up " +
-    "from every recent quake on top of each area's usual rate."));
+    `For shallow quakes (down to ${f.maxDepth} km), ${win} (Japan time), ${inp.areaLabel}. ` +
+    "The numbers are for the area on the map: zoom or pan to change it."));
 
   if (!v.cells) {
     host.replaceChildren(...parts, el("p", "sub", "No forecast cells in the visible area; zoom out."), ...trenchSection(w));
@@ -93,7 +96,7 @@ export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
     el("strong", "", p30("Sagami", "M7 class")), "; a Nankai Trough M8–9 ", el("strong", "", p30("Nankai", "M8–9, slip")),
     ` (or ${p30("Nankai", "M8–9, dates")} by another model). More in "The long view" below.`);
   sum.append(line1, line2);
-  parts.splice(1, 0, sum);
+  parts.splice(2, 0, sum);
   // (The summary at the top gives this week's M5+ chance against usual.)
 
   // Chances by magnitude.
@@ -108,7 +111,7 @@ export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
     tr.append(el("td", "", `M${m}+`), el("td", "", fmtPct(chance(lam))), el("td", "", fmtPct(chance(base))),
       el("td", "", lam >= 0.1 ? lam.toFixed(1) : lam.toPrecision(1)));
   }
-  parts.push(table);
+  parts.push(el("div", "chart-title", `By magnitude, ${inp.areaLabel}`), table);
 
   // Map key.
   const key = el("div", "hot-legend");
@@ -119,7 +122,9 @@ export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
     k.append(sw, el("span", "", i === 0 ? `< ${fmtPct(hi)}` : i === inp.colors.length - 1 ? `≥ ${fmtPct(lo)}` : `${fmtPct(lo)}–${fmtPct(hi)}`));
     key.append(k);
   });
-  parts.push(el("div", "chart-title", "Map: chance of an M5+ quake in each half-degree square (about 50 km) this week"), key);
+  parts.push(el("div", "chart-title", "Map: chance of an M5+ quake in each half-degree square (about 50 km) this week"), key,
+    el("p", "sub", "Most squares are below 1%; squares near recent quakes stand out. Even a high chance here is small: " +
+      "at 5%, 19 weeks in 20 would pass with no M5+ quake in that square."));
   parts.push(el("p", "note",
     `The forecast starts where the data ends, ${timeJst(f.dataEnd)} Japan time. JMA's full preliminary lists run one ` +
     "to two days behind; the most recent quakes come from its live earthquake information, which lists felt quakes " +

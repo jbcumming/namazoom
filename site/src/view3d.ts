@@ -60,6 +60,7 @@ export class Scene3D {
   private ray = new THREE.Raycaster();
   private frame = 0;
   private span = 1000;
+  private corners: THREE.Vector3[] = []; // the box's 8 corners, for framing
   private ro: ResizeObserver;
   onHover: (q: Quake3D | null, x: number, y: number) => void = () => {};
   onPick: (q: Quake3D) => void = () => {};
@@ -135,6 +136,7 @@ export class Scene3D {
     const deepest = Math.min(MAX_DEPTH, Math.max(100, ...inp.quakes.map((q) => q.depth)));
     const zb = -Math.ceil(deepest / 100) * 100 * ex;
     const corners: [number, number][] = [[b.w, b.s], [b.e, b.s], [b.e, b.n], [b.w, b.n]];
+    this.corners = corners.flatMap(([lon, lat]) => [P(lon, lat, 0), P(lon, lat, zb)]);
     const boxPts: THREE.Vector3[] = [];
     corners.forEach((c, i) => {
       const d = corners[(i + 1) % 4];
@@ -185,10 +187,42 @@ export class Scene3D {
     const mid = (zb ?? -300) / 2;
     this.controls.target.set(0, 0, mid);
     // From the south-east, above sea level, looking north-west and down: the Pacific slab dips away from the viewer.
-    // Tall (phone) screens need to stand further back to fit the width.
-    const k = Math.max(1, 1.3 / Math.max(this.camera.aspect, 0.3));
-    this.camera.position.set(s * 0.9 * k, -s * 1.1 * k, s * 0.55 * k);
-    this.camera.near = s / 1000; this.camera.far = s * 20 * k;
+    // Step back until the whole box is in view, then centre it in the space above the legend; twice,
+    // since centring changes what fits. Works for any screen shape.
+    const dir = new THREE.Vector3(0.9, -1.1, 0.55).normalize();
+    const [X, YB, YT] = [0.94, -0.72, 0.9]; // allowed area in screen units (-1..1); the legend sits bottom left
+    this.camera.near = s / 1000;
+    this.camera.updateProjectionMatrix();
+    const target = this.controls.target;
+    const place = (dist: number) => {
+      this.camera.position.copy(dir).multiplyScalar(dist).add(target);
+      this.camera.lookAt(target);
+      this.camera.updateMatrixWorld();
+    };
+    const extent = () => {
+      const ps = this.corners.map((c) => c.clone().project(this.camera));
+      return { x0: Math.min(...ps.map((q) => q.x)), x1: Math.max(...ps.map((q) => q.x)),
+        y0: Math.min(...ps.map((q) => q.y)), y1: Math.max(...ps.map((q) => q.y)) };
+    };
+    let d = s * 0.5;
+    for (let pass = 0; pass < 2; pass++) {
+      d = s * 0.5;
+      for (let i = 0; i < 80; i++) {
+        place(d);
+        const e = extent();
+        if (e.x0 >= -X && e.x1 <= X && e.y0 >= YB && e.y1 <= YT) break;
+        d *= 1.05;
+      }
+      const e = extent();
+      const halfH = d * Math.tan((this.camera.fov * Math.PI) / 360), halfW = halfH * this.camera.aspect;
+      const right = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0);
+      const up = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 1);
+      const shift = right.multiplyScalar(((e.x0 + e.x1) / 2) * halfW)
+        .add(up.multiplyScalar(((e.y0 + e.y1) / 2 - (YB + YT) / 2) * halfH));
+      target.add(shift);
+      place(d);
+    }
+    this.camera.far = d * 20;
     this.camera.updateProjectionMatrix();
     this.controls.update();
     this.request();

@@ -598,7 +598,11 @@ let shownMinMag = 5;
 
 // ------------------------------------------------------------------- 3D ---
 
-const v3d = { scene: null as Scene3D | null, loading: false, ex: 1, spin: false, n: 0, capped: false, boundsKey: "" };
+// area: "japan" frames JAPAN_3D, which holds 99% of the M5+ quakes (out to the Kuril Islands);
+// "map" uses the area the map last showed.
+const JAPAN_3D = { w: 120, s: 22, e: 152, n: 48 };
+const v3d = { scene: null as Scene3D | null, loading: false, ex: 1, spin: false, n: 0, capped: false, boundsKey: "",
+  area: "japan" as "japan" | "map" };
 let coastRings: [number, number][][] | null = null;
 const MAX_3D = 60000;
 
@@ -630,7 +634,9 @@ async function draw3d(resetCamera = false) {
     if (state.tab !== "3d") { draw3d(); return; }
   }
   const b = map.getBounds();
-  const bounds = { w: b.getWest(), s: b.getSouth(), e: b.getEast(), n: b.getNorth() };
+  const bounds = v3d.area === "japan"
+    ? JAPAN_3D
+    : { w: b.getWest(), s: b.getSouth(), e: b.getEast(), n: b.getNorth() };
   const key = [bounds.w, bounds.s, bounds.e, bounds.n].map((x) => x.toFixed(2)).join(",");
   if (key !== v3d.boundsKey) { v3d.boundsKey = key; resetCamera = true; } // a new area: frame it
   // During playback, the same window as the map: the trail up to the playhead.
@@ -663,7 +669,7 @@ function render3dPane() {
   const host = $("pane-3d");
   const parts: HTMLElement[] = [el("h2", "", "3D: quakes at their depths")];
   parts.push(el("p", "sub",
-    "The quakes on the map, in the area the map showed, placed at their depths under the coastline. Deep quakes trace " +
+    "The quakes on the map, placed at their depths under the coastline. Deep quakes trace " +
     "the plates sinking under Japan: the Pacific plate dipping west from the Japan and Kuril trenches down to about " +
     "600 km, and the Philippine Sea plate under western Japan. Blue lines: the top of the sinking plates every 20–100 km " +
     "(USGS Slab2). Drag to turn, scroll or pinch to zoom, right-drag or two fingers to move; click a quake to open it."));
@@ -672,6 +678,13 @@ function render3dPane() {
         ? `playback at ${new Date((state.playhead + 9 * 3600) * 1000).toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" })}`
         : state.from === state.to ? state.from : `${state.from}–${state.to}`}, M${effectiveMinMag()}+.`
     : "Loading the 3D view…"));
+  const area = el("div", "seg");
+  for (const [k, label] of [["japan", "All of Japan"], ["map", "The map's area"]] as const) {
+    const b = el("button", k === v3d.area ? "primary" : "", label) as HTMLButtonElement;
+    b.type = "button";
+    b.addEventListener("click", () => { v3d.area = k; draw3d(true); });
+    area.append(b);
+  }
   const row = el("div", "seg");
   for (const ex of [1, 2, 4]) {
     const b = el("button", ex === v3d.ex ? "primary" : "", ex === 1 ? "True depth" : `Depth ×${ex}`) as HTMLButtonElement;
@@ -687,9 +700,9 @@ function render3dPane() {
   reset.type = "button";
   reset.addEventListener("click", () => draw3d(true));
   ctl.append(spin, reset);
-  parts.push(row, ctl, el("p", "sub",
-    "Set the years and magnitude on the timeline below, and zoom the map on another tab to choose the area (the 3D view " +
-    "uses the area the map last showed). Colours are depth, as on the map; size is magnitude. With true depth, Japan's " +
+  parts.push(area, row, ctl, el("p", "sub",
+    "Set the years and magnitude on the timeline below. To look at one region, zoom the map to it on another tab and " +
+    "choose \"The map's area\" here. Colours are depth, as on the map; size is magnitude. With true depth, Japan's " +
     "slabs look thin: the islands are about 2,500 km long and the deepest quakes 700 km down."));
   host.replaceChildren(...parts);
 }
