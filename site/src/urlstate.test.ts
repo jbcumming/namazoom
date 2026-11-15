@@ -17,8 +17,14 @@ describe("url state", () => {
   });
 
   it("ignores malformed or out-of-range parts", () => {
-    expect(parseHash("#y=1900-2050&m=7&tab=nope&q=DROP%20TABLE&v=999,1,2", TABS, YEARS)).toEqual({});
+    expect(parseHash("#y=1900-2050&m=2&tab=nope&q=DROP%20TABLE&v=999,1,2", TABS, YEARS)).toEqual({});
+    expect(parseHash("#m=10", TABS, YEARS)).toEqual({});
+    expect(parseHash("#m=6.5", TABS, YEARS)).toEqual({});
     expect(parseHash("", TABS, YEARS)).toEqual({});
+  });
+
+  it("accepts every magnitude in the Show menu", () => {
+    for (const m of [3, 4, 5, 6, 7, 8, 9]) expect(parseHash(`#m=${m}`, TABS, YEARS)).toEqual({ minMag: m });
   });
 
   it("reads the year from an event ID", () => {

@@ -20,7 +20,7 @@ export function parseHash(hash: string, tabs: string[], years: [number, number])
     if (a >= years[0] && b <= years[1] && a <= b) { out.from = a; out.to = b; }
   }
   const m = Number(p.get("m"));
-  if ([3, 4, 5].includes(m)) out.minMag = m;
+  if ([3, 4, 5, 6, 7, 8, 9].includes(m)) out.minMag = m;
   const tab = p.get("tab");
   if (tab && tabs.includes(tab)) out.tab = tab;
   const q = p.get("q");

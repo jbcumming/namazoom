@@ -1110,7 +1110,7 @@ function applyTimeFilter() {
 
 function updateStatus(n: number, minMag: number) {
   const years = state.to - state.from + 1;
-  $("status").textContent = state.anim ? "" : `${fmt(n)} quakes M${minMag}+ shown`;
+  $("status").textContent = state.anim ? "" : `${fmt(n)} ${n === 1 ? "quake" : "quakes"} M${minMag}+ shown`;
   const note = $("mag-note");
   note.hidden = !(state.minMag < 5 && minMag === 5 && !state.anim);
   note.textContent = `M${state.minMag}+ is drawn for ranges of up to ${MAX_YEARS_FOR_M3} years (this one is ${years}); press play to step through it.`;
@@ -1336,7 +1336,7 @@ function renderPanelBody() {
       scopeNote: state.anim
         ? "Paused playback shows only part of the period; press \"✕ Whole period\" by the play button (or Esc) to return to the full range."
         : `Showing M${shownMinMag}+ quakes from ${years}, as on the map. ` +
-          (shownMinMag >= 5 ? `For M3+, narrow the timeline to ${MAX_YEARS_FOR_M3} years or less and choose M3+.` : ""),
+          (shownMinMag === 5 ? `For M3+, narrow the timeline to ${MAX_YEARS_FOR_M3} years or less and choose M3+.` : ""),
       onPreset: (p) => {
         sectionState.section = { ...p.section, halfWidthKm: sectionState.section?.halfWidthKm ?? p.section.halfWidthKm };
         sectionState.section.a = p.section.a; sectionState.section.b = p.section.b;
