@@ -62,6 +62,44 @@ function experimentNote(): HTMLElement {
   return box;
 }
 
+/** The part that depends on the visible map area: this week against usual, and by magnitude. */
+function viewBlock(inp: ForecastInputs): HTMLElement {
+  const f = inp.data!, v = inp.view!;
+  const b = f.live.b;
+  const win = fmtWindow(f.live.t0, f.live.days);
+  const p5 = chance(v.lam5);
+  const ratio = v.base5 > 0 ? v.lam5 / v.base5 : NaN;
+  const level = !Number.isFinite(ratio) ? "" : ratio >= 1.5 ? `above usual (${ratio.toFixed(1)} times)`
+    : ratio <= 0.67 ? "below usual" : "about usual";
+  const box = el("div", "fc-view");
+  const sum = el("div", "summary");
+  const line1 = el("p");
+  line1.append(`This week, ${inp.areaLabel}: `, el("strong", "", fmtPct(p5)),
+    ` chance of at least one M5+ quake; usually ${fmtPct(chance(v.base5))}` + (level ? `, so ${level}.` : "."));
+  sum.append(line1);
+  const table = document.createElement("table");
+  table.className = "mini";
+  const head = table.createTHead().insertRow();
+  for (const h of ["", "This week", "Usually"]) head.append(el("th", "", h));
+  const body = table.createTBody();
+  for (const m of [5, 6, 7]) {
+    const lam = atMag(v.lam5, b, m), base = atMag(v.base5, b, m);
+    const tr = body.insertRow();
+    tr.append(el("td", "", `M${m}+`), el("td", "", fmtPct(chance(lam))), el("td", "", fmtPct(chance(base))));
+  }
+  box.append(sum, el("p", "sub", `${win} (Japan time), quakes down to ${f.maxDepth} km. For the area on the map: zoom or pan to change it.`), table);
+  return box;
+}
+
+/** After a map move: swap in the new numbers only, so the rest (charts, open folds) stays put.
+ *  False when a full render is needed instead. */
+export function updateForecastView(host: HTMLElement, inp: ForecastInputs): boolean {
+  const old = host.querySelector(".fc-view");
+  if (!old || inp.status !== "ok" || !inp.data || !inp.view || !inp.view.cells) return false;
+  old.replaceWith(viewBlock(inp));
+  return true;
+}
+
 export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
   const parts: HTMLElement[] = [el("h2", "", "Forecast: the next 7 days"), el("p", "sub",
     "Quakes cluster: after any quake, more are likely nearby for a while. This model adds that up from recent quakes " +
@@ -86,30 +124,7 @@ export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
     host.replaceChildren(...parts, el("p", "sub", "No forecast squares in the visible area; zoom out."), ...trenchSection(w, inp.zones));
     return;
   }
-  const p5 = chance(v.lam5);
-  const ratio = v.base5 > 0 ? v.lam5 / v.base5 : NaN;
-
-  // This week against usual, then by magnitude.
-  const level = !Number.isFinite(ratio) ? "" : ratio >= 1.5 ? `above usual (${ratio.toFixed(1)} times)`
-    : ratio <= 0.67 ? "below usual" : "about usual";
-  const sum = el("div", "summary");
-  const line1 = el("p");
-  line1.append(`This week, ${inp.areaLabel}: `, el("strong", "", fmtPct(p5)),
-    ` chance of at least one M5+ quake; usually ${fmtPct(chance(v.base5))}` + (level ? `, so ${level}.` : "."));
-  sum.append(line1);
-  parts.push(sum, el("p", "sub", `${win} (Japan time), quakes down to ${f.maxDepth} km. For the area on the map: zoom or pan to change it.`));
-
-  const table = document.createElement("table");
-  table.className = "mini";
-  const head = table.createTHead().insertRow();
-  for (const h of ["", "This week", "Usually"]) head.append(el("th", "", h));
-  const body = table.createTBody();
-  for (const m of [5, 6, 7]) {
-    const lam = atMag(v.lam5, b, m), base = atMag(v.base5, b, m);
-    const tr = body.insertRow();
-    tr.append(el("td", "", `M${m}+`), el("td", "", fmtPct(chance(lam))), el("td", "", fmtPct(chance(base))));
-  }
-  parts.push(table);
+  parts.push(viewBlock(inp));
 
   // Map key.
   const key = el("div", "hot-legend");

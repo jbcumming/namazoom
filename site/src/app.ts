@@ -15,7 +15,7 @@ import { DAY, FORESHOCK_DAYS, MIN_MAINSHOCK, WINDOW_DAYS, sequence, type Shock }
 import { PLACES, type Place } from "./panel-location";
 import { destructiveList } from "./destructive";
 import { HOT_STEPS, fmtRate, hotColors, renderShaking, scaleRange } from "./panel-shaking";
-import { fcColors, renderForecast } from "./panel-forecast";
+import { fcColors, renderForecast, updateForecastView } from "./panel-forecast";
 import { P_EDGES, chance, fmtPct, fmtWindow, pClass, sumCells, type Forecast } from "./forecast";
 import { CELL_DEG, grid, LEVELS, logClass, stationRates, type Cell, type StationCounts } from "./hotspots";
 import { formatHash, parseHash, yearFromId } from "./urlstate";
@@ -1409,15 +1409,7 @@ function renderPanelBody() {
   if (document.body.classList.contains("panel-closed")) return;
   if (state.tab === "forecast") {
     if (fc.status === "loading") drawForecast();
-    const b = map.getBounds();
-    const all = visibleCells() === null;
-    renderForecast($("pane-forecast"), {
-      status: fc.status, data: fc.data,
-      view: fc.data ? sumCells(fc.data, all ? null : { w: b.getWest(), s: b.getSouth(), e: b.getEast(), n: b.getNorth() }) : null,
-      areaLabel: all ? "all of Japan" : "the visible map area",
-      colors: fcColors(), edges: P_EDGES,
-      zones: { zone: fcZone, onZone: setZone },
-    });
+    renderForecast($("pane-forecast"), forecastInputs());
   } else if (state.tab === "shaking") {
     renderShaking($("pane-shaking"), {
       status: hot.key === hotKey() ? "ok" : "loading",
@@ -1479,28 +1471,44 @@ function renderPanelBody() {
       empty = el("div");
       if (missingQuake) empty.append(el("p", "note", `The linked quake (${missingQuake}) isn't in the map data, which ` +
         "covers quakes of M3 and above. Smaller felt quakes can be opened from the Shaking tab, after choosing a place."));
-      empty.append(quakeExamples());
-      const b = map.getBounds();
-      const cells = visibleCells();
-      empty.append(howOftenSection(grData, {
-        from: state.from, to: state.to, cells,
-        areaLabel: cells === null ? "all of Japan" : `the visible map area (${cells.size} 2° squares)`,
-        open: state.howOpen, onToggle: (open) => { state.howOpen = open; },
-      }));
-      const quakes = store.features(yearStart(state.from), yearEnd(state.to), 5).features.filter((f) => {
-        if (cells === null) return true; // "all of Japan": not just what fits on screen
-        const [lon, lat] = f.geometry.coordinates;
-        return lon >= b.getWest() && lon <= b.getEast() && lat >= b.getSouth() && lat <= b.getNorth();
-      });
-      empty.append(destructiveList({
-        quakes, period: state.from === state.to ? `${state.from}` : `${state.from}–${state.to}`,
-        areaLabel: cells === null ? "all of Japan" : "the visible map area", open: state.dmgOpen,
-        onToggle: (open) => { state.dmgOpen = open; syncDestructive(); },
-        onSelect: (f) => select({ props: f.properties, coords: f.geometry.coordinates as [number, number] }),
-      }));
+      empty.append(quakeExamples(), ...quakeFolds());
     }
     renderQuake($("pane-quake-body"), state.selected?.props ?? null, state.selected?.coords, footprint, empty ?? extra);
   }
+}
+
+function forecastInputs() {
+  const b = map.getBounds();
+  const all = visibleCells() === null;
+  return {
+    status: fc.status, data: fc.data,
+    view: fc.data ? sumCells(fc.data, all ? null : { w: b.getWest(), s: b.getSouth(), e: b.getEast(), n: b.getNorth() }) : null,
+    areaLabel: all ? "all of Japan" : "the visible map area",
+    colors: fcColors(), edges: P_EDGES,
+    zones: { zone: fcZone, onZone: setZone },
+  };
+}
+
+/** The Quakes tab's folded How often and Destructive quakes sections, for the visible area. */
+function quakeFolds(): HTMLElement[] {
+  const b = map.getBounds();
+  const cells = visibleCells();
+  const how = howOftenSection(grData, {
+    from: state.from, to: state.to, cells,
+    areaLabel: cells === null ? "all of Japan" : `the visible map area (${cells.size} 2° squares)`,
+    open: state.howOpen, onToggle: (open) => { state.howOpen = open; },
+  });
+  const quakes = store.features(yearStart(state.from), yearEnd(state.to), 5).features.filter((f) => {
+    if (cells === null) return true; // "all of Japan": not just what fits on screen
+    const [lon, lat] = f.geometry.coordinates;
+    return lon >= b.getWest() && lon <= b.getEast() && lat >= b.getSouth() && lat <= b.getNorth();
+  });
+  return [how, destructiveList({
+    quakes, period: state.from === state.to ? `${state.from}` : `${state.from}–${state.to}`,
+    areaLabel: cells === null ? "all of Japan" : "the visible map area", open: state.dmgOpen,
+    onToggle: (open) => { state.dmgOpen = open; syncDestructive(); },
+    onSelect: (f) => select({ props: f.properties, coords: f.geometry.coordinates as [number, number] }),
+  })];
 }
 
 
@@ -1508,9 +1516,21 @@ let moveTimer = 0;
 /** Panels that count what's in the visible map area: only these re-render when the map moves (the
  *  others would just rebuild their charts and flicker). */
 const panelFollowsMap = () => state.tab === "forecast" || (state.tab === "quake" && !state.selected && !in3d());
+// Only the parts that count the visible area are swapped, so charts and open folds stay put.
 map.on("moveend", () => {
   if (!panelFollowsMap()) return;
-  clearTimeout(moveTimer); moveTimer = window.setTimeout(renderPanel, 200);
+  clearTimeout(moveTimer);
+  moveTimer = window.setTimeout(() => {
+    if (document.body.classList.contains("panel-closed") || !panelFollowsMap()) return;
+    if (state.tab === "forecast") {
+      if (!updateForecastView($("pane-forecast"), forecastInputs())) renderPanel();
+      return;
+    }
+    const old = [...$("pane-quake").querySelectorAll(".fold")];
+    if (old.length !== 2) { renderPanel(); return; }
+    const next = quakeFolds();
+    old.forEach((o, i) => o.replaceWith(next[i]));
+  }, 200);
 });
 new ResizeObserver(() => { clearTimeout(moveTimer); moveTimer = window.setTimeout(renderPanel, 150); }).observe($("panel"));
 
