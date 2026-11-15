@@ -100,9 +100,7 @@ build() {
 
 serve() {
   step "Serving site/dist on http://0.0.0.0:$PORT"
-  echo "From your machine: publish the port with"
-  echo "  sbx ports ${SANDBOX_NAME:-<sandbox-name>} --publish $PORT:$PORT"
-  echo "then open http://localhost:$PORT/"
+  echo "Open http://localhost:$PORT/"
   cd site && exec npx vite preview --host 0.0.0.0 --port "$PORT" --strictPort
 }
 

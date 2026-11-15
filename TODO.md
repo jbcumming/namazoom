@@ -6,13 +6,13 @@ New features below wait until that's settled.
 ## Site
 - [x] Update README for the map app features.
 - [x] One-command build and local serve (`./run.sh`).
-- [ ] Choose hosting (deferred). First option to check: Fastmail's static
-      website hosting (Files): storage quota on the plan, per-file size limit,
-      and whether it serves HTTP range requests (needed for the basemap).
-      The PMTiles basemap is 199 MB, over the per-file limits of GitHub Pages
-      (100 MB) and Cloudflare Pages / Netlify (25 MB). Fallbacks: object
-      storage with range requests (Cloudflare R2, S3) for the tiles, or a
-      smaller extract (lower max zoom).
+- [ ] Hosting: GitHub Pages. The built site is ~215 MB in ~2,300 files; the
+      largest is the 89 MB basemap (under Pages' 100 MB per-file limit, and
+      Pages serves range requests). The generated data is gitignored, so deploy
+      from a scheduled Action (run the pipeline with cached downloads, upload
+      with upload-pages-artifact / deploy-pages, commit the forecast record
+      back), pinning the Protomaps build date. Still needed: LICENSE, link-
+      preview tags and image (need the final URL).
 - [ ] Deploy and check in a real browser (desktop and phone), including
       gzip/brotli on the JSON and range requests on the tiles.
 

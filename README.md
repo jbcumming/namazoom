@@ -65,9 +65,15 @@ marks them on the timeline.
 
 **Attribution.** JMA's terms of use (compatible with CC BY 4.0) ask for the
 source to be named and linked, and for a note when the data has been processed.
-The site does this in the header line (a footer on phones): "出典：気象庁ホームページ"
-linked to <https://www.jma.go.jp/>, links to each dataset, and "Processed for
-this site". The map's credits repeat "出典：気象庁 (processed)".
+The site does this in the About dialog (Sources): "出典：気象庁ホームページ"
+linked to <https://www.jma.go.jp/>, links to each dataset, and a 加工 note that
+the data has been processed. The map's credits repeat "出典：気象庁 (processed)".
+Other sources are credited the same way: OpenStreetMap (ODbL) via Protomaps,
+Natural Earth, USGS Slab2, PB2002 (ODC-By) and J-SHIS (NIED). The licences of
+the bundled JavaScript libraries are written to `THIRD_PARTY_LICENSES.txt` at
+build time (`site/scripts/licenses.mjs`) and linked from About. The format
+documents in `data/docs/` are copies of JMA's pages, kept for reference
+(source: 気象庁, <https://www.data.jma.go.jp/eqev/data/bulletin/>).
 
 Downloads go to `data/raw/` (not committed). For phase 1 that holds
 `h2019.zip`, `i2019.zip` and `code_p.zip`:
@@ -100,10 +106,9 @@ FORECAST=0 ./run.sh # skip rebuilding the 7-day forecast
 
 A first run downloads the JMA catalogue (~185 MB), plate boundaries, USGS Slab2
 (140 MB) and an OpenStreetMap basemap extract (~200 MB), parses everything
-(~3 min) and builds `site/dist` (~325 MB, mostly the basemap). Later runs only
-rebuild the site. Inside the sandbox, publish the port from the host with
-`sbx ports <sandbox-name> --publish 4173:4173`. Hosting is not set up yet (see
-TODO.md); the server must support HTTP range requests for the basemap file.
+(~3 min) and builds `site/dist` (~215 MB: data ~115 MB, basemap ~90 MB). Later
+runs only rebuild the site. Hosting is not set up yet (see TODO.md); the server
+must support HTTP range requests for the basemap file.
 
 ## Site
 
@@ -124,7 +129,7 @@ gzipped), showing the Nankai tremor belt and the volcanic clusters.
 Views are shareable: years, filter, tab, selected quake and map position are
 kept in the URL hash.
 
-**Tabs** (follow the visible map area and the timeline's years; the site opens on Quake):
+**Tabs** (follow the visible map area and the timeline's years; the site opens on Quakes):
 - *Quakes* - the selected quake: details; shindo footprint (stations coloured
   by intensity, intensity vs distance, strongest readings); replay of the
   shaking at recorded station times beside model P/S wave fronts; aftershocks

@@ -70,7 +70,7 @@ function lookingAhead(place: Place): HTMLElement {
   const p = el("p", "note");
   const a = document.createElement("a");
   // J-SHIS map links take center=lon,lat (from its API documentation).
-  a.href = `https://www.j-shis.bosai.go.jp/map/?lang=en&zoom=12&center=${lon.toFixed(5)},${lat.toFixed(5)}`;
+  a.href = `https://www.j-shis.bosai.go.jp/map/?lang=en&zoom=12&center=${lon.toFixed(3)},${lat.toFixed(3)}`;
   a.target = "_blank"; a.rel = "noopener";
   a.textContent = "Open J-SHIS at this spot ↗";
   p.append("This is how often it has shaken. For the official chance of strong shaking here in the coming decades, " +

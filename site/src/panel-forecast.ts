@@ -106,7 +106,7 @@ export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
     "to give the chance of quakes in the coming week."), experimentNote()];
   const w = Math.max(260, host.clientWidth - 32);
   if (inp.status === "missing") {
-    host.replaceChildren(...parts, el("p", "sub", "No forecast in this build. Run ./run.sh build (step: forecast)."),
+    host.replaceChildren(...parts, el("p", "sub", "The forecast isn't available right now."),
       ...trenchSection(w, inp.zones));
     return;
   }

@@ -97,6 +97,7 @@ export function trenchSection(width: number, zones: ZoneInputs): HTMLElement[] {
     const sbText = !sb ? "–" : Math.abs(sb[1] - sb[0]) < 0.5 ? `~${fmtM(sb[1])}` : `~${num(sb[0])}–${fmtM(sb[1])}`;
     tr.append(el("td", "", o.quake), el("td", "", o.last), el("td", "", o.interval), el("td", "", o.p30), el("td", "", sbText));
     const area = o.area;
+    if (!area) tr.title = "No single area to show: it can happen anywhere along a wide zone";
     if (area) {
       if (area === zones.zone) tr.classList.add("on");
       rowAction(tr, area === zones.zone ? "Hide its area on the map" : "Show its area on the map",

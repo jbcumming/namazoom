@@ -17,3 +17,7 @@ site/public/data/
 tools/
 site/public/tiles/
 site/public/basemap-assets/
+# Generated at build time (site/scripts/licenses.mjs)
+site/public/THIRD_PARTY_LICENSES.txt
+# Throwaway scripts
+*.tmp.mjs

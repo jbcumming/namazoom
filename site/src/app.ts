@@ -46,7 +46,13 @@ const state = {
 const narrow = () => matchMedia("(max-width: 760px)").matches; // phone layout: panel under the map
 
 const store = new QuakeStore();
-const [grData] = await Promise.all([fetch("./data/gr.json").then((r) => r.json() as Promise<GrData>), store.init()]);
+let grData: GrData;
+try {
+  [grData] = await Promise.all([fetch("./data/gr.json").then((r) => r.json() as Promise<GrData>), store.init()]);
+} catch (err) {
+  $("loading").textContent = "Couldn't load the earthquake data. Please try reloading the page.";
+  throw err;
+}
 [state.from, state.to] = store.index.years;
 // A shared link may set the view; applied before the first render.
 const fromUrl = parseHash(location.hash, ["quake", "shaking", "forecast"], store.index.years);
@@ -233,6 +239,9 @@ function renderIntro() {
 }
 
 let urlTimer = 0;
+/** Set when "Use my location" centres the map; cleared once the visitor moves the map themselves. */
+let viewIsPrivate = false;
+map.on("movestart", (e) => { if ((e as { originalEvent?: Event }).originalEvent) viewIsPrivate = false; });
 function updateUrl() {
   clearTimeout(urlTimer);
   urlTimer = window.setTimeout(() => {
@@ -244,7 +253,8 @@ function updateUrl() {
       ...(state.tab !== "quake" ? { tab: state.tab } : {}),
       ...(in3d() ? { view3d: true } : {}),
       ...(state.selected ? { quake: state.selected.props.id } : {}),
-      view: { lat: c.lat, lon: c.lng, zoom: map.getZoom() },
+      // Not while the map is centred on "Use my location": a shared link would show where you are.
+      ...(viewIsPrivate ? {} : { view: { lat: c.lat, lon: c.lng, zoom: map.getZoom() } }),
     });
     if (hash !== location.hash) history.replaceState(null, "", hash);
   }, 300);
@@ -721,7 +731,7 @@ function render3dIntro() {
     "Drag to turn, scroll or pinch to zoom, right-drag or two fingers to move; click a quake to open it here. Depths " +
     "are to scale, so the plates look thin: the islands are about 2,500 km long and the deepest quakes 700 km down."));
   card.append(el("p", "sub", v3d.scene
-    ? `${fmt(v3d.n)} quakes` + (v3d.capped ? ` (the ${fmt(MAX_3D)} largest)` : "") + `, ${state.anim
+    ? `${fmt(v3d.n)} quakes with a known depth` + (v3d.capped ? ` (the ${fmt(MAX_3D)} largest)` : "") + `, ${state.anim
         ? `playback at ${new Date((state.playhead + 9 * 3600) * 1000).toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" })}`
         : state.from === state.to ? state.from : `${state.from}–${state.to}`}, M${effectiveMinMag()}+: set the years and ` +
       "magnitude on the timeline."
@@ -785,6 +795,8 @@ function addHotspotLayer() {
 /** The squares use the instrumental era only (from 1997): before 1996 shindo was reported by people,
  *  at far fewer places, so older years would make busy places look quieter than they were. */
 const HOT_FROM = 1997;
+/** Class edge i of the squares' colour scale (log steps from range[0] to range[1]), as the panel's key shows them. */
+const hotEdge = (i: number) => 10 ** (Math.log10(hot.range[0]) + ((Math.log10(hot.range[1]) - Math.log10(hot.range[0])) * i) / HOT_STEPS);
 const hotYears = (): [number, number] => [Math.max(HOT_FROM, state.from), state.to];
 const hotKey = () => `${hotYears().join("-")}-${hot.level}`;
 
@@ -1168,7 +1180,7 @@ function applyTimeFilter() {
   map.setLayoutProperty("quakes", "visibility", state.tab === "shaking" && loc.place ? "none" : "visible");
   // A selected quake's station dots belong to its own time, not the playback's (its ring stays).
   for (const id of ["footprint", "wavefront"]) {
-    if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", state.anim ? "none" : "visible");
+    if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", state.anim || state.tab !== "quake" ? "none" : "visible");
   }
   if (state.anim) {
     const lo = state.playhead - state.trail;
@@ -1432,7 +1444,11 @@ function renderPanelBody() {
       },
       onGeolocate: () => {
         navigator.geolocation?.getCurrentPosition(
-          (pos) => { const p: Place = { name: "your location", lonlat: [pos.coords.longitude, pos.coords.latitude] }; setPlace(p); map.flyTo({ center: p.lonlat, zoom: 7 }); },
+          (pos) => {
+            const p: Place = { name: "your location", lonlat: [pos.coords.longitude, pos.coords.latitude] };
+            viewIsPrivate = true;
+            setPlace(p); map.flyTo({ center: p.lonlat, zoom: 7 });
+          },
           () => { $("pane-shaking").append(el("p", "note", "Location unavailable: the browser didn't share it.")); },
           { maximumAge: 600000, timeout: 10000 },
         );
@@ -1593,7 +1609,7 @@ function renderLegend() {
   }
   // A place on the Shaking tab hides the depth-coloured quakes: only the shindo colours apply.
   const rows = state.tab === "shaking" && loc.place ? [size, layers] : [depth, size, layers];
-  if ((footprint.status === "ok" && !state.anim) || (state.tab === "shaking" && loc.place !== null)) {
+  if ((footprint.status === "ok" && !state.anim && state.tab === "quake") || (state.tab === "shaking" && loc.place !== null)) {
     const shindo_ = shindoColors();
     const fr = el("div", "lg-row lg-shindo");
     const title = el("span", "lg-title", "Shindo");
@@ -1622,7 +1638,7 @@ function renderLegend() {
       fcColors(), `<${fmtPct(P_EDGES[0])}`, `≥${fmtPct(P_EDGES[P_EDGES.length - 1])}`);
   } else if (state.tab === "shaking" && !loc.place && hot.cells.length) {
     ramp(`Squares: times per year at ${LEVELS[hot.level].label.replace(/ \(.*\)/, "")}`, "Average yearly count at the seismic stations in each square, over the timeline's years",
-      hotColors(), fmtRate(hot.range[0]), fmtRate(hot.range[1]));
+      hotColors(), `<${fmtRate(hotEdge(1))}`, `≥${fmtRate(hotEdge(HOT_STEPS - 1))}`);
   }
   const btn = el("button", "lg-toggle-btn", legendOpen ? "Legend ▾" : "Legend ▸") as HTMLButtonElement;
   btn.type = "button";
@@ -1697,6 +1713,7 @@ setTab(fromUrl.tab ?? "quake");
       li("Source areas of the great trench quakes: ", link("https://www.j-shis.bosai.go.jp/", "J-SHIS"),
         " (防災科学技術研究所 NIED), seismic activity model 2024, outlines simplified by this site"),
     ),
+    p("Built with open-source software: ", link("./THIRD_PARTY_LICENSES.txt", "licences"), "."),
   );
   const dlg = $<HTMLDialogElement>("about");
   $("about-btn").addEventListener("click", () => dlg.showModal());
