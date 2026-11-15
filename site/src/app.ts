@@ -1505,7 +1505,13 @@ function renderPanelBody() {
 
 
 let moveTimer = 0;
-map.on("moveend", () => { clearTimeout(moveTimer); moveTimer = window.setTimeout(renderPanel, 200); });
+/** Panels that count what's in the visible map area: only these re-render when the map moves (the
+ *  others would just rebuild their charts and flicker). */
+const panelFollowsMap = () => state.tab === "forecast" || (state.tab === "quake" && !state.selected && !in3d());
+map.on("moveend", () => {
+  if (!panelFollowsMap()) return;
+  clearTimeout(moveTimer); moveTimer = window.setTimeout(renderPanel, 200);
+});
 new ResizeObserver(() => { clearTimeout(moveTimer); moveTimer = window.setTimeout(renderPanel, 150); }).observe($("panel"));
 
 // Theme changes: swap basemap flavour and re-add the quake layers.
