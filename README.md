@@ -271,3 +271,12 @@ docs/references.md         figures checked against primary sources (HERP, JMA, C
   precision flag and magnitude type are kept on every event, so completeness
   can be estimated and shown, not hidden.
 - `data/raw/` is not committed.
+
+## Licence
+
+The code is released under the MIT License (see `LICENSE`). The data it
+downloads and the files it builds keep their sources' terms: JMA's Public Data
+License (credit 気象庁 and note processing), OpenStreetMap (ODbL) and Protomaps
+for the basemap, Natural Earth (public domain), USGS Slab2, PB2002 (ODC-By) and
+J-SHIS (NIED; processed outlines only). The bundled JavaScript libraries' own
+licences are listed in `THIRD_PARTY_LICENSES.txt`, generated at build time.
