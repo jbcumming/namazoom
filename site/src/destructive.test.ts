@@ -1,12 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { energyJ, isDestructive } from "./panel-history";
-
-describe("energy", () => {
-  it("grows about 32 times per magnitude unit", () => {
-    expect(energyJ(7) / energyJ(6)).toBeCloseTo(10 ** 1.5, 6);
-    expect(energyJ(0)).toBeCloseTo(10 ** 4.8, 0);
-  });
-});
+import { isDestructive } from "./destructive";
 
 describe("destructive quakes", () => {
   const base = { t: 0, mag: 7, depth: 10, shindo: "", cls: "1", felt: true, id: "x" };

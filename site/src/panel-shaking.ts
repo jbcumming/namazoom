@@ -1,7 +1,8 @@
-// Shaking tab: hotspots of felt shaking, as the average yearly rate of the
-// stations in each grid cell.
+// Shaking tab: hotspots of felt shaking (the average yearly rate of the stations
+// in each grid cell) for all of Japan, or what was felt near a chosen place.
 import * as d3 from "d3";
 import { CELL_DEG, LEVELS, MIN_YEARS, type Cell } from "./hotspots";
+import { placeBody, placeControls, type LocationInputs } from "./panel-location";
 import type { Stations } from "./shindo";
 import { el, fmt, rowAction } from "./ui";
 
@@ -30,7 +31,7 @@ export function scaleRange(cells: Cell[]): [number, number] {
 
 export const fmtRate = (v: number) => (v >= 10 ? fmt(Math.round(v)) : d3.format(".2~r")(v));
 
-export interface ShakingInputs {
+export interface HotspotInputs {
   status: "loading" | "ok";
   level: number; // index into LEVELS
   from: number;
@@ -41,15 +42,22 @@ export interface ShakingInputs {
   stations: Stations | null;
   onLevel(i: number): void;
   onInstrumentalEra(): void;
-  onCell(c: Cell): void;
+  onCell(c: Cell): void; // choose the square as the place
 }
 
-export function renderShaking(host: HTMLElement, inp: ShakingInputs) {
+/** Shaking tab: the squares for all of Japan, or once a place is chosen, what was felt there. */
+export function renderShaking(host: HTMLElement, hot: HotspotInputs, place: LocationInputs) {
   const parts: HTMLElement[] = [
-    el("h2", "", "Shaking hotspots"),
-    el("p", "sub", "How often the ground shook, from seismic intensity stations: each square shows the average yearly " +
-      "rate of its stations, so places with many stations don't look busier just for having them."),
+    el("h2", "", place.place ? `Shaking near ${place.place.name}` : "Shaking"),
+    el("p", "sub", "How often the ground shook, from the readings at Japan's seismic intensity stations."),
+    placeControls(place),
   ];
+  parts.push(...(place.place ? placeBody(place, host.clientWidth) : hotspots(hot)));
+  host.replaceChildren(...parts);
+}
+
+function hotspots(inp: HotspotInputs): HTMLElement[] {
+  const parts: HTMLElement[] = [el("p", "sub", "Or click a square on the map to see what was felt there.")];
   const controls = el("div", "controls-row");
   const level = document.createElement("select");
   LEVELS.forEach((l, i) => {
@@ -70,14 +78,8 @@ export function renderShaking(host: HTMLElement, inp: ShakingInputs) {
   }
   parts.push(controls);
 
-  if (inp.status === "loading" || !inp.stations) {
-    host.replaceChildren(...parts, el("p", "sub", "Loading station records…"));
-    return;
-  }
+  if (inp.status === "loading" || !inp.stations) return [...parts, el("p", "sub", "Loading station records…")];
   const period = inp.from === inp.to ? `${inp.from}` : `${inp.from}–${inp.to}`;
-  const nStations = d3.sum(inp.cells, (c) => c.stations.length);
-  parts.push(el("p", "lead", `${LEVELS[inp.level].label[0].toUpperCase()}${LEVELS[inp.level].label.slice(1)} per year, ${period}: ` +
-    `${fmt(nStations)} stations in ${fmt(inp.cells.length)} squares of ${CELL_DEG}°.`));
 
   // Legend with the class edges.
   const colors = hotColors();
@@ -90,14 +92,14 @@ export function renderShaking(host: HTMLElement, inp: ShakingInputs) {
     k.append(sw, el("span", "", i === 0 ? `< ${fmtRate(edges[1])}` : i === HOT_STEPS - 1 ? `≥ ${fmtRate(edges[i])}` : `${fmtRate(edges[i])}–${fmtRate(edges[i + 1])}`));
     legend.append(k);
   });
-  parts.push(el("div", "chart-title", "Times per year (average of the stations in a square)"), legend);
+  parts.push(el("div", "chart-title", `Times per year with ${LEVELS[inp.level].label}, ${period}`), legend);
 
-  // Hottest squares.
+  // Most shaken squares.
   const top = [...inp.cells].sort((a, b) => b.rate - a.rate).slice(0, 10);
   const table = document.createElement("table");
   table.className = "mini";
   const head = table.createTHead().insertRow();
-  for (const h of ["Square", "Per year", "Stations", "Busiest station"]) head.append(el("th", "", h));
+  for (const h of ["Square", "Per year", "Busiest station"]) head.append(el("th", "", h));
   const body = table.createTBody();
   for (const c of top) {
     const busiest = c.stations.reduce((a, b) => (b.rate > a.rate ? b : a));
@@ -105,20 +107,21 @@ export function renderShaking(host: HTMLElement, inp: ShakingInputs) {
     tr.append(
       el("td", "", `${(c.lat + CELL_DEG / 2).toFixed(1)}°N ${(c.lon + CELL_DEG / 2).toFixed(1)}°E`),
       el("td", "", fmtRate(c.rate)),
-      el("td", "", String(c.stations.length)),
       el("td", "", inp.stations.name[busiest.station] || inp.stations.id[busiest.station]),
     );
-    rowAction(tr, "Show on the map", () => inp.onCell(c));
+    rowAction(tr, "See what was felt here", () => inp.onCell(c));
   }
   const tw = el("div", "chart");
-  tw.append(el("div", "chart-title", "Hottest squares (click to show on the map)"), table);
+  tw.append(el("div", "chart-title", "Most shaken squares (click one to see what was felt there)"), table);
   parts.push(tw);
 
-  parts.push(el("p", "sub",
-    `A station counts once per quake it felt at the chosen level, divided by its years in operation within the period ` +
-    `(at least ${MIN_YEARS}). Long periods are dominated by big sequences, above all 2011 off Tōhoku; narrow the timeline ` +
-    "to compare quieter times. Before 1996 intensities were reported by people, not instruments, and weak shaking was " +
-    "recorded less consistently. Temporary stations (臨時), set up during a sequence, are left out. In station names, " +
-    "＊ marks stations run by local governments or NIED rather than JMA, and （旧） a station that has since closed or moved."));
-  host.replaceChildren(...parts);
+  const notes = el("details", "notes");
+  notes.append(el("summary", "", "How this is counted"), el("p", "sub",
+    `Each ${CELL_DEG}° square shows the average yearly count of its stations (each in operation at least ${MIN_YEARS} ` +
+    "years of the period), so places with many stations don't look busier just for having them. Long periods are " +
+    "dominated by big sequences, above all 2011 off Tōhoku. Before 1996 intensities were reported by people, not " +
+    "instruments. Temporary stations (臨時) are left out. In station names, ＊ marks stations run by local governments " +
+    "or NIED, and （旧） one that has since closed or moved."));
+  parts.push(notes);
+  return parts;
 }

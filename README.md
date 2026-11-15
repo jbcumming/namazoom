@@ -140,16 +140,15 @@ kept in the URL hash.
   plate boundaries and Slab2 sinking-plate contours: drag to turn, hover for
   details, click to open a quake in the panel; the open quake is ringed, with a
   line up to its epicentre. three.js (`site/src/view3d.ts`), loaded the first
-  time 3D is opened. Replay switches back to the map.
-- *My location* - quakes felt near a point (city presets, map pick or browser
-  location): per year by strongest nearby intensity, stations operating
-  nearby, strongest shakings, their epicentres on the map.
-- *History* - energy released per year and its concentration in a few great
-  quakes; destructive quakes (damage class 3+ or damaging tsunami), ringed on
-  the map.
+  time 3D is opened. Replay switches back to the map. While no quake is open,
+  a folded "Destructive quakes" list (damage class 3+ or a damaging tsunami),
+  ringed on the map while it is open.
 - *Shaking* - hotspots of felt shaking: each station's yearly rate at a chosen
   intensity (shindo 1+ to 5-+), averaged on a 0.2° grid so dense networks don't
-  look hotter; temporary (臨時) stations left out.
+  look hotter; temporary (臨時) stations left out. Choosing a place (city
+  presets, map pick, browser location or a click on a square) shows what was
+  felt near it instead: per year by strongest nearby intensity, strongest
+  shakings, their epicentres on the map, stations operating nearby.
 - *Forecast* - the chance of M5+/M6+/M7+ quakes in the 7 days after the data
   ends, for the visible area and per half-degree square on the map, against the
   long-term average; and how the same method did on every week since 2016
@@ -201,7 +200,7 @@ falling lightness, validated separately for light and dark mode.
 **Data notes.** Footprints use only readings attributable to one quake (type
 B/D groups share readings). Station 5399999, the 1995 Kobe shindo-7 survey
 area, has no position (recorded as 0,0) and is shown as an area-wide note.
-My location uses every reading, including felt reports without a located
+A place on the Shaking tab uses every reading, including felt reports without a located
 hypocentre.
 
 **Build pieces:** `pipeline/build/site_data.py` (quakes, footprints, felt

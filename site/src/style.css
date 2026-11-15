@@ -457,4 +457,6 @@ tr.clickable:focus-visible { outline: 2px solid var(--focus); outline-offset: -2
 /* Magnitudes: the plain "how often" lead, with the full chart folded below */
 .mag-lead td:nth-child(3), .mag-lead th:nth-child(3) { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
 .mag-more > summary { font-weight: 600; }
+.dmg { margin-top: 16px; }
+.dmg > summary { font-weight: 600; font-size: 0.9rem; color: var(--text-primary); }
 .mag-lead .muted { color: var(--text-muted); }

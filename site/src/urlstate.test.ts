@@ -30,6 +30,11 @@ describe("url state", () => {
     expect(parseHash("#3d=0", TABS, YEARS)).toEqual({});
   });
 
+  it("sends links to merged tabs to the tab that took them in", () => {
+    expect(parseHash("#tab=location", ["quake", "shaking"], YEARS)).toEqual({ tab: "shaking" });
+    expect(parseHash("#tab=history", ["quake", "shaking"], YEARS)).toEqual({ tab: "quake" });
+  });
+
   it("accepts every magnitude in the Show menu", () => {
     for (const m of [3, 4, 5, 6, 7, 8, 9]) expect(parseHash(`#m=${m}`, TABS, YEARS)).toEqual({ minMag: m });
   });

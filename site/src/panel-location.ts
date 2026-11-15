@@ -1,4 +1,4 @@
-// My location tab: how often, and how strongly, shaking was recorded near a place.
+// Shaking tab, once a place is chosen: how often, and how strongly, shaking was recorded near it.
 import * as Plot from "@observablehq/plot";
 import * as d3 from "d3";
 import { stationsByYear, type FeltQuake, type NearbyStation } from "./location";
@@ -32,52 +32,47 @@ export interface LocationInputs {
   onGeolocate(): void;
   onRadius(km: number): void;
   onSelectQuake(q: FeltQuake): void;
+  onClear(): void;
 }
 
 const when = (t: number) => new Date((t + 9 * 3600) * 1000).toISOString().slice(0, 10);
 
-export function renderLocation(host: HTMLElement, inp: LocationInputs) {
+/** Cities, Pick on map, Use my location; with a place chosen, the distance and All of Japan. */
+export function placeControls(inp: LocationInputs): HTMLElement {
   const controls = el("div", "controls-row");
   const presets = el("div", "presets");
-  for (const p of PLACES) {
-    const b = el("button", inp.place?.name === p.name ? "primary" : "", p.name) as HTMLButtonElement;
-    b.type = "button";
-    b.addEventListener("click", () => inp.onPlace(p));
-    presets.append(b);
+  const button = (text: string, fn: () => void, primary = false) => {
+    const b = el("button", primary ? "primary" : "", text) as HTMLButtonElement;
+    b.type = "button"; b.addEventListener("click", fn);
+    return b;
+  };
+  for (const p of PLACES) presets.append(button(p.name, () => inp.onPlace(p), inp.place?.name === p.name));
+  controls.append(presets,
+    button(inp.picking ? "Click a place on the map…" : "Pick on map", () => inp.onPick(), inp.picking),
+    button("Use my location", () => inp.onGeolocate()));
+  if (inp.place) {
+    const radius = document.createElement("select");
+    radius.setAttribute("aria-label", "Distance from the place");
+    for (const r of [10, 25, 50]) {
+      const o = document.createElement("option");
+      o.value = String(r); o.textContent = `within ${r} km`; o.selected = r === inp.radiusKm;
+      radius.append(o);
+    }
+    radius.addEventListener("change", () => inp.onRadius(Number(radius.value)));
+    controls.append(radius, button("All of Japan", () => inp.onClear()));
   }
-  const pick = el("button", inp.picking ? "primary" : "", inp.picking ? "Click a place on the map…" : "Pick on map") as HTMLButtonElement;
-  pick.type = "button";
-  pick.addEventListener("click", () => inp.onPick());
-  const geo = el("button", "", "Use my location") as HTMLButtonElement;
-  geo.type = "button";
-  geo.addEventListener("click", () => inp.onGeolocate());
-  const radius = document.createElement("select");
-  radius.setAttribute("aria-label", "Distance from the place");
-  for (const r of [10, 25, 50]) {
-    const o = document.createElement("option");
-    o.value = String(r); o.textContent = `within ${r} km`; o.selected = r === inp.radiusKm;
-    radius.append(o);
-  }
-  radius.addEventListener("change", () => inp.onRadius(Number(radius.value)));
-  controls.append(presets, pick, geo, radius);
+  return controls;
+}
 
-  const parts: HTMLElement[] = [
-    el("h2", "", inp.place ? `My location: ${inp.place.name}` : "My location"),
-    el("p", "sub", "How often the ground shook near a place, from the readings of seismic intensity stations nearby. " +
-      "Each quake is counted once, at the strongest intensity recorded within the distance you choose."),
-    controls,
-  ];
-  if (!inp.place) {
-    parts.push(el("p", "sub", "Choose a city, pick a point on the map, or use your location."));
-  } else if (inp.status === "loading" || !inp.allStations) {
-    parts.push(el("p", "sub", `Loading readings near ${inp.place.name}…`));
-  } else if (!inp.stations.length) {
-    parts.push(el("p", "note", `No intensity stations within ${inp.radiusKm} km of ${inp.place.name}. Try a larger distance.`),
-      lookingAhead(inp.place));
-  } else {
-    parts.push(...summary(inp, host.clientWidth));
+/** What was felt near the chosen place. */
+export function placeBody(inp: LocationInputs, width: number): HTMLElement[] {
+  const place = inp.place!;
+  if (inp.status === "loading" || !inp.allStations) return [el("p", "sub", `Loading readings near ${place.name}…`)];
+  if (!inp.stations.length) {
+    return [el("p", "note", `No intensity stations within ${inp.radiusKm} km of ${place.name}. Try a larger distance.`),
+      lookingAhead(place)];
   }
-  host.replaceChildren(...parts);
+  return summary(inp, width);
 }
 
 /** This tab is the past; the official outlook for the same spot is NIED's J-SHIS hazard map. */
@@ -115,7 +110,7 @@ function summary(inp: LocationInputs, width: number): HTMLElement[] {
     stat("Shindo 4 or more", fmt(atLeast(3)), "most people startled"),
     stat("Strongest", strongest ? (CLASSES[strongest.cls]?.label ?? "felt") : "–", strongest ? when(strongest.t) : undefined),
   );
-  out.push(stats, lookingAhead(inp.place!));
+  out.push(stats);
 
   // Felt quakes per year, stacked by intensity.
   const w = Math.max(260, width - 32);
@@ -138,8 +133,8 @@ function summary(inp: LocationInputs, width: number): HTMLElement[] {
   }) as SVGSVGElement;
   attachYearTooltip(bars, rows);
   const chart = el("div", "chart");
-  chart.append(el("div", "chart-title", "Quakes felt each year, by strongest intensity nearby"), bars);
-  out.push(chart);
+  chart.append(el("div", "chart-title", "Quakes felt each year, by strongest shaking nearby"), bars);
+  out.push(chart, el("p", "sub", "Their epicentres are on the map, in the same colours."), lookingAhead(inp.place!));
 
   // Context: how many stations were there to feel them.
   const sy = stationsByYear(inp.stations, y0, y1);
@@ -153,9 +148,6 @@ function summary(inp: LocationInputs, width: number): HTMLElement[] {
   });
   const strip2 = el("div", "chart");
   strip2.append(el("div", "chart-title", `Intensity stations operating within ${inp.radiusKm} km`), strip);
-  out.push(strip2,
-    el("p", "sub", "More stations, especially after the 1996 switch to instrumental intensity meters, mean more small " +
-      "shaking gets recorded: the rise in counts is partly the network, not the earth."));
 
   // Strongest shakings.
   const top = [...q].filter((x) => x.cls >= 0)
@@ -177,15 +169,18 @@ function summary(inp: LocationInputs, width: number): HTMLElement[] {
     if (x.id) rowAction(tr, "Show this quake", () => inp.onSelectQuake(x));
   }
   const tw = el("div", "chart");
-  tw.append(el("div", "chart-title", "Strongest shaking recorded nearby (click a row to show the quake)"), table);
+  tw.append(el("div", "chart-title", "Strongest shaking nearby (click a row to open the quake)"), table);
   out.push(tw, shindoScale(CLASS_COLORS));
 
   const noHyp = q.filter((x) => !x.id).length;
   const nearest = inp.stations.slice(0, 3).map((s) => `${st.name[s.index] || st.id[s.index]} (${s.distKm.toFixed(1)} km)`).join(", ");
-  out.push(el("p", "sub",
-    `${fmt(inp.stations.length)} stations within ${inp.radiusKm} km; nearest: ${nearest}. ` +
-    (noHyp ? `${fmt(noHyp)} of the felt quakes have no located hypocentre (early or swarm felt reports). ` : "") +
-    "Epicentres of the felt quakes are shown on the map in the same colours."));
+  const notes = el("details", "notes");
+  notes.append(el("summary", "", "How this is counted"), el("p", "sub",
+    `Each quake is counted once, at the strongest shaking recorded by the ${fmt(inp.stations.length)} intensity stations ` +
+    `within ${inp.radiusKm} km (nearest: ${nearest}). More stations, above all after the 1996 switch to instrumental ` +
+    "meters, mean more weak shaking gets recorded, so the rise in counts is partly the network, not the earth." +
+    (noHyp ? ` ${fmt(noHyp)} of the felt quakes have no located epicentre (early or swarm felt reports).` : "")), strip2);
+  out.push(notes);
   return out;
 }
 

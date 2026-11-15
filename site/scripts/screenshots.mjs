@@ -121,15 +121,15 @@ await shot("07-plates", {
 for (const [n, city] of [["11", "Sendai"], ["12", "Tokyo"]]) {
   await shot(`${n}-location-${city.toLowerCase()}`, {
     act: async (p) => {
-      await p.click("#tab-location");
-      await p.click(`#pane-location >> text=${city}`);
-      await p.waitForSelector("#pane-location svg", { timeout: 30000 });
+      await p.click("#tab-shaking");
+      await p.click(`#pane-shaking >> text=${city}`);
+      await p.waitForSelector("#pane-shaking .readout", { timeout: 30000 });
       await p.waitForTimeout(1500); // flyTo
     },
   });
 }
-await shot("15-history", {
-  act: async (p) => { await p.click("#tab-history"); await p.waitForSelector("#pane-history svg", { timeout: 20000 }); },
+await shot("15-destructive", {
+  act: async (p) => { await p.locator("#pane-quake .dmg summary").click(); await p.waitForTimeout(800); },
 });
 await shot("16-shared-link", {
   hash: "#y=2016&m=3&tab=quake&q=J2016041601250547_3275_13076&v=32.80,130.80,7.0",
@@ -142,9 +142,9 @@ await shot("17-footprint-dark", {
 });
 await shot("18-location-hover", {
   act: async (p) => {
-    await p.click("#tab-location");
-    await p.click("#pane-location >> text=Sendai");
-    await p.waitForSelector("#pane-location svg", { timeout: 30000 });
+    await p.click("#tab-shaking");
+    await p.click("#pane-shaking >> text=Sendai");
+    await p.waitForSelector("#pane-shaking .readout", { timeout: 30000 });
     await p.waitForTimeout(1500);
     // hover the 2011 Tohoku epicentre circle
     const pt = await p.evaluate(() => { const s = window.quakeMap.project([142.861, 38.1035]); return { x: s.x, y: s.y }; });

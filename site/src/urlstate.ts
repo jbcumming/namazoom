@@ -13,6 +13,9 @@ export interface UrlState {
   view?: { lat: number; lon: number; zoom: number };
 }
 
+/** Tabs since folded into others: My location into Shaking, History into Quake. */
+const MERGED: Record<string, string> = { location: "shaking", history: "quake" };
+
 export function parseHash(hash: string, tabs: string[], years: [number, number]): UrlState {
   const p = new URLSearchParams(hash.replace(/^#/, ""));
   const out: UrlState = {};
@@ -25,6 +28,7 @@ export function parseHash(hash: string, tabs: string[], years: [number, number])
   if ([3, 4, 5, 6, 7, 8, 9].includes(m)) out.minMag = m;
   const tab = p.get("tab");
   if (tab && tabs.includes(tab)) out.tab = tab;
+  else if (tab && MERGED[tab] && tabs.includes(MERGED[tab])) out.tab = MERGED[tab];
   // 3D was a tab of its own before it became a view of the Quake tab.
   if (p.get("3d") === "1" || tab === "3d") { out.view3d = true; if (tabs.includes("quake")) out.tab = "quake"; }
   const q = p.get("q");

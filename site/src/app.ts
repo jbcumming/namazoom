@@ -12,8 +12,8 @@ import { renderForeshock, type ForeshockState } from "./panel-foreshock";
 import type { Quake3D, Scene3D } from "./view3d";
 import type { FsData } from "./foreshock";
 import { DAY, FORESHOCK_DAYS, MIN_MAINSHOCK, WINDOW_DAYS, sequence, type Shock } from "./aftershocks";
-import { PLACES, renderLocation, type Place } from "./panel-location";
-import { renderHistory } from "./panel-history";
+import { PLACES, type Place } from "./panel-location";
+import { destructiveList } from "./destructive";
 import { HOT_STEPS, fmtRate, hotColors, renderShaking, scaleRange } from "./panel-shaking";
 import { fcColors, renderForecast } from "./panel-forecast";
 import { P_EDGES, chance, fmtPct, fmtWindow, pClass, sumCells, type Forecast } from "./forecast";
@@ -39,6 +39,7 @@ const state = {
   magMode: "single" as MagSelection["mode"],
   tab: "quake",
   view3d: false, // the Quake tab shows the 3D view instead of the map
+  dmgOpen: false, // the Quake tab's Destructive quakes list is open (rings on the map)
   selected: null as { props: QuakeProps; coords: [number, number] } | null,
 };
 
@@ -48,7 +49,7 @@ const store = new QuakeStore();
 const [grData] = await Promise.all([fetch("./data/gr.json").then((r) => r.json() as Promise<GrData>), store.init()]);
 [state.from, state.to] = store.index.years;
 // A shared link may set the view; applied before the first render.
-const fromUrl = parseHash(location.hash, ["magnitudes", "quake", "location", "history", "shaking", "forecast"], store.index.years);
+const fromUrl = parseHash(location.hash, ["magnitudes", "quake", "shaking", "forecast"], store.index.years);
 if (fromUrl.from !== undefined) { state.from = fromUrl.from; state.to = fromUrl.to!; }
 if (fromUrl.minMag !== undefined) state.minMag = fromUrl.minMag;
 
@@ -129,12 +130,12 @@ function addQuakeLayers() {
   addHotspotLayer();
   addTremorLayer(before);
   addForecastLayer();
-  // Rings round destructive quakes (damage class 3+ or a damaging tsunami), on the History tab.
+  // Rings round destructive quakes (damage class 3+ or a damaging tsunami), while their list is open.
   map.addLayer({
     id: "destructive", type: "circle", source: "quakes",
     filter: ["any", ["in", ["get", "dmg"], ["literal", ["3", "4", "5", "6", "7"]]],
       ["in", ["get", "tsu"], ["literal", ["2", "3", "4", "5", "6", "T"]]]],
-    layout: { visibility: state.tab === "history" ? "visible" : "none" },
+    layout: { visibility: destructiveShown() ? "visible" : "none" },
     paint: { "circle-radius": radiusPlus(3), "circle-color": "transparent", "circle-stroke-color": theme().text, "circle-stroke-width": 1.5 },
   });
   map.addLayer({
@@ -220,9 +221,12 @@ function renderIntro() {
     b.type = "button"; b.addEventListener("click", fn); row.append(b);
   };
   btn("Japan's plates in 3D", () => setView3d(true));
-  btn("How often has Tokyo shaken?", () => { setTab("location"); setPlace(PLACES[0]); map.flyTo({ center: PLACES[0].lonlat, zoom: 7 }); });
+  btn("How often has Tokyo shaken?", () => { setTab("shaking"); setPlace(PLACES[0]); map.flyTo({ center: PLACES[0].lonlat, zoom: 7 }); });
   btn("This week's forecast", () => setTab("forecast"));
-  btn("Destructive quakes", () => setTab("history"));
+  btn("Destructive quakes", () => {
+    state.dmgOpen = true; renderPanel(); syncDestructive();
+    document.querySelector("#pane-quake .dmg")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
   card.append(row);
   host.replaceChildren(card);
 }
@@ -344,12 +348,15 @@ map.on("mousemove", "slabs-hit", (e) => {
 });
 map.on("mouseleave", "slabs-hit", hideTooltip);
 
-/** True when a My location epicentre circle is under the pointer: it takes priority over the dimmed quakes. */
+/** True when an epicentre of a quake felt at the Shaking tab's place is under the pointer: it takes priority over the dimmed quakes. */
 const overPlaceFelt = (p: { x: number; y: number }) =>
   !!map.getLayer("place-felt") && map.queryRenderedFeatures([p.x, p.y], { layers: ["place-felt"] }).length > 0;
 
+/** On the Shaking tab's squares the faded quakes are only a backdrop: the squares take hover and clicks. */
+const quakesInert = () => state.tab === "shaking" && !loc.place;
+
 map.on("mousemove", "quakes", (e) => {
-  if (overPlaceFelt(e.point)) return;
+  if (overPlaceFelt(e.point) || quakesInert()) return;
   map.getCanvas().style.cursor = "pointer";
   const f = e.features?.[0];
   if (!f) return;
@@ -368,7 +375,7 @@ map.on("mousemove", "quakes", (e) => {
 });
 map.on("mouseleave", "quakes", () => { map.getCanvas().style.cursor = ""; hideTooltip(); });
 map.on("click", "quakes", (e) => {
-  if (loc.picking) return; // clicks place the point instead
+  if (loc.picking || quakesInert()) return; // clicks place the point, or choose a square
   if (overPlaceFelt(e.point)) return; // handled by the place-felt layer
   const f = e.features?.[0];
   if (!f) return;
@@ -500,6 +507,7 @@ async function select(sel: typeof state.selected, openTab = true) {
   const token = ++selectToken;
   state.selected = sel;
   updateUrl();
+  syncDestructive();
   map.setFilter("selected", ["==", ["get", "id"], sel?.props.id ?? ""]);
   footprint = sel?.props.felt ? { status: "loading" } : { status: "none" };
   showFootprint();
@@ -669,7 +677,13 @@ async function draw3d(resetCamera = false) {
   renderPanel();
 }
 
-const in3d = () => state.view3d && state.tab === "quake";
+function in3d() { return state.view3d && state.tab === "quake"; }
+
+/** Rings round destructive quakes: on the Quake tab's map while their list is open. */
+function destructiveShown() { return state.tab === "quake" && !state.selected && state.dmgOpen && !in3d(); }
+function syncDestructive() {
+  if (map.getLayer("destructive")) map.setLayoutProperty("destructive", "visibility", destructiveShown() ? "visible" : "none");
+}
 
 /** The Quake tab's Map / 3D switch. */
 function setView3d(on: boolean) {
@@ -679,6 +693,7 @@ function setView3d(on: boolean) {
   if (state.tab !== "quake") { setTab("quake"); return; }
   updateUrl();
   syncViewSwitch();
+  syncDestructive();
   renderPanel();
   draw3d();
 }
@@ -766,7 +781,7 @@ function addHotspotLayer() {
 async function drawHotspots() {
   const src = map.getSource("hotspots") as GeoJSONSource | undefined;
   if (!src) return;
-  if (state.tab !== "shaking") { src.setData({ type: "FeatureCollection", features: [] }); return; }
+  if (state.tab !== "shaking" || loc.place) { src.setData({ type: "FeatureCollection", features: [] }); return; }
   countsPromise ??= fetch("./data/station_counts.json").then((r) => r.json());
   const [counts, stations] = await Promise.all([countsPromise, shindo.loadStations()]);
   hot.counts = counts;
@@ -778,7 +793,7 @@ async function drawHotspots() {
     renderPanel();
     renderLegend();
   }
-  if (state.tab !== "shaking") return;
+  if (state.tab !== "shaking" || loc.place) return;
   const [lo, hi] = hot.range;
   src.setData({
     type: "FeatureCollection",
@@ -802,9 +817,24 @@ map.on("mousemove", "hotspots", (e) => {
     row("Per year (average)", c.rate >= 10 ? fmt(Math.round(c.rate)) : c.rate.toPrecision(2));
     row("Stations", String(c.stations.length));
     row("Busiest", `${st.name[busiest.station] || st.id[busiest.station]} (${busiest.rate.toPrecision(2)}/yr)`);
+    tip.append(el("div", "t-head", "Click to see what was felt here"));
   });
+  map.getCanvas().style.cursor = "pointer";
 });
-map.on("mouseleave", "hotspots", hideTooltip);
+map.on("mouseleave", "hotspots", () => { map.getCanvas().style.cursor = ""; hideTooltip(); });
+map.on("click", "hotspots", (e) => {
+  if (loc.picking || state.tab !== "shaking" || loc.place) return;
+  const f = e.features?.[0];
+  const c = f ? hot.cells[Number((f.properties as { i: number }).i)] : undefined;
+  if (c) chooseCell(c);
+});
+/** A square as the Shaking tab's place: its centre, with the usual distance around it. */
+function chooseCell(c: Cell) {
+  const lon = c.lon + CELL_DEG / 2, lat = c.lat + CELL_DEG / 2;
+  hideTooltip();
+  setPlace({ name: `${lat.toFixed(1)}°N, ${lon.toFixed(1)}°E`, lonlat: [lon, lat] });
+  map.flyTo({ center: [lon, lat], zoom: Math.max(map.getZoom(), 7) });
+}
 
 // ---------------------------------------------------- slow-slip tremor ---
 
@@ -957,7 +987,7 @@ function addLocationLayers() {
 
 function drawLocation() {
   const src = map.getSource("place") as GeoJSONSource | undefined;
-  const visible = state.tab === "location" && loc.place !== null;
+  const visible = state.tab === "shaking" && loc.place !== null;
   if (src) {
     src.setData({
       type: "FeatureCollection",
@@ -983,7 +1013,7 @@ async function setPlace(place: Place | null) {
   syncMapHint();
   loc.status = place ? "loading" : "idle";
   loc.quakes = []; loc.stations = [];
-  drawLocation(); renderPanel();
+  drawLocation(); drawHotspots(); renderPanel();
   if (!place) return;
   const stations = await shindo.loadStations();
   const r = await locStore.query(stations, place.lonlat[0], place.lonlat[1], loc.radiusKm);
@@ -1084,7 +1114,7 @@ function applyTimeFilter() {
     map.setPaintProperty("quakes", "circle-opacity", ["interpolate", ["linear"], ["get", "t"], lo, 0.08, hi, 0.95]);
   } else {
     map.setFilter("quakes", null);
-    const dim = footprint.status === "ok" || (state.tab === "location" && loc.place !== null) || state.tab === "shaking" || state.tab === "forecast";
+    const dim = footprint.status === "ok" || state.tab === "shaking" || state.tab === "forecast";
     map.setPaintProperty("quakes", "circle-opacity", dim ? 0.15 : 0.7);
   }
 }
@@ -1225,7 +1255,7 @@ document.addEventListener("keydown", (e) => {
 
 // ---------------------------------------------------------------- panel ---
 
-const TABS = ["quake", "location", "history", "shaking", "forecast", "magnitudes"];
+const TABS = ["quake", "shaking", "forecast", "magnitudes"];
 
 function setTab(tab: string) {
   if (tab !== state.tab) cancelMapModes(); // a pick belongs to the tab that started it
@@ -1247,7 +1277,7 @@ function setTab(tab: string) {
   drawForecast();
   draw3d();
   if (map.getLayer("quakes")) applyTimeFilter();
-  if (map.getLayer("destructive")) map.setLayoutProperty("destructive", "visibility", tab === "history" ? "visible" : "none");
+  syncDestructive();
   map.resize();
 }
 for (const t of TABS) $(`tab-${t}`).addEventListener("click", () => setTab(t));
@@ -1329,24 +1359,8 @@ function renderPanelBody() {
       cells: hot.cells, range: hot.range, stations: shindo.stations,
       onLevel: (i) => { hot.level = i; renderPanel(); drawHotspots(); },
       onInstrumentalEra: () => { state.from = 1997; state.to = store.index.years[1]; syncTimeline(); refreshData(); drawHotspots(); renderPanel(); },
-      onCell: (c) => map.flyTo({ center: [c.lon + CELL_DEG / 2, c.lat + CELL_DEG / 2], zoom: 8 }),
-    });
-    if (hot.key !== `${state.from}-${state.to}-${hot.level}`) drawHotspots();
-  } else if (state.tab === "history") {
-    const b = map.getBounds();
-    const cells = visibleCells();
-    const quakes = store.features(yearStart(state.from), yearEnd(state.to), 5).features.filter((f) => {
-      if (cells === null) return true; // "all of Japan": not just what fits on screen
-      const [lon, lat] = f.geometry.coordinates;
-      return lon >= b.getWest() && lon <= b.getEast() && lat >= b.getSouth() && lat <= b.getNorth();
-    });
-    renderHistory($("pane-history"), {
-      quakes, from: state.from, to: state.to,
-      areaLabel: cells === null ? "all of Japan" : "the visible map area",
-      onSelect: (f) => select({ props: f.properties, coords: f.geometry.coordinates as [number, number] }),
-    });
-  } else if (state.tab === "location") {
-    renderLocation($("pane-location"), {
+      onCell: chooseCell,
+    }, {
       ...loc,
       allStations: shindo.stations,
       years: store.index.years,
@@ -1360,13 +1374,15 @@ function renderPanelBody() {
       onGeolocate: () => {
         navigator.geolocation?.getCurrentPosition(
           (pos) => { const p: Place = { name: "your location", lonlat: [pos.coords.longitude, pos.coords.latitude] }; setPlace(p); map.flyTo({ center: p.lonlat, zoom: 7 }); },
-          () => { $("pane-location").append(el("p", "note", "Location unavailable: the browser didn't share it.")); },
+          () => { $("pane-shaking").append(el("p", "note", "Location unavailable: the browser didn't share it.")); },
           { maximumAge: 600000, timeout: 10000 },
         );
       },
       onRadius: (km) => { loc.radiusKm = km; setPlace(loc.place); },
       onSelectQuake: selectFelt,
+      onClear: () => setPlace(null),
     });
+    if (!loc.place && hot.key !== `${state.from}-${state.to}-${hot.level}`) drawHotspots();
   } else if (state.tab === "quake") {
     // While nothing is open: the Start here card, or in 3D what the 3D view shows.
     $("intro-host").hidden = !!state.selected || in3d();
@@ -1398,8 +1414,21 @@ function renderPanelBody() {
     if (!state.selected) {
       empty = el("div");
       if (missingQuake) empty.append(el("p", "note", `The linked quake (${missingQuake}) isn't in the map data, which ` +
-        "covers quakes of M3 and above. Smaller felt quakes can be opened from the My location tab."));
+        "covers quakes of M3 and above. Smaller felt quakes can be opened from the Shaking tab, after choosing a place."));
       empty.append(quakeExamples());
+      const b = map.getBounds();
+      const cells = visibleCells();
+      const quakes = store.features(yearStart(state.from), yearEnd(state.to), 5).features.filter((f) => {
+        if (cells === null) return true; // "all of Japan": not just what fits on screen
+        const [lon, lat] = f.geometry.coordinates;
+        return lon >= b.getWest() && lon <= b.getEast() && lat >= b.getSouth() && lat <= b.getNorth();
+      });
+      empty.append(destructiveList({
+        quakes, period: state.from === state.to ? `${state.from}` : `${state.from}–${state.to}`,
+        areaLabel: cells === null ? "all of Japan" : "the visible map area", open: state.dmgOpen,
+        onToggle: (open) => { state.dmgOpen = open; syncDestructive(); },
+        onSelect: (f) => select({ props: f.properties, coords: f.geometry.coordinates as [number, number] }),
+      }));
     }
     renderQuake($("pane-quake-body"), state.selected?.props ?? null, state.selected?.coords, footprint, empty ?? extra);
   }
@@ -1470,7 +1499,7 @@ function renderLegend() {
     size.append(k);
   }
   const rows = [depth, size, layers];
-  if ((footprint.status === "ok" && !state.anim) || (state.tab === "location" && loc.place !== null)) {
+  if ((footprint.status === "ok" && !state.anim) || (state.tab === "shaking" && loc.place !== null)) {
     const shindo_ = shindoColors();
     const fr = el("div", "lg-row lg-shindo");
     const title = el("span", "lg-title", "Shindo");
@@ -1497,7 +1526,7 @@ function renderLegend() {
   if (state.tab === "forecast") {
     ramp("Squares: chance of M5+ in 7 days", "Each half-degree square's forecast chance of at least one M5+ quake in the next 7 days",
       fcColors(), `<${fmtPct(P_EDGES[0])}`, `≥${fmtPct(P_EDGES[P_EDGES.length - 1])}`);
-  } else if (state.tab === "shaking" && hot.cells.length) {
+  } else if (state.tab === "shaking" && !loc.place && hot.cells.length) {
     ramp(`Squares: times per year at ${LEVELS[hot.level].label.replace(/ \(.*\)/, "")}`, "Average yearly count at the seismic stations in each square, over the timeline's years",
       hotColors(), fmtRate(hot.range[0]), fmtRate(hot.range[1]));
   }
