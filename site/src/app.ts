@@ -1183,11 +1183,11 @@ function applyTimeFilter() {
 }
 
 function updateStatus(n: number, minMag: number) {
-  const years = state.to - state.from + 1;
-  $("status").textContent = state.anim ? "" : `${fmt(n)} ${n === 1 ? "quake" : "quakes"} M${minMag}+ shown`;
+  $("status").textContent = state.anim ? "" : `${fmt(n)} ${n === 1 ? "quake" : "quakes"}`;
+  // Small quakes are only drawn for short ranges: say so when the menu asks for more than is shown.
   const note = $("mag-note");
   note.hidden = !(state.minMag < 5 && minMag === 5 && !state.anim);
-  note.textContent = `M${state.minMag}+ is drawn for ranges of up to ${MAX_YEARS_FOR_M3} years (this one is ${years}); press play to step through it.`;
+  note.textContent = `Showing M5+: M${state.minMag}+ needs ${MAX_YEARS_FOR_M3} years or fewer (or press ▶).`;
 }
 
 // ------------------------------------------------------------- timeline ---
