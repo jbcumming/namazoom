@@ -37,7 +37,7 @@ export interface LocationInputs {
 const when = (t: number) => new Date((t + 9 * 3600) * 1000).toISOString().slice(0, 10);
 
 export function renderLocation(host: HTMLElement, inp: LocationInputs) {
-  const controls = el("div", "depth-controls");
+  const controls = el("div", "controls-row");
   const presets = el("div", "presets");
   for (const p of PLACES) {
     const b = el("button", inp.place?.name === p.name ? "primary" : "", p.name) as HTMLButtonElement;

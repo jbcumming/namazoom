@@ -12,7 +12,6 @@ import { renderForeshock, type ForeshockState } from "./panel-foreshock";
 import type { Scene3D } from "./view3d";
 import type { FsData } from "./foreshock";
 import { DAY, FORESHOCK_DAYS, MIN_MAINSHOCK, WINDOW_DAYS, sequence, type Shock } from "./aftershocks";
-import { PRESETS, renderDepth } from "./panel-depth";
 import { PLACES, renderLocation, type Place } from "./panel-location";
 import { renderHistory } from "./panel-history";
 import { HOT_STEPS, fmtRate, hotColors, renderShaking, scaleRange } from "./panel-shaking";
@@ -23,7 +22,6 @@ import type { LfeColumns } from "./lfe";
 import { CELL_DEG, grid, LEVELS, logClass, stationRates, type Cell, type StationCounts } from "./hotspots";
 import { formatHash, parseHash, yearFromId } from "./urlstate";
 import { LocationStore, type FeltQuake, type NearbyStation } from "./location";
-import { swath, type LonLat, type Section } from "./section";
 import { Marker } from "maplibre-gl";
 import { CLASSES, classOf, shindoColors, shindoFeel, ShindoStore } from "./shindo";
 import { FAMOUS, famous, quakePlace, regionLabel } from "./names";
@@ -51,7 +49,7 @@ const store = new QuakeStore();
 const [grData] = await Promise.all([fetch("./data/gr.json").then((r) => r.json() as Promise<GrData>), store.init()]);
 [state.from, state.to] = store.index.years;
 // A shared link may set the view; applied before the first render.
-const fromUrl = parseHash(location.hash, ["magnitudes", "depth", "quake", "location", "history", "shaking", "slow", "forecast", "3d"], store.index.years);
+const fromUrl = parseHash(location.hash, ["magnitudes", "quake", "location", "history", "shaking", "slow", "forecast", "3d"], store.index.years);
 if (fromUrl.from !== undefined) { state.from = fromUrl.from; state.to = fromUrl.to!; }
 if (fromUrl.minMag !== undefined) state.minMag = fromUrl.minMag;
 
@@ -128,7 +126,6 @@ function addQuakeLayers() {
   addPlateLayers(before);
   addWavefrontLayer();
   addFootprintLayer();
-  addSectionLayers();
   addLocationLayers();
   addHotspotLayer();
   addLfeLayer();
@@ -148,7 +145,6 @@ function addQuakeLayers() {
   if (state.selected) map.setFilter("selected", ["==", ["get", "id"], state.selected.props.id]);
   refreshData();
   showFootprint(); // after a style change the source starts empty
-  drawSection();
   drawLocation();
   drawHotspots();
   drawLfe();
@@ -372,7 +368,7 @@ map.on("mousemove", "quakes", (e) => {
 });
 map.on("mouseleave", "quakes", () => { map.getCanvas().style.cursor = ""; hideTooltip(); });
 map.on("click", "quakes", (e) => {
-  if (sectionState.drawing || loc.picking) return; // clicks place points instead
+  if (loc.picking) return; // clicks place the point instead
   if (overPlaceFelt(e.point)) return; // handled by the place-felt layer
   const f = e.features?.[0];
   if (!f) return;
@@ -586,7 +582,6 @@ async function refreshData() {
   (map.getSource("quakes") as GeoJSONSource).setData(fc);
   shownQuakes = fc.features;
   shownMinMag = minMag;
-  if (state.tab === "depth") renderPanel();
   loadedRange = [lo, hi];
   applyTimeFilter();
   updateStatus(fc.features.length, minMag);
@@ -606,7 +601,7 @@ const v3d = { scene: null as Scene3D | null, loading: false, ex: 1, spin: false,
 let coastRings: [number, number][][] | null = null;
 let landPolys: [number, number][][][] = [];
 let coastPromise: Promise<void> | null = null;
-/** The coastline (for the 3D view and the land marks on the Depth chart), fetched once. */
+/** The coastline for the 3D view, fetched once. */
 function loadCoast(): Promise<void> {
   coastPromise ??= fetch("./data/coast.json").then((r) => r.json()).then((coast) => {
     landPolys = coast.geometry.coordinates as [number, number][][][];
@@ -713,48 +708,13 @@ function render3dPane() {
   host.replaceChildren(...parts);
 }
 
-// --------------------------------------------------------- depth section ---
+// ------------------------------------------------------ plate overlays ---
 
-const sectionState = {
-  section: PRESETS[0].section as Section | null,
-  drawing: false,
-  first: null as LonLat | null,
-};
 const overlayData: { slabs: GeoJSON.FeatureCollection | null; plates: GeoJSON.FeatureCollection | null } = { slabs: null, plates: null };
 Promise.all([
   fetch("./data/overlays/slabs.json").then((r) => r.json()),
   fetch("./data/overlays/plates.json").then((r) => r.json()),
-]).then(([slabs, plates]) => { overlayData.slabs = slabs; overlayData.plates = plates; if (state.tab === "depth") renderPanel(); });
-
-const markerEl = (label: string) => { const d = el("div", "section-marker", label); return d; };
-const markers = { a: new Marker({ element: markerEl("A") }), b: new Marker({ element: markerEl("B") }) };
-
-function addSectionLayers() {
-  map.addSource("section", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-  map.addLayer({ id: "section-swath", type: "fill", source: "section", filter: ["==", ["geometry-type"], "Polygon"],
-    paint: { "fill-color": theme().text, "fill-opacity": 0.06 } });
-  map.addLayer({ id: "section-line", type: "line", source: "section", filter: ["==", ["geometry-type"], "LineString"],
-    paint: { "line-color": theme().text, "line-width": 2, "line-dasharray": [2, 1] } });
-}
-
-function drawSection() {
-  const src = map.getSource("section") as GeoJSONSource | undefined;
-  const s = sectionState.section;
-  const visible = state.tab === "depth";
-  if (src) {
-    src.setData({
-      type: "FeatureCollection",
-      features: visible && s && !sectionState.drawing ? [
-        { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [swath(s)] } },
-        { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [s.a, s.b] } },
-      ] : [],
-    });
-  }
-  const a = visible ? (sectionState.drawing ? sectionState.first : s?.a) : null;
-  const b = visible && !sectionState.drawing ? s?.b : null;
-  if (a) markers.a.setLngLat(a).addTo(map); else markers.a.remove();
-  if (b) markers.b.setLngLat(b).addTo(map); else markers.b.remove();
-}
+]).then(([slabs, plates]) => { overlayData.slabs = slabs; overlayData.plates = plates; });
 
 // ------------------------------------------------------------- hotspots ---
 
@@ -1052,21 +1012,19 @@ map.on("click", "place-felt", (e) => {
   if (q) selectFelt(q);
 });
 
-/** Turn off "Pick on map" and "Draw your own line" (Esc, or leaving their tab). */
+/** Turn off "Pick on map" (Esc, or leaving its tab). */
 function cancelMapModes() {
-  const was = sectionState.drawing || loc.picking;
-  sectionState.drawing = false; sectionState.first = null; loc.picking = false;
+  const was = loc.picking;
+  loc.picking = false;
   map.getCanvas().style.cursor = "";
   syncMapHint();
-  if (was) { drawSection(); renderPanel(); }
+  if (was) renderPanel();
 }
 
 /** On-map prompt while a click places something instead of selecting a quake. */
 function syncMapHint() {
   const hint = $("map-hint");
-  const text = loc.picking ? "Click the map to choose a place"
-    : sectionState.drawing ? (sectionState.first ? "Click where the line should end" : "Click where the line should start")
-    : "";
+  const text = loc.picking ? "Click the map to choose a place" : "";
   hint.hidden = !text;
   hint.replaceChildren(text, " · ");
   const cancel = el("button", "hint-cancel", "Cancel (Esc)") as HTMLButtonElement;
@@ -1082,7 +1040,7 @@ function showMapOnPhone() {
 
 // Clicking empty map clears the selected quake.
 map.on("click", (e) => {
-  if (!state.selected || loc.picking || sectionState.drawing) return;
+  if (!state.selected || loc.picking) return;
   const layers = ["quakes", "place-felt", "selected"].filter((l) => map.getLayer(l));
   if (map.queryRenderedFeatures(e.point, { layers }).length) return;
   select(null);
@@ -1091,22 +1049,6 @@ map.on("click", (e) => {
 map.on("click", (e) => {
   if (!loc.picking) return;
   setPlace({ name: `${e.lngLat.lat.toFixed(2)}°N, ${e.lngLat.lng.toFixed(2)}°E`, lonlat: [e.lngLat.lng, e.lngLat.lat] });
-});
-
-map.on("click", (e) => {
-  if (!sectionState.drawing) return;
-  const p: LonLat = [e.lngLat.lng, e.lngLat.lat];
-  if (!sectionState.first) {
-    sectionState.first = p;
-  } else {
-    sectionState.section = { a: sectionState.first, b: p, halfWidthKm: sectionState.section?.halfWidthKm ?? 50 };
-    sectionState.drawing = false;
-    sectionState.first = null;
-    map.getCanvas().style.cursor = "";
-  }
-  syncMapHint();
-  drawSection();
-  renderPanel();
 });
 
 function applyTimeFilter() {
@@ -1256,17 +1198,17 @@ document.addEventListener("keydown", (e) => {
   if (document.querySelector("dialog[open]")) return; // the browser closes the dialog
   // Esc in a dropdown or text box only closes that control.
   if ((e.target as HTMLElement | null)?.closest?.("select, input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea")) return;
-  if (sectionState.drawing || loc.picking) cancelMapModes();
+  if (loc.picking) cancelMapModes();
   else if (state.anim) stop();
   else if (state.selected) select(null);
 });
 
 // ---------------------------------------------------------------- panel ---
 
-const TABS = ["magnitudes", "depth", "quake", "location", "history", "shaking", "slow", "forecast", "3d"];
+const TABS = ["magnitudes", "quake", "location", "history", "shaking", "slow", "forecast", "3d"];
 
 function setTab(tab: string) {
-  if (tab !== state.tab) cancelMapModes(); // a pick or line belongs to the tab that started it
+  if (tab !== state.tab) cancelMapModes(); // a pick belongs to the tab that started it
   state.tab = tab;
   updateUrl();
   document.body.classList.remove("panel-closed");
@@ -1278,7 +1220,6 @@ function setTab(tab: string) {
   }
   updateSelChip();
   renderPanel();
-  drawSection();
   drawLocation();
   drawHotspots();
   drawLfe();
@@ -1346,42 +1287,6 @@ function renderPanelBody() {
     const cells = visibleCells();
     const areaLabel = cells === null ? "all of Japan" : `the visible map area (${cells.size} 2° squares)`;
     renderMagnitudes(host, grData, { from: state.from, to: state.to, cells, areaLabel, mode: state.magMode });
-  } else if (state.tab === "depth") {
-    const years = state.from === state.to ? `${state.from}` : `${state.from}–${state.to}`;
-    if (!coastRings) loadCoast().then(() => { if (state.tab === "depth") renderPanel(); });
-    renderDepth($("pane-depth"), {
-      section: sectionState.section,
-      quakes: state.anim ? [] : shownQuakes,
-      slabs: (overlayData.slabs?.features ?? []) as never,
-      plates: (overlayData.plates?.features ?? []) as never,
-      land: coastRings ? landPolys : null,
-      drawing: sectionState.drawing,
-      scopeNote: state.anim
-        ? "Paused playback shows only part of the period; press \"✕ Whole period\" by the play button (or Esc) to return to the full range."
-        : `Showing M${shownMinMag}+ quakes from ${years}, as on the map. ` +
-          (shownMinMag === 5 ? `For M3+, narrow the timeline to ${MAX_YEARS_FOR_M3} years or less and choose M3+.` : ""),
-      onPreset: (p) => {
-        sectionState.section = { ...p.section, halfWidthKm: sectionState.section?.halfWidthKm ?? p.section.halfWidthKm };
-        sectionState.section.a = p.section.a; sectionState.section.b = p.section.b;
-        sectionState.drawing = false; sectionState.first = null;
-        drawSection(); renderPanel();
-        const s = sectionState.section;
-        map.fitBounds([[Math.min(s.a[0], s.b[0]), Math.min(s.a[1], s.b[1])], [Math.max(s.a[0], s.b[0]), Math.max(s.a[1], s.b[1])]], { padding: 80, maxZoom: 7 });
-      },
-      onDraw: () => {
-        sectionState.drawing = !sectionState.drawing;
-        sectionState.first = null;
-        map.getCanvas().style.cursor = sectionState.drawing ? "crosshair" : "";
-        syncMapHint();
-        drawSection(); renderPanel();
-        if (sectionState.drawing) showMapOnPhone();
-      },
-      onWidth: (km) => {
-        if (sectionState.section) sectionState.section = { ...sectionState.section, halfWidthKm: km };
-        drawSection(); renderPanel();
-      },
-      onSelect: (f) => select({ props: f.properties, coords: f.geometry.coordinates as [number, number] }),
-    });
   } else if (state.tab === "slow") {
     if (!lfeData || lfeKey !== `${state.from}-${state.to}`) drawLfe();
     renderLfe($("pane-slow"), {

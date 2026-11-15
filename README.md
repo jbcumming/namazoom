@@ -125,8 +125,6 @@ kept in the URL hash.
 - *Magnitudes* - Gutenberg-Richter curves with Mc and b estimated in the browser
   (a port of the pipeline estimator, parity-tested against Python); era
   comparison as yearly rates.
-- *Depth* - cross-section along a drawn line or preset, with the Slab2 plate top
-  and trench crossings; true scale where it fits.
 - *Quake* - the selected quake: details; shindo footprint (stations coloured
   by intensity, intensity vs distance, strongest readings); replay of the
   shaking at recorded station times beside model P/S wave fronts; aftershocks

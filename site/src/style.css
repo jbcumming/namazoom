@@ -403,15 +403,10 @@ body.panel-closed .panel { display: none; }
 .sel-clear { flex: none; color: var(--text-secondary) !important; border-left: 1px solid var(--border) !important; border-radius: 0 8px 8px 0 !important; }
 .sel-chip button:hover { background: var(--page); }
 .note { font-size: 0.82rem; color: var(--text-primary); background: var(--page); border-left: 3px solid var(--axis); padding: 6px 10px; margin: 6px 0; }
-.depth-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+.controls-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
 .presets { display: flex; flex-wrap: wrap; gap: 6px; }
 button.primary { background: var(--text-primary); color: var(--surface-1); border-color: var(--text-primary); }
 label.inline { font-size: 0.85rem; color: var(--text-secondary); }
-.section-marker {
-  width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
-  background: var(--text-primary); color: var(--surface-1); font-weight: 700; font-size: 12px;
-  border: 2px solid var(--surface-1); box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-}
 .place-marker { width: 16px; height: 16px; border-radius: 50%; background: var(--text-primary); border: 3px solid var(--surface-1); box-shadow: 0 1px 4px rgba(0,0,0,0.35); }
 tr.clickable { cursor: pointer; }
 tr.clickable:hover td, tr.clickable:focus-visible td { background: var(--page); }
@@ -448,11 +443,3 @@ tr.clickable:focus-visible { outline: 2px solid var(--focus); outline-offset: -2
 .v3d-labels span { position: absolute; left: 0; top: 0; white-space: nowrap; }
 .how { margin: 6px 0; padding-left: 1.2em; }
 .how li { margin: 3px 0; }
-/* Depth tab: how a slice works */
-.depth-diagram-wrap { margin: 4px 0 10px; }
-.depth-diagram { width: 100%; max-width: 420px; height: auto; display: block; font-family: inherit; }
-.depth-diagram .dg-t { font-size: 10px; fill: var(--text-secondary); text-anchor: middle; }
-.depth-diagram .dg-s { font-size: 8.5px; fill: var(--text-secondary); text-anchor: middle; }
-.depth-diagram .dg-ab { font-size: 8px; font-weight: 700; fill: var(--surface-1); text-anchor: middle; }
-.depth-diagram .dg-abt { font-size: 10px; font-weight: 700; fill: var(--text-primary); }
-.depth-diagram .dg-arrow { font-size: 18px; fill: var(--text-muted); text-anchor: middle; }

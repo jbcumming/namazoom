@@ -118,28 +118,6 @@ await shot("07-plates", {
     await p.mouse.move(box.x + pt.x, box.y + pt.y);
   },
 });
-await shot("09-depth-tohoku", {
-  act: async (p) => {
-    await p.evaluate(() => {
-      const set = (id, v) => { const e = document.getElementById(id); e.value = v; e.dispatchEvent(new Event(e.tagName === "SELECT" ? "change" : "input")); };
-      set("range-from", "2015"); set("range-to", "2024"); set("min-mag", "3");
-    });
-    await p.click("#tab-depth");
-    await p.click("text=Northern Honshu");
-    await p.waitForSelector("#pane-depth svg", { timeout: 20000 });
-  },
-});
-await shot("10-depth-kanto", {
-  act: async (p) => {
-    await p.evaluate(() => {
-      const set = (id, v) => { const e = document.getElementById(id); e.value = v; e.dispatchEvent(new Event(e.tagName === "SELECT" ? "change" : "input")); };
-      set("range-from", "2015"); set("range-to", "2024"); set("min-mag", "3");
-    });
-    await p.click("#tab-depth");
-    await p.click("text=Kantō");
-    await p.waitForSelector("#pane-depth svg", { timeout: 20000 });
-  },
-});
 for (const [n, city] of [["11", "Sendai"], ["12", "Tokyo"]]) {
   await shot(`${n}-location-${city.toLowerCase()}`, {
     act: async (p) => {

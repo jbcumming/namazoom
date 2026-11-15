@@ -50,7 +50,7 @@ export function renderShaking(host: HTMLElement, inp: ShakingInputs) {
     el("p", "sub", "How often the ground shook, from seismic intensity stations: each square shows the average yearly " +
       "rate of its stations, so places with many stations don't look busier just for having them."),
   ];
-  const controls = el("div", "depth-controls");
+  const controls = el("div", "controls-row");
   const level = document.createElement("select");
   LEVELS.forEach((l, i) => {
     const o = document.createElement("option");
