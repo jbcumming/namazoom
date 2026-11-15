@@ -4,6 +4,7 @@ import * as d3 from "d3";
 import { stationsByYear, type FeltQuake, type NearbyStation } from "./location";
 import { CLASSES, shindoColors, type Stations } from "./shindo";
 import { famous } from "./names";
+import { LEVELS } from "./hotspots";
 import { el, fmt, hideTooltip, rowAction, shindoScale, showTooltip, theme } from "./ui";
 
 export interface Place { name: string; lonlat: [number, number] }
@@ -33,6 +34,8 @@ export interface LocationInputs {
   onRadius(km: number): void;
   onSelectQuake(q: FeltQuake): void;
   onClear(): void;
+  level: number; // index into LEVELS: the weakest shindo whose epicentres the map shows
+  onLevel(i: number): void;
 }
 
 const when = (t: number) => new Date((t + 9 * 3600) * 1000).toISOString().slice(0, 10);
@@ -134,8 +137,20 @@ function summary(inp: LocationInputs, width: number): HTMLElement[] {
   attachYearTooltip(bars, rows);
   const chart = el("div", "chart");
   chart.append(el("div", "chart-title", "Quakes felt each year, by strongest shaking nearby"), bars);
-  out.push(chart, el("p", "sub", "Their epicentres are on the map, in the same colours. Click an empty part of the map to go back " +
-    "to all of Japan."), lookingAhead(inp.place!));
+  // Which epicentres the map shows: the same shindo levels as the squares.
+  const show = el("label", "inline", "On the map: ");
+  const level = document.createElement("select");
+  LEVELS.forEach((l, i) => {
+    const o = document.createElement("option");
+    o.value = String(i); o.textContent = l.label; o.selected = i === inp.level;
+    level.append(o);
+  });
+  level.addEventListener("change", () => inp.onLevel(Number(level.value)));
+  show.append(level);
+  const row = el("div", "controls-row");
+  row.append(show);
+  out.push(chart, row, el("p", "sub", "Epicentres of the quakes felt here, in the same colours. Click an empty part of the map " +
+    "to go back to all of Japan."), lookingAhead(inp.place!));
 
   // Context: how many stations were there to feel them.
   const sy = stationsByYear(inp.stations, y0, y1);

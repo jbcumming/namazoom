@@ -1038,7 +1038,7 @@ function drawLocation() {
       type: "FeatureCollection",
       features: visible ? [
         { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [circle(loc.place!.lonlat, loc.radiusKm)] } },
-        ...loc.quakes.map((q, i) => ({ q, i })).filter(({ q }) => q.lat !== null && q.cls >= 0).map(({ q, i }) => ({
+        ...loc.quakes.map((q, i) => ({ q, i })).filter(({ q }) => q.lat !== null && q.cls >= LEVELS[hot.level].minClass).map(({ q, i }) => ({
           type: "Feature" as const, properties: { k: q.cls, mag: q.mag, i },
           geometry: { type: "Point" as const, coordinates: [q.lon!, q.lat!] },
         })),
@@ -1439,6 +1439,8 @@ function renderPanelBody() {
       onRadius: (km) => { loc.radiusKm = km; setPlace(loc.place); },
       onSelectQuake: selectFelt,
       onClear: () => setPlace(null),
+      level: hot.level,
+      onLevel: (i) => { hot.level = i; drawLocation(); renderPanel(); },
     });
     if (!loc.place && hot.key !== `${state.from}-${state.to}-${hot.level}`) drawHotspots();
   } else if (state.tab === "quake") {
