@@ -16,8 +16,9 @@ export interface Scene3DInput {
   slabs: Lines3D[];
   bounds: { w: number; s: number; e: number; n: number };
   exaggeration: number;
-  colors: { background: string; coast: string; land: string; plates: string; slab: string; box: string; text: string; depth: string[] };
+  colors: { background: string; coast: string; land: string; plates: string; slab: string; box: string; text: string; sel: string; depth: string[] };
   depthEdges: number[];
+  selected: Quake3D | null; // the quake open in the panel, ringed (mag NaN when unknown)
 }
 
 const KM_LAT = 110.57;
@@ -49,7 +50,35 @@ const FRAG = `
     if (r > 0.5) discard;
     float edge = smoothstep(0.5, 0.42, r);
     gl_FragColor = vec4(vColor, 0.85 * edge);
+    #include <colorspace_fragment>
   }`;
+// The open quake's ring: a 2.5 px line in the text colour with a 2 px halo in the background
+// colour, so it shows on the dots and on empty space alike. pad: pixels added to the dot's size.
+const RING_PAD = 20;
+const RING_VERT = `
+  attribute float size;
+  attribute float pad;
+  varying float vSize;
+  uniform float scale;
+  void main() {
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    vSize = max(2.0, size * scale / -mv.z) + pad;
+    gl_PointSize = vSize;
+    gl_Position = projectionMatrix * mv;
+  }`;
+const RING_FRAG = `
+  varying float vSize;
+  uniform vec3 ink;
+  uniform vec3 halo;
+  void main() {
+    float d = length(gl_PointCoord - 0.5) * vSize; // pixels from the centre
+    float off = abs(d - (vSize * 0.5 - 3.5));
+    float a = 1.0 - smoothstep(2.8, 3.5, off);
+    if (a < 0.01) discard;
+    gl_FragColor = vec4(mix(halo, ink, 1.0 - smoothstep(0.6, 1.3, off)), a);
+    #include <colorspace_fragment>
+  }`;
+const dotSize = (mag: number) => 3 + Math.max(0, (Number.isFinite(mag) ? mag : 3) - 3) * 4;
 
 export class Scene3D {
   private renderer: THREE.WebGLRenderer;
@@ -66,6 +95,14 @@ export class Scene3D {
   private span = 1000;
   private corners: THREE.Vector3[] = []; // the box's 8 corners, for framing
   private fatLines: LineMaterial[] = []; // need the canvas size to draw their width in pixels
+  private P = projector({ w: 0, s: 0, e: 1, n: 1 });
+  private ex = 1;
+  private inBox: (lon: number, lat: number) => boolean = () => false;
+  private dotColors: (depth: number) => THREE.Color = () => new THREE.Color();
+  private colors: Scene3DInput["colors"] | null = null;
+  private hl = new THREE.Group(); // the open quake's ring, dot and line, drawn over everything
+  private hlLabel: { el: HTMLElement; pos: THREE.Vector3; size: number } | null = null;
+  private fly: { t0: number; p0: THREE.Vector3; p1: THREE.Vector3; c0: THREE.Vector3; c1: THREE.Vector3 } | null = null;
   private ro: ResizeObserver;
   onHover: (q: Quake3D | null, x: number, y: number) => void = () => {};
   onPick: (q: Quake3D) => void = () => {};
@@ -82,7 +119,10 @@ export class Scene3D {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.addEventListener("change", () => this.request());
+    this.controls.addEventListener("start", () => { this.fly = null; }); // a drag takes over from focus()
     this.scene.add(this.group);
+    this.hl.renderOrder = 10;
+    this.scene.add(this.hl);
     this.ro = new ResizeObserver(() => this.resize());
     this.ro.observe(host);
 
@@ -173,7 +213,7 @@ export class Scene3D {
     for (const s of inp.slabs) addLines(s.lines, -s.depthKm * ex, inp.colors.slab, 0.45);
 
     // Box: the view area at the surface and at the deepest quake, joined at the corners.
-    const deepest = Math.min(MAX_DEPTH, Math.max(100, ...inp.quakes.map((q) => q.depth)));
+    const deepest = Math.min(MAX_DEPTH, Math.max(100, inp.selected?.depth ?? 0, ...inp.quakes.map((q) => q.depth)));
     const zb = -Math.ceil(deepest / 100) * 100 * ex;
     const corners: [number, number][] = [[b.w, b.s], [b.e, b.s], [b.e, b.n], [b.w, b.n]];
     this.corners = corners.flatMap(([lon, lat]) => [P(lon, lat, 0), P(lon, lat, zb)]);
@@ -194,35 +234,105 @@ export class Scene3D {
     }
 
     // Quakes: colour by depth class, size by magnitude.
-    this.quakes = inp.quakes.filter((q) => inBox(q.lon, q.lat));
-    const n = this.quakes.length;
-    const pos = new Float32Array(n * 3), col = new Float32Array(n * 3), size = new Float32Array(n);
+    this.P = P;
+    this.ex = ex;
+    this.inBox = (lon, lat) => inBox(lon, lat);
+    this.colors = inp.colors;
     const palette = inp.colors.depth.map((c) => new THREE.Color(c));
-    this.quakes.forEach((q, i) => {
-      const v = P(q.lon, q.lat, -q.depth * ex);
-      pos.set([v.x, v.y, v.z], i * 3);
-      const c = palette[inp.depthEdges.filter((e) => q.depth >= e).length];
-      col.set([c.r, c.g, c.b], i * 3);
-      size[i] = 3 + Math.max(0, q.mag - 3) * 4;
-    });
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    g.setAttribute("color", new THREE.BufferAttribute(col, 3));
-    g.setAttribute("size", new THREE.BufferAttribute(size, 1));
-    const mat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthWrite: false,
-      uniforms: { scale: { value: 1 } } });
-    this.points = new THREE.Points(g, mat);
+    this.dotColors = (depth) => palette[inp.depthEdges.filter((e) => depth >= e).length];
+    this.quakes = inp.quakes.filter((q) => inBox(q.lon, q.lat));
+    this.points = this.dots(this.quakes);
     this.group.add(this.points);
 
     const sw = P(b.w, b.s), ne = P(b.e, b.n);
     this.span = Math.max(ne.x - sw.x, ne.y - sw.y, -zb);
     this.ray.params.Points = { threshold: this.span / 250 };
+    this.highlight(inp.selected);
     if (resetCamera) this.resetCamera(zb);
     this.updateScale();
     this.request();
   }
 
+  /** Points for quakes, coloured by depth class and sized by magnitude. */
+  private dots(quakes: Quake3D[]) {
+    const n = quakes.length;
+    const pos = new Float32Array(n * 3), col = new Float32Array(n * 3), size = new Float32Array(n);
+    quakes.forEach((q, i) => {
+      const v = this.P(q.lon, q.lat, -q.depth * this.ex);
+      pos.set([v.x, v.y, v.z], i * 3);
+      const c = this.dotColors(q.depth);
+      col.set([c.r, c.g, c.b], i * 3);
+      size[i] = dotSize(q.mag);
+    });
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    g.setAttribute("color", new THREE.BufferAttribute(col, 3));
+    g.setAttribute("size", new THREE.BufferAttribute(size, 1));
+    return new THREE.Points(g, new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: FRAG, transparent: true,
+      depthWrite: false, uniforms: { scale: { value: 1 } } }));
+  }
+
+  /** The open quake: its dot, a ring round it, a dashed line up to its epicentre and its magnitude and depth.
+   *  Drawn over everything, so it shows through the land and the other quakes. */
+  private highlight(q: Quake3D | null) {
+    for (const o of [...this.hl.children]) {
+      this.hl.remove(o);
+      (o as THREE.Mesh).geometry.dispose();
+      ((o as THREE.Mesh).material as THREE.Material).dispose();
+    }
+    this.fatLines = this.fatLines.filter((m) => !m.userData.hl);
+    this.hlLabel?.el.remove();
+    this.hlLabel = null;
+    const c = this.colors;
+    if (!q || !c || !this.inBox(q.lon, q.lat)) return;
+    const top = this.P(q.lon, q.lat, 0), at = this.P(q.lon, q.lat, -q.depth * this.ex);
+    const w = this.host.clientWidth || 1, h = this.host.clientHeight || 1;
+    if (top.z - at.z > 1) {
+      const mat = new LineMaterial({ color: c.sel, linewidth: 2, dashed: true, dashSize: this.span / 70, gapSize: this.span / 140,
+        transparent: true, depthTest: false });
+      mat.resolution.set(w, h);
+      mat.userData.hl = true;
+      this.fatLines.push(mat);
+      const line = new LineSegments2(new LineSegmentsGeometry().setPositions([top.x, top.y, top.z, at.x, at.y, at.z]), mat);
+      line.computeLineDistances();
+      this.hl.add(line);
+    }
+    const dot = this.dots([q]);
+    (dot.material as THREE.Material).depthTest = false;
+    // A ring round the hypocentre, and a small one where the line meets the surface.
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(new Float32Array([at.x, at.y, at.z, top.x, top.y, top.z]), 3));
+    g.setAttribute("size", new THREE.BufferAttribute(new Float32Array([dotSize(q.mag), 0]), 1));
+    g.setAttribute("pad", new THREE.BufferAttribute(new Float32Array([RING_PAD, 12]), 1));
+    const ring = new THREE.Points(g, new THREE.ShaderMaterial({ vertexShader: RING_VERT, fragmentShader: RING_FRAG,
+      transparent: true, depthTest: false, depthWrite: false,
+      uniforms: { scale: { value: 1 }, ink: { value: new THREE.Color(c.sel) }, halo: { value: new THREE.Color(c.background) } } }));
+    for (const o of [dot, ring]) this.hl.add(o);
+    this.hl.children.forEach((o, i) => { o.renderOrder = 10 + i; }); // the dot covers the line's end, the ring both
+    const el = document.createElement("span");
+    el.className = "v3d-sel";
+    el.textContent = `${Number.isFinite(q.mag) ? `M${q.mag.toFixed(1)}, ` : ""}${Math.round(q.depth)} km deep`;
+    this.labelHost.append(el);
+    this.hlLabel = { el, pos: at, size: dotSize(q.mag) };
+    this.updateScale();
+  }
+
+  /** Fly the camera in towards a quake, keeping the direction it looks from. */
+  focus(q: Quake3D) {
+    const at = this.P(q.lon, q.lat, -q.depth * this.ex);
+    const dir = this.camera.position.clone().sub(this.controls.target).normalize();
+    const p1 = dir.multiplyScalar(this.span * 0.5).add(at);
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      this.controls.target.copy(at);
+      this.camera.position.copy(p1);
+    } else {
+      this.fly = { t0: performance.now(), p0: this.camera.position.clone(), p1, c0: this.controls.target.clone(), c1: at };
+    }
+    this.request();
+  }
+
   resetCamera(zb?: number) {
+    this.fly = null;
     const s = this.span;
     const mid = (zb ?? -300) / 2;
     this.controls.target.set(0, 0, mid);
@@ -283,10 +393,13 @@ export class Scene3D {
     return hit?.index !== undefined ? this.quakes[hit.index] : null;
   }
 
+  private pointScale() { return (this.renderer.domElement.clientHeight || 600) * 1.1; }
+
   private updateScale() {
-    if (!this.points) return;
-    const h = this.renderer.domElement.clientHeight || 600;
-    (this.points.material as THREE.ShaderMaterial).uniforms.scale.value = h * 1.1;
+    for (const o of [this.points, ...this.hl.children]) {
+      const u = ((o as THREE.Points | null)?.material as THREE.ShaderMaterial | undefined)?.uniforms;
+      if (u?.scale) u.scale.value = this.pointScale();
+    }
   }
 
   private resize() {
@@ -305,6 +418,14 @@ export class Scene3D {
     if (this.frame) return;
     this.frame = requestAnimationFrame(() => {
       this.frame = 0;
+      const f = this.fly;
+      if (f) {
+        const k = Math.min(1, (performance.now() - f.t0) / 800);
+        const e = k < 0.5 ? 2 * k * k : 1 - (2 - 2 * k) ** 2 / 2; // ease in and out
+        this.camera.position.lerpVectors(f.p0, f.p1, e);
+        this.controls.target.lerpVectors(f.c0, f.c1, e);
+        if (k >= 1) this.fly = null;
+      }
       const moving = this.controls.update();
       this.renderer.render(this.scene, this.camera);
       const w = this.host.clientWidth, h = this.host.clientHeight;
@@ -313,7 +434,16 @@ export class Scene3D {
         l.el.style.transform = `translate(${((v.x + 1) / 2) * w + 6}px, ${((1 - v.y) / 2) * h - 7}px)`;
         l.el.hidden = v.z > 1;
       }
-      if (moving || this.controls.autoRotate) this.request();
+      const s = this.hlLabel;
+      if (s) {
+        // Beside the ring: half its width (as the shader sizes it) to the right.
+        const v = s.pos.clone().project(this.camera);
+        const dist = -s.pos.clone().applyMatrix4(this.camera.matrixWorldInverse).z;
+        const r = (Math.max(2, (s.size * this.pointScale()) / dist) + RING_PAD) / 2;
+        s.el.style.transform = `translate(${((v.x + 1) / 2) * w + r + 2}px, ${((1 - v.y) / 2) * h - 10}px)`;
+        s.el.hidden = v.z > 1;
+      }
+      if (moving || f || this.controls.autoRotate) this.request();
     });
   }
 

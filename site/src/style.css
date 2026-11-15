@@ -441,6 +441,9 @@ tr.clickable:focus-visible { outline: 2px solid var(--focus); outline-offset: -2
 .view3d canvas { display: block; cursor: grab; }
 .v3d-labels { position: absolute; inset: 0; pointer-events: none; font-size: 11px; font-variant-numeric: tabular-nums; }
 .v3d-labels span { position: absolute; left: 0; top: 0; white-space: nowrap; }
+.v3d-labels .v3d-sel { font-size: 12px; font-weight: 600; color: var(--text-primary); padding: 1px 6px; border-radius: 4px;
+  background: color-mix(in srgb, var(--surface-1) 85%, transparent); }
+.v3d-note button { padding: 1px 8px; margin-left: 2px; }
 .how { margin: 6px 0; padding-left: 1.2em; }
 .how li { margin: 3px 0; }
 /* Magnitudes: the plain "how often" lead, with the full chart folded below */

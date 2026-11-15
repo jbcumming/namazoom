@@ -9,7 +9,7 @@ import { cellsInBounds, renderMagLead, renderMagnitudes, type MagSelection } fro
 import { renderQuake, type Footprint } from "./panel-quake";
 import { renderAftershocks, type AftershockState } from "./panel-aftershocks";
 import { renderForeshock, type ForeshockState } from "./panel-foreshock";
-import type { Scene3D } from "./view3d";
+import type { Quake3D, Scene3D } from "./view3d";
 import type { FsData } from "./foreshock";
 import { DAY, FORESHOCK_DAYS, MIN_MAINSHOCK, WINDOW_DAYS, sequence, type Shock } from "./aftershocks";
 import { PLACES, renderLocation, type Place } from "./panel-location";
@@ -509,7 +509,7 @@ async function select(sel: typeof state.selected, openTab = true) {
     setTab("quake");
     // On a phone the panel sits under the map: bring the details into view.
     if (narrow()) $("tabs").scrollIntoView({ behavior: "smooth", block: "start" });
-  } else { updateSelChip(); renderPanel(); }
+  } else { updateSelChip(); renderPanel(); if (state.tab === "3d") draw3d(); }
   if (sel) loadAftershocks(sel, token);
   if (sel && sel.props.mag !== null && sel.props.mag >= 5.5) loadForeshock();
   if (!sel || !sel.props.felt) return;
@@ -596,7 +596,15 @@ let shownMinMag = 5;
 // "map" uses the area the map last showed.
 const JAPAN_3D = { w: 120, s: 22, e: 152, n: 48 };
 const v3d = { scene: null as Scene3D | null, loading: false, ex: 1, spin: false, n: 0, capped: false, boundsKey: "",
-  area: "japan" as "japan" | "map" };
+  area: "japan" as "japan" | "map", bounds: JAPAN_3D };
+
+/** The quake open in the panel, for the 3D view; null without one or without a depth. */
+function selected3d(): Quake3D | null {
+  const s = state.selected;
+  if (!s || s.props.depth === null) return null;
+  return { lon: s.coords[0], lat: s.coords[1], depth: s.props.depth, mag: s.props.mag ?? NaN, id: s.props.id,
+    label: [fmtDate(s.props.t), quakePlace(s.props)].filter(Boolean).join(", ") };
+}
 let coastRings: [number, number][][] | null = null;
 let landPolys: [number, number][][][] = [];
 let coastPromise: Promise<void> | null = null;
@@ -637,6 +645,7 @@ async function draw3d(resetCamera = false) {
   const bounds = v3d.area === "japan"
     ? JAPAN_3D
     : { w: b.getWest(), s: b.getSouth(), e: b.getEast(), n: b.getNorth() };
+  v3d.bounds = bounds;
   const key = [bounds.w, bounds.s, bounds.e, bounds.n].map((x) => x.toFixed(2)).join(",");
   if (key !== v3d.boundsKey) { v3d.boundsKey = key; resetCamera = true; } // a new area: frame it
   // During playback, the same window as the map: the trail up to the playhead.
@@ -658,8 +667,9 @@ async function draw3d(resetCamera = false) {
     })),
     coast: coastRings ?? [], land: landPolys, plates: overlays.plates ? lines(overlayData.plates) : [],
     slabs: (overlays.slabs ? overlayData.slabs?.features ?? [] : []).map((f) => ({ depthKm: Number(f.properties?.depth), lines: lines({ type: "FeatureCollection", features: [f] }) })),
-    bounds, exaggeration: v3d.ex, depthEdges: DEPTH_EDGES,
-    colors: { background: t.surface, coast: t.secondary, land: t.text, plates: t.text, slab: t.series[0], box: t.axis, text: t.muted, depth: t.depth },
+    bounds, exaggeration: v3d.ex, depthEdges: DEPTH_EDGES, selected: selected3d(),
+    colors: { background: t.surface, coast: t.secondary, land: t.text, plates: t.text, slab: t.series[0], box: t.axis, text: t.muted,
+      sel: t.text, depth: t.depth },
   }, resetCamera);
   v3d.scene.autoRotate = v3d.spin;
   renderPanel();
@@ -678,6 +688,22 @@ function render3dPane() {
         ? `playback at ${new Date((state.playhead + 9 * 3600) * 1000).toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" })}`
         : state.from === state.to ? state.from : `${state.from}–${state.to}`}, M${effectiveMinMag()}+.`
     : "Loading the 3D view…"));
+  if (state.selected) {
+    const q = selected3d(), b = v3d.bounds;
+    const note = el("p", "sub v3d-note");
+    if (!q) note.textContent = "The open quake has no recorded depth, so it can't be placed here.";
+    else if (q.lon < b.w || q.lon > b.e || q.lat < b.s || q.lat > b.n) {
+      note.textContent = v3d.area === "map" ? "The open quake is outside this area: choose \"All of Japan\" to see it."
+        : "The open quake is outside the area shown here.";
+    } else {
+      note.append(`The open quake is ringed, ${fmt(Math.round(q.depth))} km down, with a dashed line up to its epicentre. `);
+      const go = el("button", "", "Zoom to it") as HTMLButtonElement;
+      go.type = "button";
+      go.addEventListener("click", () => v3d.scene?.focus(q));
+      note.append(go);
+    }
+    parts.push(note);
+  }
   const area = el("div", "seg");
   for (const [k, label] of [["japan", "All of Japan"], ["map", "The map's area"]] as const) {
     const b = el("button", k === v3d.area ? "primary" : "", label) as HTMLButtonElement;
