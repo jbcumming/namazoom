@@ -134,7 +134,8 @@ function summary(inp: LocationInputs, width: number): HTMLElement[] {
   attachYearTooltip(bars, rows);
   const chart = el("div", "chart");
   chart.append(el("div", "chart-title", "Quakes felt each year, by strongest shaking nearby"), bars);
-  out.push(chart, el("p", "sub", "Their epicentres are on the map, in the same colours."), lookingAhead(inp.place!));
+  out.push(chart, el("p", "sub", "Their epicentres are on the map, in the same colours. Click an empty part of the map to go back " +
+    "to all of Japan."), lookingAhead(inp.place!));
 
   // Context: how many stations were there to feel them.
   const sy = stationsByYear(inp.stations, y0, y1);

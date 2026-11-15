@@ -352,8 +352,11 @@ map.on("mouseleave", "slabs-hit", hideTooltip);
 const overPlaceFelt = (p: { x: number; y: number }) =>
   !!map.getLayer("place-felt") && map.queryRenderedFeatures([p.x, p.y], { layers: ["place-felt"] }).length > 0;
 
-/** On the Shaking tab's squares the faded quakes are only a backdrop: the squares take hover and clicks. */
-const quakesInert = () => state.tab === "shaking" && !loc.place;
+/** On the Shaking tab the faded quakes are only a backdrop: clicks go to the squares, the place's felt
+ *  epicentres, or empty map (back to all of Japan). */
+const quakesInert = () => state.tab === "shaking";
+/** The click that chose the Shaking tab's place (a square or a map pick), which mustn't also clear it. */
+let placeClick: MouseEvent | null = null;
 
 map.on("mousemove", "quakes", (e) => {
   if (overPlaceFelt(e.point) || quakesInert()) return;
@@ -826,7 +829,7 @@ map.on("click", "hotspots", (e) => {
   if (loc.picking || state.tab !== "shaking" || loc.place) return;
   const f = e.features?.[0];
   const c = f ? hot.cells[Number((f.properties as { i: number }).i)] : undefined;
-  if (c) chooseCell(c);
+  if (c) { placeClick = e.originalEvent; chooseCell(c); }
 });
 /** A square as the Shaking tab's place: its centre, with the usual distance around it. */
 function chooseCell(c: Cell) {
@@ -1090,7 +1093,7 @@ function showMapOnPhone() {
 
 // Clicking empty map clears the selected quake.
 map.on("click", (e) => {
-  if (!state.selected || loc.picking) return;
+  if (!state.selected || loc.picking || state.tab === "shaking") return; // there, clicks choose or clear a place
   const layers = ["quakes", "place-felt", "selected"].filter((l) => map.getLayer(l));
   if (map.queryRenderedFeatures(e.point, { layers }).length) return;
   select(null);
@@ -1098,7 +1101,15 @@ map.on("click", (e) => {
 
 map.on("click", (e) => {
   if (!loc.picking) return;
+  placeClick = e.originalEvent;
   setPlace({ name: `${e.lngLat.lat.toFixed(2)}°N, ${e.lngLat.lng.toFixed(2)}°E`, lonlat: [e.lngLat.lng, e.lngLat.lat] });
+});
+
+// Shaking tab with a place chosen: a click on empty map (not a felt epicentre) goes back to the squares.
+map.on("click", (e) => {
+  if (state.tab !== "shaking" || !loc.place || loc.picking || e.originalEvent === placeClick) return;
+  if (overPlaceFelt(e.point)) return;
+  setPlace(null);
 });
 
 function applyTimeFilter() {
