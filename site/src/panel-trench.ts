@@ -25,11 +25,11 @@ function link(href: string, text: string) {
 
 export function trenchSection(width: number): HTMLElement[] {
   const t = theme();
-  const out: HTMLElement[] = [el("h2", "", "The long view: great quakes along the trenches")];
+  const out: HTMLElement[] = [el("h2", "", "The long view: official 30-year chances")];
   out.push(el("p", "sub",
-    "The week-ahead forecast above can't see the rare great quakes coming. For those, the government's earthquake " +
-    "research headquarters (HERP) gives long-term chances from each trench's history. Below: that history " +
-    "since 684, and HERP's chances for the next 30 years."));
+    "Great quakes on the trenches are too rare to forecast a week ahead. These are the government's official long-term " +
+    "chances (from HERP, the Headquarters for Earthquake Research Promotion), based on each trench's history, not this " +
+    "site's model."));
 
   const marks: Mark[] = ROWS.flatMap((r) => r.events.map((e) => ({ ...e, row: r.id })));
   const order = ROWS.map((r) => r.id);
@@ -69,17 +69,16 @@ export function trenchSection(width: number): HTMLElement[] {
   }
   const c = el("div", "chart");
   c.append(el("div", "chart-title", "Great quakes on each trench since 684 (hover a dot for details)"), key, chart);
-  out.push(c);
-  out.push(el("p", "sub",
-    "Older records are thinner: before 1361 on the Nankai Trough and before about 1600 on the Japan Trench, quakes may " +
-    "be missing and which segment broke is uncertain, so gaps there don't mean it was quiet. Tsunami deposits go further " +
-    "back (to about 5,000 years ago on the Nankai Trough)."));
 
   // Official chances.
   const tb = document.createElement("table");
   tb.className = "mini trench";
   const hr = tb.createTHead().insertRow();
-  for (const h of ["Quake", "Last", "Interval", "30 years", "Slip budget*"]) hr.append(el("th", "", h));
+  for (const h of ["Quake", "Last", "Interval", "30 years", "Slip budget*"]) {
+    const th = el("th", "", h);
+    if (h.startsWith("Slip")) th.title = "This site's own figure: how much the fault could slip if fully locked (see About these figures)";
+    hr.append(th);
+  }
   const bd = tb.createTBody();
   let prev = "";
   for (const o of OUTLOOK) {
@@ -98,22 +97,23 @@ export function trenchSection(width: number): HTMLElement[] {
   }
   const wrap = el("div", "trench-wrap");
   wrap.append(tb);
-  out.push(el("div", "chart-title", `HERP's chances of each quake within 30 years (calculated for ${AS_OF})`), wrap);
+  out.push(el("div", "chart-title", `Chance of each quake within 30 years (calculated for ${AS_OF})`), wrap, c);
 
-  const src = el("p", "sub");
-  src.append(
-    "The Nankai Trough has two official figures since September 2025: 60–90% or more from a model that uses how much " +
-    "the coast rose in past quakes (smaller Shōwa quakes, shorter wait), and 20–50% from the dates alone. HERP says " +
-    "neither model can be shown to be better, and recommends stressing the higher one. The southern Kantō M7 figure " +
-    "covers quakes under the Tokyo area from many sources, so it isn't a single line on the timeline. Source: ",
-    link(HERP_LTE, "HERP long-term evaluations"), " and ", link(HERP_SUMMARY, "summary of results"),
+  const notes = el("details", "notes");
+  const src = el("p");
+  src.append("Source: ", link(HERP_LTE, "HERP long-term evaluations"), " and ", link(HERP_SUMMARY, "summary of results"),
     " (地震調査研究推進本部), transcribed by hand.");
-  out.push(src);
-  out.push(el("p", "sub",
-    "*Slip budget: how far the plates have moved since the last such quake, which is how much the fault could slip " +
-    "if it were fully locked (plate rates from Bird 2003: about 9 cm a year at the Japan and Kuril trenches, 5 cm at " +
-    "the Nankai Trough, 3.5 cm at the Sagami Trough, mostly sideways there). It's an upper bound: faults are only " +
-    "partly locked, and slow slip and smaller quakes release some of it. For scale, 2011 slipped more than 50 m at " +
-    "its peak and about 12 m on average, matching 400–550 years at 9 cm. It says how big the next quake could be, not when."));
+  notes.append(el("summary", "", "About these figures"),
+    el("p", "", "The Nankai Trough has two official figures since September 2025: 60–90% or more from a model using how " +
+      "much the coast rose in past quakes, and 20–50% from the dates alone. HERP says neither can be shown to be better " +
+      "and recommends stressing the higher. The southern Kantō M7 figure covers quakes under the Tokyo area from many " +
+      "sources, so it isn't one line on the timeline."),
+    el("p", "", "*Slip budget, this site's own figure: how far the plates have moved since the last such quake (Bird 2003 " +
+      "rates), the most the fault could slip if fully locked. Faults are only partly locked, so it's an upper bound, and " +
+      "it says how big the next quake could be, not when. For scale, 2011 slipped about 12 m on average."),
+    el("p", "", "Older records are thinner: before 1361 on the Nankai Trough and about 1600 on the Japan Trench, quakes " +
+      "may be missing, so gaps there don't mean it was quiet."),
+    src);
+  out.push(notes);
   return out;
 }

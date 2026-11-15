@@ -198,6 +198,12 @@ button:hover, select:hover { border-color: var(--text-muted); }
 .brand-tag { font-weight: 400; font-size: 0.85rem; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 520px) { .brand-tag { display: none; } }
 .about-btn { margin-left: auto; }
+/* Header icon buttons: About (i) and the panel toggle (its chevron flips when the panel is hidden) */
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; padding: 5px; line-height: 0;
+  color: var(--text-secondary); }
+.icon-btn:hover { color: var(--text-primary); }
+#panel-toggle .chev { transform-box: fill-box; transform-origin: center; }
+body.panel-closed #panel-toggle .chev { transform: scaleX(-1); }
 
 /* ---- About box (logo, namazu, sources) ---- */
 .about {
@@ -428,6 +434,10 @@ tr.clickable:focus-visible { outline: 2px solid var(--focus); outline-offset: -2
 .shindo-scale dt { display: flex; align-items: center; gap: 6px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .shindo-scale dd { margin: 0; color: var(--text-secondary); }
 .summary { border-left: 3px solid var(--text-primary); background: var(--page); padding: 6px 12px; margin: 8px 0 12px; }
+/* Forecast: what the weekly numbers are, before any of them */
+.experiment { border: 1px solid var(--axis); border-radius: 8px; padding: 8px 12px; margin: 10px 0; font-size: 0.85rem; }
+.experiment strong { display: block; color: var(--text-primary); }
+.experiment p { margin: 3px 0 0; color: var(--text-secondary); }
 .summary p { margin: 4px 0; font-size: 0.88rem; }
 .summary strong { font-variant-numeric: tabular-nums; }
 .lead { font-size: 0.95rem; color: var(--text-primary); margin: 6px 0 10px; }

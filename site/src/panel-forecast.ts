@@ -4,7 +4,6 @@ import * as Plot from "@observablehq/plot";
 import * as d3 from "d3";
 import { atMag, chance, fmtPct, fmtWindow, overForecast, type CellSum, type Forecast, type RelBin } from "./forecast";
 import { trenchSection } from "./panel-trench";
-import { OUTLOOK } from "./trench-history";
 import { el, fmt, hideTooltip, showTooltip, theme } from "./ui";
 
 /** Forecast map colours: a violet ramp, kept apart from the Shaking tab's green rates. */
@@ -50,12 +49,22 @@ function midText(r: number | null): string {
   return "Between 0.1% and 10% the forecast's chances were about right.";
 }
 
+/** Says plainly what the weekly numbers are, before any of them. */
+function experimentNote(): HTMLElement {
+  const box = el("div", "experiment");
+  const a = document.createElement("a");
+  a.href = "https://www.jma.go.jp/jma/indexe.html"; a.target = "_blank"; a.rel = "noopener"; a.textContent = "JMA";
+  const p = el("p");
+  p.append("This site runs a simple statistical model on JMA's data to see how well it does. It can't foresee a " +
+    "large quake, isn't official, and isn't a basis for any decision. For warnings and advisories, follow ", a, ".");
+  box.append(el("strong", "", "A statistical experiment, not a prediction"), p);
+  return box;
+}
+
 export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
   const parts: HTMLElement[] = [el("h2", "", "Forecast: the next 7 days"), el("p", "sub",
-    "The chance of quakes in the coming week, from a statistical model this site runs on JMA's catalogue. Its main " +
-    "idea is that quakes cluster: after any quake, more are likely nearby for a while, and the chance fades over days " +
-    "to weeks. The model (ETAS) adds up that boost from every recent quake on top of each area's usual rate. It is " +
-    "not an official forecast or a warning, and it can't foresee a large quake in a quiet area; no method can yet.")];
+    "Quakes cluster: after any quake, more are likely nearby for a while. This model adds that up from recent quakes " +
+    "to give the chance of quakes in the coming week."), experimentNote()];
   const w = Math.max(260, host.clientWidth - 32);
   if (inp.status === "missing") {
     host.replaceChildren(...parts, el("p", "sub", "No forecast in this build. Run ./run.sh build (step: forecast)."),
@@ -72,46 +81,34 @@ export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
   const b = f.live.b;
   const win = fmtWindow(f.live.t0, f.live.days);
 
-  parts.push(el("p", "sub",
-    `For shallow quakes (down to ${f.maxDepth} km), ${win} (Japan time), ${inp.areaLabel}. ` +
-    "The numbers are for the area on the map: zoom or pan to change it."));
-
   if (!v.cells) {
-    host.replaceChildren(...parts, el("p", "sub", "No forecast cells in the visible area; zoom out."), ...trenchSection(w));
+    host.replaceChildren(...parts, el("p", "sub", "No forecast squares in the visible area; zoom out."), ...trenchSection(w));
     return;
   }
   const p5 = chance(v.lam5);
   const ratio = v.base5 > 0 ? v.lam5 / v.base5 : NaN;
 
-  // In short: this week against usual, and the official long-term chances, before the detail.
+  // This week against usual, then by magnitude.
   const level = !Number.isFinite(ratio) ? "" : ratio >= 1.5 ? `above usual (${ratio.toFixed(1)} times)`
     : ratio <= 0.67 ? "below usual" : "about usual";
-  const p30 = (zone: string, quake: string) => OUTLOOK.find((o) => o.zone === zone && o.quake.startsWith(quake))?.p30 ?? "?";
   const sum = el("div", "summary");
   const line1 = el("p");
   line1.append(`This week, ${inp.areaLabel}: `, el("strong", "", fmtPct(p5)),
     ` chance of at least one M5+ quake; usually ${fmtPct(chance(v.base5))}` + (level ? `, so ${level}.` : "."));
-  const line2 = el("p");
-  line2.append("Long term, the government's official 30-year chances: an M7-class quake under southern Kantō (Tokyo area) ",
-    el("strong", "", p30("Sagami", "M7 class")), "; a Nankai Trough M8–9 ", el("strong", "", p30("Nankai", "M8–9, slip")),
-    ` (or ${p30("Nankai", "M8–9, dates")} by another model). More in "The long view" below.`);
-  sum.append(line1, line2);
-  parts.splice(2, 0, sum);
-  // (The summary at the top gives this week's M5+ chance against usual.)
+  sum.append(line1);
+  parts.push(sum, el("p", "sub", `${win} (Japan time), quakes down to ${f.maxDepth} km. For the area on the map: zoom or pan to change it.`));
 
-  // Chances by magnitude.
   const table = document.createElement("table");
   table.className = "mini";
   const head = table.createTHead().insertRow();
-  for (const h of ["", "This week", "Long-term average", "Expected number"]) head.append(el("th", "", h));
+  for (const h of ["", "This week", "Usually"]) head.append(el("th", "", h));
   const body = table.createTBody();
   for (const m of [5, 6, 7]) {
     const lam = atMag(v.lam5, b, m), base = atMag(v.base5, b, m);
     const tr = body.insertRow();
-    tr.append(el("td", "", `M${m}+`), el("td", "", fmtPct(chance(lam))), el("td", "", fmtPct(chance(base))),
-      el("td", "", lam >= 0.1 ? lam.toFixed(1) : lam.toPrecision(1)));
+    tr.append(el("td", "", `M${m}+`), el("td", "", fmtPct(chance(lam))), el("td", "", fmtPct(chance(base))));
   }
-  parts.push(el("div", "chart-title", `By magnitude, ${inp.areaLabel}`), table);
+  parts.push(table);
 
   // Map key.
   const key = el("div", "hot-legend");
@@ -122,23 +119,17 @@ export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
     k.append(sw, el("span", "", i === 0 ? `< ${fmtPct(hi)}` : i === inp.colors.length - 1 ? `≥ ${fmtPct(lo)}` : `${fmtPct(lo)}–${fmtPct(hi)}`));
     key.append(k);
   });
-  parts.push(el("div", "chart-title", "Map: chance of an M5+ quake in each half-degree square (about 50 km) this week"), key,
-    el("p", "sub", "Most squares are below 1%; squares near recent quakes stand out. Even a high chance here is small: " +
-      "at 5%, 19 weeks in 20 would pass with no M5+ quake in that square."));
-  parts.push(el("p", "note",
-    `The forecast starts where the data ends, ${timeJst(f.dataEnd)} Japan time. JMA's full preliminary lists run one ` +
-    "to two days behind; the most recent quakes come from its live earthquake information, which lists felt quakes " +
-    "only, so small quakes far offshore may be missing. This is a statistical forecast, not a warning: official information comes from JMA, " +
-    "including the Nankai Trough and Japan/Kuril Trench advisories."));
+  parts.push(el("div", "chart-title", "Map: chance of an M5+ quake in each square (about 50 km) this week"), key,
+    el("p", "sub", "Squares near recent quakes stand out. Even 5% means 19 weeks in 20 pass with none."));
 
   // ---------------------------------------------------------------- the test ---
   const ts = f.test;
   const testStart = parts.length;
   parts.push(el("h2", "", "How well has this worked?"));
+  const fitYears = `${f.testFit.from.slice(0, 4)}–${+f.testFit.to.slice(0, 4) - 1}`;
   parts.push(el("p", "sub",
-    `The same method forecast every week from ${ts.from.slice(0, 4)} on, with its settings fitted to ${f.testFit.from.slice(0, 4)}–` +
-    `${+f.testFit.to.slice(0, 4) - 1} only and each week using just the quakes before it. Across Japan, it compared with ` +
-    `a forecast of the long-term average (${f.testFit.from.slice(0, 4)}–${+f.testFit.to.slice(0, 4) - 1}).`));
+    `Run on every week since ${ts.from.slice(0, 4)}, with settings fitted to ${fitYears} only and each week using just ` +
+    "the quakes before it, against simply forecasting the long-term average."));
 
   // Capture tiles.
   const tiles = el("div", "readout");
@@ -151,10 +142,10 @@ export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
   tile("In the top 5%", d3.format(".0%")(ts.capture.etas["0.05"]), `long-term average: ${d3.format(".0%")(ts.capture.base["0.05"])}`);
   tile("Forecast vs observed", `${fmt(Math.round(ts.pred5))} / ${fmt(ts.n5)}`, `M5+ quakes, ${ts.weeks.length} weeks`);
   parts.push(tiles, el("p", "sub",
-    "Top 1%: the squares and weeks each forecast rated most likely, 1% of all of them. The forecast concentrates " +
-    `quakes there about ${(ts.capture.etas["0.01"] / ts.capture.base["0.01"]).toFixed(1)} times better than the long-term average. ` +
-    `In total it ran ${d3.format(".0%")(ts.pred5 / ts.n5 - 1)} high (the long-term average: ${d3.format(".0%")(ts.base5 / ts.n5 - 1)} high), ` +
-    `partly because ${f.testFit.from.slice(0, 4)}–${+f.testFit.to.slice(0, 4) - 1} was busier than the years since.`));
+    `Top 1%: the 1% of squares and weeks it rated most likely, where it caught M5+ quakes about ` +
+    `${(ts.capture.etas["0.01"] / ts.capture.base["0.01"]).toFixed(1)} times better than the long-term average. Overall it ` +
+    `ran ${d3.format(".0%")(ts.pred5 / ts.n5 - 1)} high (the long-term average: ${d3.format(".0%")(ts.base5 / ts.n5 - 1)}), ` +
+    `partly because ${fitYears} was busier than the years since.`));
 
   // Weekly totals.
   const weeks = ts.weeks.map((x) => ({ ...x, date: new Date(x.t * 1000) }));
@@ -189,9 +180,8 @@ export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
   c1.append(el("div", "chart-title", "All of Japan: forecast and observed M5+ quakes each week"),
     legend([["Forecast (expected number)", t.series[0]], ["Observed", t.series[1]]]), weekly);
   parts.push(c1, el("p", "sub",
-    `${d3.format(".0%")(ts.weeksInRange)} of weeks had an observed count within the forecast's 95% range ` +
-    "(about 95% would be right). The forecast jumps after large quakes and decays as their aftershocks do; " +
-    "it cannot anticipate the first large quake of a sequence."));
+    `${d3.format(".0%")(ts.weeksInRange)} of weeks fell within its 95% range. It jumps after large quakes and fades ` +
+    "with their aftershocks; it can't see the first large quake of a sequence coming."));
 
   // Reliability.
   const rel = (bins: RelBin[], name: string) => bins.filter((x) => x.hits > 0).map((x) => ({ ...x, obs: x.hits / x.n, name }));
@@ -218,18 +208,17 @@ export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
   const baseHi = ts.reliability.base.filter((x) => x.lo >= 0.1);
   const bN = d3.sum(baseHi, (x) => x.n), bHits = d3.sum(baseHi, (x) => x.hits), bP = d3.sum(baseHi, (x) => x.p * x.n) / (bN || 1);
   parts.push(c2, el("p", "sub",
-    "Points on the dashed line mean the stated chances came true as often as stated. " +
-    (hiN ? `Where the forecast said 10% or more (average ${fmtPct(hiP)}), an M5+ quake followed in ${hiHits} of ${hiN} square-weeks. ` : "") +
-    (bN ? `Where the long-term average said 10% or more (${fmtPct(bP)}), it followed in ${bHits} of ${fmt(bN)}. ` : "") +
+    "On the dashed line, stated chances came true as often as stated. " +
+    (hiN ? `Where it said 10% or more (average ${fmtPct(hiP)}), an M5+ quake followed in ${hiHits} of ${hiN} square-weeks` +
+      (bN ? ` (the long-term average: ${bHits} of ${fmt(bN)} at ${fmtPct(bP)}). ` : ". ") : "") +
     midText(overForecast(ts.reliability.etas, 0.001, 0.1))));
 
   // Prospective record.
   parts.push(el("h2", "", "Forecasts issued so far"));
   const scored = f.issued.filter((x) => x.obs5 !== undefined);
   parts.push(el("p", "sub",
-    "The test above was run after the fact. Each build also records the forecast it shows, and scores it once the data " +
-    "covers its 7 days: a record that can't be tuned afterwards. The forecast is reissued whenever new data arrives " +
-    `(normally daily), so the 7-day windows overlap. ${f.issued.length} recorded, ${scored.length} scored so far.`));
+    "The test above was run after the fact. Each daily build also records the forecast it shows and scores it once its " +
+    `7 days are in the data, a record that can't be tuned afterwards. ${f.issued.length} recorded, ${scored.length} scored so far.`));
   if (f.issued.length) {
     const tb = document.createElement("table");
     tb.className = "mini";
@@ -248,32 +237,27 @@ export function renderForecast(host: HTMLElement, inp: ForecastInputs) {
   const testParts = parts.splice(testStart);
   const tdet = document.createElement("details");
   tdet.className = "notes";
-  const tsum = el("summary", "", `How well has this worked? Tested on every week since ${ts.from.slice(0, 4)}, and the record so far`);
+  const tsum = el("summary", "", "How well has it done?");
   tdet.append(tsum, ...testParts.slice(1)); // the h2 is replaced by the summary
   parts.push(tdet);
 
   // Method notes.
   const det = document.createElement("details");
   det.className = "notes";
-  det.append(el("summary", "", "How it works, and its limits"));
+  det.append(el("summary", "", "How the model works"));
   const fp = f.fit.params;
   for (const text of [
-    "Model: space-time ETAS (epidemic-type aftershock sequence; Ogata 1988, 1998). Every M4+ quake adds a burst of " +
-      "expected quakes that fades with time as Omori's law and spreads over a distance growing with its magnitude; " +
-      "a background rate, estimated by separating background from triggered quakes (Zhuang, Ogata & Vere-Jones 2002), adds the rest. " +
-      `Magnitudes above M4 follow Gutenberg–Richter with b = ${b.toFixed(2)}.`,
-    `Fitted to ${fmt(f.fit.n)} M4+ quakes no deeper than ${f.maxDepth} km, ${f.fit.from.slice(0, 4)}–${f.fit.to.slice(0, 4)}, ` +
-      `from JMA's catalogue: α = ${fp.alpha.toFixed(2)}, p = ${fp.p.toFixed(2)}, c = ${(fp.c * 1440).toFixed(0)} min; ` +
-      `${d3.format(".0%")(f.fit.backgroundShare)} of quakes come out as background, and each quake directly triggers ` +
-      `${f.fit.branching.toFixed(2)} others on average. Quakes since the finalised catalogue are JMA's preliminary ones.`,
-    "Quakes that happen during the week trigger their own aftershocks; that is added as an average factor " +
-      `(${f.live.cascade.toFixed(2)} this week). This factor was changed after a first run of the test: it used a ` +
-      "theoretical branching ratio that let rare giant quakes dominate, and the forecasts ran 41% high. The test shown uses " +
-      "the corrected version, so it is not fully independent of that choice.",
-    "Limits: it forecasts clustering, so most of its skill comes after a quake has already happened; it cannot foresee " +
-      "a large quake out of a quiet area. Swarms (such as Miyakejima in 2000) and the 2011 sequence raise its background " +
-      "in places. The chances on the map are for half-degree squares; a larger area has a larger chance. " +
-      "M6+ and M7+ chances are scaled from M5+ by Gutenberg–Richter and are rougher.",
+    "ETAS (Ogata 1988, 1998): every M4+ quake adds expected quakes nearby that fade over time (Omori's law), on top of " +
+      `each area's background rate (Zhuang, Ogata & Vere-Jones 2002). Sizes follow Gutenberg–Richter with b = ${b.toFixed(2)}, ` +
+      "so the M6+ and M7+ chances are scaled from M5+ and are rougher.",
+    `Fitted to ${fmt(f.fit.n)} M4+ quakes down to ${f.maxDepth} km, ${f.fit.from.slice(0, 4)}–${f.fit.to.slice(0, 4)}: ` +
+      `α = ${fp.alpha.toFixed(2)}, p = ${fp.p.toFixed(2)}, c = ${(fp.c * 1440).toFixed(0)} min; ` +
+      `${d3.format(".0%")(f.fit.backgroundShare)} of quakes are background, and each triggers ${f.fit.branching.toFixed(2)} others ` +
+      `on average. Quakes during the week add their own aftershocks as an average factor (${f.live.cascade.toFixed(2)}); ` +
+      "this was changed after a first run of the test, so the test isn't fully independent of it.",
+    `Data up to ${timeJst(f.dataEnd)} Japan time. The newest days come from JMA's live list of felt quakes, so small ` +
+      "quakes far offshore may be missing. Swarms and the 2011 sequence raise the background in places; a larger area has " +
+      "a larger chance than one square.",
   ]) det.append(el("p", "", text));
   parts.push(det);
   host.replaceChildren(...parts, ...trenchSection(w));

@@ -212,7 +212,7 @@ function renderIntro() {
   });
   head.append(el("h2", "", "Start here"), close);
   card.append(head, el("p", "",
-    "Each dot is an earthquake recorded by the Japan Meteorological Agency since 1919: its colour shows how deep it " +
+    "Each dot is an earthquake recorded by the Japan Meteorological Agency: its colour shows how deep it " +
     "was, its size the magnitude. Drag the timeline below to choose years, press ▶ to watch them unfold, and click " +
     "any dot to open it here. Some places to start:"));
   const row = el("div", "presets");
@@ -1274,6 +1274,7 @@ function setTab(tab: string) {
   state.tab = tab;
   updateUrl();
   document.body.classList.remove("panel-closed");
+  syncPanelToggle();
   for (const t of TABS) {
     const btn = $(`tab-${t}`);
     btn.setAttribute("aria-selected", String(t === tab));
@@ -1313,9 +1314,18 @@ $("tabs").addEventListener("keydown", (e) => {
     $(`tab-${next}`).focus();
   }
 });
+/** The header's panel button: its state and label follow whether the panel is shown. */
+function syncPanelToggle() {
+  const open = !document.body.classList.contains("panel-closed");
+  const btn = $("panel-toggle");
+  btn.setAttribute("aria-expanded", String(open));
+  const label = open ? "Hide the panel" : "Show the panel";
+  btn.setAttribute("aria-label", label);
+  btn.title = label;
+}
 $("panel-toggle").addEventListener("click", () => {
   document.body.classList.toggle("panel-closed");
-  $("panel-toggle").setAttribute("aria-expanded", String(!document.body.classList.contains("panel-closed")));
+  syncPanelToggle();
   setTimeout(() => map.resize(), 0);
 });
 
