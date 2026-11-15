@@ -52,23 +52,37 @@ export function renderShaking(host: HTMLElement, hot: HotspotInputs, place: Loca
     el("p", "sub", "How often the ground shook, from the readings at Japan's seismic intensity stations."),
     placeControls(place),
   ];
-  parts.push(...(place.place ? placeBody(place, host.clientWidth) : hotspots(hot)));
+  if (place.place) {
+    parts.push(levelButtons(hot.level, hot.onLevel, "The map shows the epicentres of quakes felt here at this shindo or stronger"),
+      ...placeBody(place, host.clientWidth));
+  } else {
+    const [hint, ...rest] = hotspots(hot); // "Or click a square…" stays next to the place buttons
+    parts.push(hint, levelButtons(hot.level, hot.onLevel, "The squares count shaking at this shindo or stronger"), ...rest);
+  }
   host.replaceChildren(...parts);
+}
+
+/** Shindo 1+ · 3+ · 4+ · 5−+: which shaking the squares count, or the place's map shows. */
+function levelButtons(level: number, onLevel: (i: number) => void, tip: string): HTMLElement {
+  const row = el("div", "presets levels");
+  row.setAttribute("role", "group");
+  row.setAttribute("aria-label", "Shindo");
+  row.title = tip;
+  row.append(el("span", "levels-title", "Shindo"));
+  LEVELS.forEach((l, i) => {
+    const b = el("button", i === level ? "primary" : "", l.short) as HTMLButtonElement;
+    b.type = "button";
+    b.title = `${l.label}. ${tip}`;
+    b.setAttribute("aria-pressed", String(i === level));
+    b.addEventListener("click", () => onLevel(i));
+    row.append(b);
+  });
+  return row;
 }
 
 function hotspots(inp: HotspotInputs): HTMLElement[] {
   const parts: HTMLElement[] = [el("p", "sub", "Or click a square on the map to see what was felt there.")];
   const controls = el("div", "controls-row");
-  const level = document.createElement("select");
-  LEVELS.forEach((l, i) => {
-    const o = document.createElement("option");
-    o.value = String(i); o.textContent = l.label; o.selected = i === inp.level;
-    level.append(o);
-  });
-  level.addEventListener("change", () => inp.onLevel(Number(level.value)));
-  const ll = el("label", "inline", "Count ");
-  ll.append(level);
-  controls.append(ll);
   if (inp.from < 1997) {
     const era = el("button", "", "Use 1997–" + inp.years[1]) as HTMLButtonElement;
     era.type = "button";
@@ -76,7 +90,7 @@ function hotspots(inp: HotspotInputs): HTMLElement[] {
     era.addEventListener("click", () => inp.onInstrumentalEra());
     controls.append(era);
   }
-  parts.push(controls);
+  if (controls.childElementCount) parts.push(controls);
 
   if (inp.status === "loading" || !inp.stations) return [...parts, el("p", "sub", "Loading station records…")];
   const period = inp.from === inp.to ? `${inp.from}` : `${inp.from}–${inp.to}`;

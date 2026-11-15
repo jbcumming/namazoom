@@ -1415,7 +1415,7 @@ function renderPanelBody() {
       status: hot.key === `${state.from}-${state.to}-${hot.level}` ? "ok" : "loading",
       level: hot.level, from: state.from, to: state.to, years: store.index.years,
       cells: hot.cells, range: hot.range, stations: shindo.stations,
-      onLevel: (i) => { hot.level = i; renderPanel(); drawHotspots(); },
+      onLevel: (i) => { hot.level = i; renderPanel(); drawHotspots(); drawLocation(); },
       onInstrumentalEra: () => { state.from = 1997; state.to = store.index.years[1]; syncTimeline(); refreshData(); drawHotspots(); renderPanel(); },
       onCell: chooseCell,
     }, {
@@ -1439,8 +1439,6 @@ function renderPanelBody() {
       onRadius: (km) => { loc.radiusKm = km; setPlace(loc.place); },
       onSelectQuake: selectFelt,
       onClear: () => setPlace(null),
-      level: hot.level,
-      onLevel: (i) => { hot.level = i; drawLocation(); renderPanel(); },
     });
     if (!loc.place && hot.key !== `${state.from}-${state.to}-${hot.level}`) drawHotspots();
   } else if (state.tab === "quake") {

@@ -417,6 +417,8 @@ body.in3d .lg-tremor { display: none; }
 .note { font-size: 0.82rem; color: var(--text-primary); background: var(--page); border-left: 3px solid var(--axis); padding: 6px 10px; margin: 6px 0; }
 .controls-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
 .presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.levels { align-items: center; margin: 10px 0 4px; }
+.levels-title { font-size: 0.85rem; color: var(--text-secondary); margin-right: 2px; }
 button.primary { background: var(--text-primary); color: var(--surface-1); border-color: var(--text-primary); }
 label.inline { font-size: 0.85rem; color: var(--text-secondary); }
 .place-marker { width: 16px; height: 16px; border-radius: 50%; background: var(--text-primary); border: 3px solid var(--surface-1); box-shadow: 0 1px 4px rgba(0,0,0,0.35); }

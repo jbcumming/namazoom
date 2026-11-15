@@ -14,10 +14,10 @@ export const isTemporary = (name: string) => name.includes("（臨時）");
 
 /** Levels offered: index into the shindo classes (0 = shindo 1, 3 = 4, 4 = 5-). */
 export const LEVELS = [
-  { minClass: 0, label: "shindo 1+ (felt at all)" },
-  { minClass: 2, label: "shindo 3+" },
-  { minClass: 3, label: "shindo 4+" },
-  { minClass: 4, label: "shindo 5− or stronger" },
+  { minClass: 0, label: "shindo 1+ (felt at all)", short: "1+" },
+  { minClass: 2, label: "shindo 3+", short: "3+" },
+  { minClass: 3, label: "shindo 4+", short: "4+" },
+  { minClass: 4, label: "shindo 5− or stronger", short: "5−+" },
 ];
 
 export interface StationRate { station: number; rate: number; count: number; years: number }
