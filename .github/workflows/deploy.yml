@@ -32,7 +32,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 340 # a run with an empty cache downloads ~7,800 JMA files at 1 per second
     steps:
       - uses: actions/checkout@v4
 
@@ -44,8 +44,10 @@ jobs:
           cache: npm
           cache-dependency-path: site/package-lock.json
 
+      # Restore the latest saved data. It is saved again at the end even if the run fails or
+      # times out, so a slow first download isn't lost.
       - name: Restore downloaded and parsed data
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             data/raw
@@ -71,6 +73,18 @@ jobs:
             git pull --rebase --autostash
             git push
           fi
+
+      - name: Save downloaded and parsed data
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data/raw
+            data/interim
+            site/public/tiles
+            site/public/basemap-assets
+            tools
+          key: data-v1-${{ github.run_id }}
 
       - uses: actions/upload-pages-artifact@v3
         with:
