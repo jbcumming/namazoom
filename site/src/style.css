@@ -326,7 +326,6 @@ body.in3d .lg-tremor { display: none; }
 .range input[type="range"]::-moz-range-track { background: none; }
 .range-label { color: var(--text-primary); font-variant-numeric: tabular-nums; min-width: 6.5em; }
 .status { font-size: 0.8rem; color: var(--text-muted); font-variant-numeric: tabular-nums; min-width: 13em; }
-.mag-note { flex-basis: 100%; margin: 0; font-size: 0.8rem; color: var(--text-secondary); }
 
 /* ---- panel ---- */
 .tabs { display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--border); flex: none; }

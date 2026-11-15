@@ -1184,10 +1184,6 @@ function applyTimeFilter() {
 
 function updateStatus(n: number, minMag: number) {
   $("status").textContent = state.anim ? "" : `${fmt(n)} ${n === 1 ? "quake" : "quakes"}`;
-  // Small quakes are only drawn for short ranges: say so when the menu asks for more than is shown.
-  const note = $("mag-note");
-  note.hidden = !(state.minMag < 5 && minMag === 5 && !state.anim);
-  note.textContent = `Showing M5+: M${state.minMag}+ needs ${MAX_YEARS_FOR_M3} years or fewer (or press ▶).`;
 }
 
 // ------------------------------------------------------------- timeline ---
@@ -1217,6 +1213,12 @@ function syncTimeline() {
     band.style.left = `${pct(yearOf(store.index.prelimFrom))}%`;
     band.title = `Hatched: preliminary data (from ${fmtDate(store.index.prelimFrom)})`;
   }
+  // M3+ and M4+ only for 10 years or fewer, or during playback: too many quakes to draw at once otherwise.
+  const long = state.to - state.from + 1 > MAX_YEARS_FOR_M3 && !state.anim;
+  const mag = $<HTMLSelectElement>("min-mag");
+  for (const o of mag.options) if (Number(o.value) < 5) o.disabled = long;
+  mag.title = long ? `M3+ and M4+: choose ${MAX_YEARS_FOR_M3} years or fewer, or press ▶` : "";
+  if (long && state.minMag < 5) { state.minMag = 5; mag.value = "5"; }
   updateUrl();
   $("exit-play").hidden = !state.anim;
   $("trail-wrap").hidden = !state.anim;
