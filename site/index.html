@@ -90,38 +90,12 @@
           <button role="tab" id="tab-quake" aria-controls="pane-quake">Quake</button>
           <button role="tab" id="tab-shaking" aria-controls="pane-shaking">Shaking</button>
           <button role="tab" id="tab-forecast" aria-controls="pane-forecast">Forecast</button>
-          <button role="tab" id="tab-magnitudes" aria-controls="pane-magnitudes">Magnitudes</button>
         </div>
         <div class="sel-chip" id="sel-chip" hidden>
           <button type="button" class="sel-show" id="sel-show" title="Show in the Quake tab"></button>
           <button type="button" class="sel-clear" id="sel-clear" aria-label="Clear selected quake (Esc)" title="Clear selection (Esc)">✕</button>
         </div>
 
-        <section role="tabpanel" id="pane-magnitudes" aria-labelledby="tab-magnitudes" class="pane" hidden>
-          <div id="mag-lead"></div>
-          <details class="notes mag-more" id="mag-more">
-          <summary>The full chart: quakes at every size</summary>
-          <div class="seg" role="radiogroup" aria-label="Magnitude view">
-            <label><input type="radio" name="mag-mode" value="single" checked /> This period</label>
-            <label><input type="radio" name="mag-mode" value="eras" /> Compare eras</label>
-          </div>
-          <div id="mag-body"></div>
-          <details class="notes">
-            <summary>Reading this honestly</summary>
-            <p>Counts cover the map area you're looking at and the years on the timeline.</p>
-            <p><strong>Mc</strong>, the magnitude of completeness, is the smallest magnitude above which essentially
-              every quake was recorded, estimated from the data (where a Gutenberg–Richter line fits 95% or 90% of the
-              counts; failing that, the most common magnitude + 0.2). Below Mc, counts say more about the instruments
-              than about the earth.</p>
-            <p><strong>b</strong> is the slope above Mc. Well-covered areas over short periods give values near 1;
-              mixing land and sea, or periods with different detection, gives lower values.</p>
-            <p>Eras split at visible steps in JMA's processing: the 1975–76 jump in recorded events, the October 1997
-              unified catalogue, and 2016, when automatic solutions start appearing in large numbers.</p>
-            <p>JMA-located natural earthquakes with a magnitude, epicentre in 24–46°N, 122–148°E. Magnitudes are JMA's
-              own; for the largest quakes that is the moment magnitude (e.g. 2011 Tōhoku, M9.0).</p>
-          </details>
-          </details>
-        </section>
 
 
         <section role="tabpanel" id="pane-quake" aria-labelledby="tab-quake" class="pane">

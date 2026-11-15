@@ -5,7 +5,7 @@ import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&ur
 import "maplibre-gl/dist/maplibre-gl.css";
 import { basemapStyle } from "./basemap";
 import type { GrData } from "./gr";
-import { cellsInBounds, renderMagLead, renderMagnitudes, type MagSelection } from "./panel-magnitudes";
+import { cellsInBounds, howOftenSection } from "./how-often";
 import { renderQuake, type Footprint } from "./panel-quake";
 import { renderAftershocks, type AftershockState } from "./panel-aftershocks";
 import { renderForeshock, type ForeshockState } from "./panel-foreshock";
@@ -36,10 +36,10 @@ const state = {
   playing: false, // animation running
   anim: false, // in playback view (playing or paused on a frame)
   playhead: 0, // seconds, UTC
-  magMode: "single" as MagSelection["mode"],
   tab: "quake",
   view3d: false, // the Quake tab shows the 3D view instead of the map
   dmgOpen: false, // the Quake tab's Destructive quakes list is open (rings on the map)
+  howOpen: false, // the Quake tab's How often table is open
   selected: null as { props: QuakeProps; coords: [number, number] } | null,
 };
 
@@ -49,7 +49,7 @@ const store = new QuakeStore();
 const [grData] = await Promise.all([fetch("./data/gr.json").then((r) => r.json() as Promise<GrData>), store.init()]);
 [state.from, state.to] = store.index.years;
 // A shared link may set the view; applied before the first render.
-const fromUrl = parseHash(location.hash, ["magnitudes", "quake", "shaking", "forecast"], store.index.years);
+const fromUrl = parseHash(location.hash, ["quake", "shaking", "forecast"], store.index.years);
 if (fromUrl.from !== undefined) { state.from = fromUrl.from; state.to = fromUrl.to!; }
 if (fromUrl.minMag !== undefined) state.minMag = fromUrl.minMag;
 
@@ -1266,7 +1266,7 @@ document.addEventListener("keydown", (e) => {
 
 // ---------------------------------------------------------------- panel ---
 
-const TABS = ["quake", "shaking", "forecast", "magnitudes"];
+const TABS = ["quake", "shaking", "forecast"];
 
 function setTab(tab: string) {
   if (tab !== state.tab) cancelMapModes(); // a pick belongs to the tab that started it
@@ -1344,16 +1344,7 @@ function renderPanel() {
 
 function renderPanelBody() {
   if (document.body.classList.contains("panel-closed")) return;
-  if (state.tab === "magnitudes") {
-    const host = $("mag-body");
-    const cells = visibleCells();
-    const areaLabel = cells === null ? "all of Japan" : `the visible map area (${cells.size} 2° squares)`;
-    renderMagLead($("mag-lead"), grData, { from: state.from, to: state.to, cells, areaLabel, mode: "single" });
-    // The chart is folded away; draw it only when open (it sizes itself to the panel).
-    if ($<HTMLDetailsElement>("mag-more").open) {
-      renderMagnitudes(host, grData, { from: state.from, to: state.to, cells, areaLabel, mode: state.magMode });
-    }
-  } else if (state.tab === "forecast") {
+  if (state.tab === "forecast") {
     if (fc.status === "loading") drawForecast();
     const b = map.getBounds();
     const all = visibleCells() === null;
@@ -1429,6 +1420,11 @@ function renderPanelBody() {
       empty.append(quakeExamples());
       const b = map.getBounds();
       const cells = visibleCells();
+      empty.append(howOftenSection(grData, {
+        from: state.from, to: state.to, cells,
+        areaLabel: cells === null ? "all of Japan" : `the visible map area (${cells.size} 2° squares)`,
+        open: state.howOpen, onToggle: (open) => { state.howOpen = open; },
+      }));
       const quakes = store.features(yearStart(state.from), yearEnd(state.to), 5).features.filter((f) => {
         if (cells === null) return true; // "all of Japan": not just what fits on screen
         const [lon, lat] = f.geometry.coordinates;
@@ -1445,10 +1441,6 @@ function renderPanelBody() {
   }
 }
 
-$("mag-more").addEventListener("toggle", () => renderPanel());
-for (const r of document.querySelectorAll<HTMLInputElement>('input[name="mag-mode"]')) {
-  r.addEventListener("change", () => { state.magMode = r.value as MagSelection["mode"]; renderPanel(); });
-}
 
 let moveTimer = 0;
 map.on("moveend", () => { clearTimeout(moveTimer); moveTimer = window.setTimeout(renderPanel, 200); });

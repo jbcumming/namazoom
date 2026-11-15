@@ -330,11 +330,6 @@ body.in3d .lg-tremor { display: none; }
 }
 .tabs [role="tab"][aria-selected="true"] { color: var(--text-primary); font-weight: 600; border-bottom-color: var(--text-primary); }
 .pane { padding: 4px 16px 24px; overflow-y: auto; flex: 1; min-height: 0; }
-.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-top: 12px; }
-.seg label { padding: 4px 10px; cursor: pointer; font-size: 0.85rem; color: var(--text-secondary); }
-.seg input { position: absolute; opacity: 0; pointer-events: none; }
-.seg label:has(input:checked) { background: var(--page); color: var(--text-primary); font-weight: 600; }
-.seg label:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: -2px; }
 
 .chart svg { display: block; max-width: 100%; height: auto; overflow: visible; }
 .legend { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 0.78rem; color: var(--text-secondary); margin: 4px 0; }
@@ -455,8 +450,7 @@ tr.clickable:focus-visible { outline: 2px solid var(--focus); outline-offset: -2
 .v3d-labels .v3d-sel { font-size: 12px; font-weight: 600; color: var(--text-primary); padding: 1px 6px; border-radius: 4px;
   background: color-mix(in srgb, var(--surface-1) 85%, transparent); }
 /* Magnitudes: the plain "how often" lead, with the full chart folded below */
-.mag-lead td:nth-child(3), .mag-lead th:nth-child(3) { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
-.mag-more > summary { font-weight: 600; }
-.dmg { margin-top: 16px; }
-.dmg > summary { font-weight: 600; font-size: 0.9rem; color: var(--text-primary); }
-.mag-lead .muted { color: var(--text-muted); }
+.how-often td:nth-child(3), .how-often th:nth-child(3) { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+.fold { margin-top: 16px; }
+.fold > summary { font-weight: 600; font-size: 0.9rem; color: var(--text-primary); }
+.how-often .muted { color: var(--text-muted); }

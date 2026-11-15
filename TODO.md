@@ -84,7 +84,7 @@ New features below wait until that's settled.
       detecting episodes (threshold per method or per era).
 
 ## Smaller ideas
-- [ ] Density heatmap of quakes below M3 (currently only in the Magnitudes counts).
+- [ ] Density heatmap of quakes below M3 (currently only in the "How often" counts).
 - [ ] M3–5 for ranges over 10 years outside playback (binary format or tiling).
 - [x] Verify literature figures quoted in conversation: all confirmed against
       HERP, JMA and Cabinet Office documents (`docs/references.md`). Corrections:

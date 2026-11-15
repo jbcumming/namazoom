@@ -13,8 +13,8 @@ export interface UrlState {
   view?: { lat: number; lon: number; zoom: number };
 }
 
-/** Tabs since folded into others: My location into Shaking, History into Quake. */
-const MERGED: Record<string, string> = { location: "shaking", history: "quake" };
+/** Tabs since folded into others: My location into Shaking, History and Magnitudes into Quake. */
+const MERGED: Record<string, string> = { location: "shaking", history: "quake", magnitudes: "quake" };
 
 export function parseHash(hash: string, tabs: string[], years: [number, number]): UrlState {
   const p = new URLSearchParams(hash.replace(/^#/, ""));

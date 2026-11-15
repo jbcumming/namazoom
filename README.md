@@ -141,8 +141,11 @@ kept in the URL hash.
   details, click to open a quake in the panel; the open quake is ringed, with a
   line up to its epicentre. three.js (`site/src/view3d.ts`), loaded the first
   time 3D is opened. Replay switches back to the map. While no quake is open,
-  a folded "Destructive quakes" list (damage class 3+ or a damaging tsunami),
-  ringed on the map while it is open.
+  two folded sections: "How often quakes happen" (M3+ to M8+ in the area, as
+  yearly averages, each size only over the eras in which it was fully
+  recorded, with the era's Mc estimated in the browser by a port of the
+  pipeline estimator, parity-tested against Python), and "Destructive quakes"
+  (damage class 3+ or a damaging tsunami), ringed on the map while open.
 - *Shaking* - hotspots of felt shaking: each station's yearly rate at a chosen
   intensity (shindo 1+ to 5-+), averaged on a 0.2° grid so dense networks don't
   look hotter; temporary (臨時) stations left out. Choosing a place (city
@@ -158,11 +161,6 @@ kept in the URL hash.
   transcribed in `site/src/trench-history.ts`, and a slip budget per quake type
   (plate rate from PB2002 × years since the last one: what a fully locked fault
   could release, an upper bound).
-- *Magnitudes* - how often quakes of each size happen in the area (yearly
-  averages, each size over the eras in which it was fully recorded); below it,
-  folded away, Gutenberg-Richter curves with Mc and b estimated in the browser
-  (a port of the pipeline estimator, parity-tested against Python) and era
-  comparison as yearly rates.
 
 **Forecast.** `pipeline/forecast/etas.py` is a space-time ETAS model (Ogata
 1988, 1998; background by stochastic declustering, Zhuang, Ogata & Vere-Jones
@@ -254,7 +252,7 @@ docs/references.md         figures checked against primary sources (HERP, JMA, C
 ## Decisions
 
 - **Magnitude:** JMA's own (magnitude 1) everywhere, including the
-  Gutenberg–Richter plot. Mw (magnitude 2, type `W`) is shown in event detail
+  "How often" counts. Mw (magnitude 2, type `W`) is shown in event detail
   only. The current files use the post-2003 magnitude throughout.
 - **USGS / other-agency hypocentres:** stored; shown only if the event has
   intensity readings in Japan.

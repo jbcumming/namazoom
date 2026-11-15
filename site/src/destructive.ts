@@ -34,7 +34,7 @@ export interface DestructiveInputs {
 export function destructiveList(inp: DestructiveInputs): HTMLElement {
   const bad = inp.quakes.filter((f) => f.properties.mag !== null && isDestructive(f.properties))
     .sort((a, b) => b.properties.t - a.properties.t);
-  const d = el("details", "notes dmg") as HTMLDetailsElement;
+  const d = el("details", "notes fold dmg") as HTMLDetailsElement;
   d.open = inp.open;
   d.addEventListener("toggle", () => inp.onToggle(d.open));
   d.append(el("summary", "", `Destructive quakes (${fmt(bad.length)})`));

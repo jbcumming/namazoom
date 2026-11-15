@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { howOften } from "./panel-magnitudes";
+import { howOften } from "./how-often";
 
 describe("howOften", () => {
   it("says a rate in words", () => {
