@@ -6,13 +6,7 @@ New features below wait until that's settled.
 ## Site
 - [x] Update README for the map app features.
 - [x] One-command build and local serve (`./run.sh`).
-- [ ] Hosting: GitHub Pages. The built site is ~215 MB in ~2,300 files; the
-      largest is the 89 MB basemap (under Pages' 100 MB per-file limit, and
-      Pages serves range requests). The generated data is gitignored, so deploy
-      from a scheduled Action (run the pipeline with cached downloads, upload
-      with upload-pages-artifact / deploy-pages, commit the forecast record
-      back), pinning the Protomaps build date. Still needed: LICENSE, link-
-      preview tags and image (need the final URL).
+- [x] Hosting: GitHub Pages, built and deployed by `.github/workflows/deploy.yml`.
 - [ ] Deploy and check in a real browser (desktop and phone), including
       gzip/brotli on the JSON and range requests on the tiles.
 

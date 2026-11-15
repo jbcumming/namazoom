@@ -107,8 +107,15 @@ FORECAST=0 ./run.sh # skip rebuilding the 7-day forecast
 A first run downloads the JMA catalogue (~185 MB), plate boundaries, USGS Slab2
 (140 MB) and an OpenStreetMap basemap extract (~200 MB), parses everything
 (~3 min) and builds `site/dist` (~215 MB: data ~115 MB, basemap ~90 MB). Later
-runs only rebuild the site. Hosting is not set up yet (see TODO.md); the server
-must support HTTP range requests for the basemap file.
+runs only rebuild the site.
+
+**Deploy.** `.github/workflows/deploy.yml` runs `./run.sh build` on GitHub
+Actions every day at 06:30 JST (and on pushes to the site or pipeline), with the
+downloads and parsed data cached between runs, commits the forecast record back
+to `main`, and publishes `site/dist` to GitHub Pages
+(<https://jbcumming.github.io/namazoom/>). Pages must be set to deploy from
+GitHub Actions (repo Settings > Pages > Source). Run a local `./run.sh live`
+with `AUTO_COMMIT=0` so it doesn't commit the record as well.
 
 ## Site
 
