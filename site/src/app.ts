@@ -591,11 +591,9 @@ let shownMinMag = 5;
 
 // ------------------------------------------------------------------- 3D ---
 
-// area: "japan" frames JAPAN_3D, which holds 99% of the M5+ quakes (out to the Kuril Islands);
-// "map" uses the area the map last showed.
+// The 3D view always frames JAPAN_3D, which holds 99% of the M5+ quakes (out to the Kuril Islands).
 const JAPAN_3D = { w: 120, s: 22, e: 152, n: 48 };
-const v3d = { scene: null as Scene3D | null, loading: false, ex: 1, spin: false, n: 0, capped: false, boundsKey: "",
-  area: "japan" as "japan" | "map", bounds: JAPAN_3D };
+const v3d = { scene: null as Scene3D | null, loading: false, n: 0, capped: false };
 
 /** The quake open in the panel, for the 3D view; null without one or without a depth. */
 function selected3d(): Quake3D | null {
@@ -622,7 +620,7 @@ async function draw3d(resetCamera = false) {
   const on = state.tab === "3d";
   $("view3d").hidden = !on;
   $("map").style.visibility = on ? "hidden" : "";
-  if (!on) { if (v3d.scene) v3d.scene.autoRotate = false; return; }
+  if (!on) return;
   if (!v3d.scene) {
     if (v3d.loading) return;
     v3d.loading = true;
@@ -640,13 +638,7 @@ async function draw3d(resetCamera = false) {
     resetCamera = true;
     if (state.tab !== "3d") { draw3d(); return; }
   }
-  const b = map.getBounds();
-  const bounds = v3d.area === "japan"
-    ? JAPAN_3D
-    : { w: b.getWest(), s: b.getSouth(), e: b.getEast(), n: b.getNorth() };
-  v3d.bounds = bounds;
-  const key = [bounds.w, bounds.s, bounds.e, bounds.n].map((x) => x.toFixed(2)).join(",");
-  if (key !== v3d.boundsKey) { v3d.boundsKey = key; resetCamera = true; } // a new area: frame it
+  const bounds = JAPAN_3D;
   // During playback, the same window as the map: the trail up to the playhead.
   const [t0, t1] = state.anim ? [state.playhead - state.trail, state.playhead] : [-Infinity, Infinity];
   let quakes = shownQuakes
@@ -666,11 +658,10 @@ async function draw3d(resetCamera = false) {
     })),
     coast: coastRings ?? [], land: landPolys, plates: overlays.plates ? lines(overlayData.plates) : [],
     slabs: (overlays.slabs ? overlayData.slabs?.features ?? [] : []).map((f) => ({ depthKm: Number(f.properties?.depth), lines: lines({ type: "FeatureCollection", features: [f] }) })),
-    bounds, exaggeration: v3d.ex, depthEdges: DEPTH_EDGES, selected: selected3d(),
+    bounds, depthEdges: DEPTH_EDGES, selected: selected3d(),
     colors: { background: t.surface, coast: t.secondary, land: t.text, plates: t.text, slab: t.series[0], box: t.axis, text: t.muted,
       sel: t.text, depth: t.depth },
   }, resetCamera);
-  v3d.scene.autoRotate = v3d.spin;
   renderPanel();
 }
 
@@ -688,12 +679,11 @@ function render3dPane() {
         : state.from === state.to ? state.from : `${state.from}–${state.to}`}, M${effectiveMinMag()}+.`
     : "Loading the 3D view…"));
   if (state.selected) {
-    const q = selected3d(), b = v3d.bounds;
+    const q = selected3d(), b = JAPAN_3D;
     const note = el("p", "sub v3d-note");
     if (!q) note.textContent = "The open quake has no recorded depth, so it can't be placed here.";
     else if (q.lon < b.w || q.lon > b.e || q.lat < b.s || q.lat > b.n) {
-      note.textContent = v3d.area === "map" ? "The open quake is outside this area: choose \"All of Japan\" to see it."
-        : "The open quake is outside the area shown here.";
+      note.textContent = "The open quake is outside the area shown here.";
     } else {
       note.append(`The open quake is ringed, ${fmt(Math.round(q.depth))} km down, with a dashed line up to its epicentre. `);
       const go = el("button", "", "Zoom to it") as HTMLButtonElement;
@@ -703,32 +693,15 @@ function render3dPane() {
     }
     parts.push(note);
   }
-  const area = el("div", "seg");
-  for (const [k, label] of [["japan", "All of Japan"], ["map", "The map's area"]] as const) {
-    const b = el("button", k === v3d.area ? "primary" : "", label) as HTMLButtonElement;
-    b.type = "button";
-    b.addEventListener("click", () => { v3d.area = k; draw3d(true); });
-    area.append(b);
-  }
-  const row = el("div", "seg");
-  for (const ex of [1, 2, 4]) {
-    const b = el("button", ex === v3d.ex ? "primary" : "", ex === 1 ? "True depth" : `Depth ×${ex}`) as HTMLButtonElement;
-    b.type = "button";
-    b.addEventListener("click", () => { v3d.ex = ex; draw3d(true); });
-    row.append(b);
-  }
-  const ctl = el("div", "seg");
-  const spin = el("button", v3d.spin ? "primary" : "", v3d.spin ? "Stop turning" : "Turn slowly") as HTMLButtonElement;
-  spin.type = "button";
-  spin.addEventListener("click", () => { v3d.spin = !v3d.spin; if (v3d.scene) v3d.scene.autoRotate = v3d.spin; renderPanel(); });
   const reset = el("button", "", "Reset view") as HTMLButtonElement;
   reset.type = "button";
   reset.addEventListener("click", () => draw3d(true));
-  ctl.append(spin, reset);
-  parts.push(area, row, ctl, el("p", "sub",
-    "Set the years and magnitude on the timeline below. To look at one region, zoom the map to it on another tab and " +
-    "choose \"The map's area\" here. Colours are depth, as on the map; size is magnitude. With true depth, Japan's " +
-    "slabs look thin: the islands are about 2,500 km long and the deepest quakes 700 km down."));
+  const ctl = el("div", "seg");
+  ctl.append(reset);
+  parts.push(ctl, el("p", "sub",
+    "Set the years and magnitude on the timeline below. Colours are depth, as on the map; size is magnitude. " +
+    "Depths are to scale, so the sinking plates look thin: the islands are about 2,500 km long and the deepest " +
+    "quakes 700 km down."));
   host.replaceChildren(...parts);
 }
 

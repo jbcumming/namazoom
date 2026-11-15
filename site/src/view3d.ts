@@ -15,7 +15,6 @@ export interface Scene3DInput {
   plates: [number, number][][];
   slabs: Lines3D[];
   bounds: { w: number; s: number; e: number; n: number };
-  exaggeration: number;
   colors: { background: string; coast: string; land: string; plates: string; slab: string; box: string; text: string; sel: string; depth: string[] };
   depthEdges: number[];
   selected: Quake3D | null; // the quake open in the panel, ringed (mag NaN when unknown)
@@ -96,7 +95,6 @@ export class Scene3D {
   private corners: THREE.Vector3[] = []; // the box's 8 corners, for framing
   private fatLines: LineMaterial[] = []; // need the canvas size to draw their width in pixels
   private P = projector({ w: 0, s: 0, e: 1, n: 1 });
-  private ex = 1;
   private inBox: (lon: number, lat: number) => boolean = () => false;
   private dotColors: (depth: number) => THREE.Color = () => new THREE.Color();
   private colors: Scene3DInput["colors"] | null = null;
@@ -156,7 +154,6 @@ export class Scene3D {
     this.labels = [];
     this.scene.background = new THREE.Color(inp.colors.background);
     const P = projector(inp.bounds);
-    const ex = inp.exaggeration;
     const b = inp.bounds;
     const inBox = (lon: number, lat: number, m = 0) => lon >= b.w - m && lon <= b.e + m && lat >= b.s - m && lat <= b.n + m;
 
@@ -210,11 +207,11 @@ export class Scene3D {
       this.group.add(new LineSegments2(new LineSegmentsGeometry().setPositions(coastPts), mat));
     }
     addLines(inp.plates, 0, inp.colors.plates, 0.9);
-    for (const s of inp.slabs) addLines(s.lines, -s.depthKm * ex, inp.colors.slab, 0.45);
+    for (const s of inp.slabs) addLines(s.lines, -s.depthKm, inp.colors.slab, 0.45);
 
     // Box: the view area at the surface and at the deepest quake, joined at the corners.
     const deepest = Math.min(MAX_DEPTH, Math.max(100, inp.selected?.depth ?? 0, ...inp.quakes.map((q) => q.depth)));
-    const zb = -Math.ceil(deepest / 100) * 100 * ex;
+    const zb = -Math.ceil(deepest / 100) * 100;
     const corners: [number, number][] = [[b.w, b.s], [b.e, b.s], [b.e, b.n], [b.w, b.n]];
     this.corners = corners.flatMap(([lon, lat]) => [P(lon, lat, 0), P(lon, lat, zb)]);
     const boxPts: THREE.Vector3[] = [];
@@ -225,17 +222,16 @@ export class Scene3D {
     this.group.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(boxPts),
       new THREE.LineBasicMaterial({ color: inp.colors.box, transparent: true, opacity: 0.6 })));
     // Depth ticks on one vertical edge.
-    for (let d = 0; d <= -zb / ex + 1e-6; d += 100) {
+    for (let d = 0; d <= -zb; d += 100) {
       const el = document.createElement("span");
       el.textContent = `${d} km`;
       el.style.color = inp.colors.text;
       this.labelHost.append(el);
-      this.labels.push({ el, pos: P(b.w, b.s, -d * ex) });
+      this.labels.push({ el, pos: P(b.w, b.s, -d) });
     }
 
     // Quakes: colour by depth class, size by magnitude.
     this.P = P;
-    this.ex = ex;
     this.inBox = (lon, lat) => inBox(lon, lat);
     this.colors = inp.colors;
     const palette = inp.colors.depth.map((c) => new THREE.Color(c));
@@ -258,7 +254,7 @@ export class Scene3D {
     const n = quakes.length;
     const pos = new Float32Array(n * 3), col = new Float32Array(n * 3), size = new Float32Array(n);
     quakes.forEach((q, i) => {
-      const v = this.P(q.lon, q.lat, -q.depth * this.ex);
+      const v = this.P(q.lon, q.lat, -q.depth);
       pos.set([v.x, v.y, v.z], i * 3);
       const c = this.dotColors(q.depth);
       col.set([c.r, c.g, c.b], i * 3);
@@ -285,7 +281,7 @@ export class Scene3D {
     this.hlLabel = null;
     const c = this.colors;
     if (!q || !c || !this.inBox(q.lon, q.lat)) return;
-    const top = this.P(q.lon, q.lat, 0), at = this.P(q.lon, q.lat, -q.depth * this.ex);
+    const top = this.P(q.lon, q.lat, 0), at = this.P(q.lon, q.lat, -q.depth);
     const w = this.host.clientWidth || 1, h = this.host.clientHeight || 1;
     if (top.z - at.z > 1) {
       const mat = new LineMaterial({ color: c.sel, linewidth: 2, dashed: true, dashSize: this.span / 70, gapSize: this.span / 140,
@@ -319,7 +315,7 @@ export class Scene3D {
 
   /** Fly the camera in towards a quake, keeping the direction it looks from. */
   focus(q: Quake3D) {
-    const at = this.P(q.lon, q.lat, -q.depth * this.ex);
+    const at = this.P(q.lon, q.lat, -q.depth);
     const dir = this.camera.position.clone().sub(this.controls.target).normalize();
     const p1 = dir.multiplyScalar(this.span * 0.5).add(at);
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -378,12 +374,6 @@ export class Scene3D {
     this.request();
   }
 
-  set autoRotate(on: boolean) {
-    this.controls.autoRotate = on;
-    this.controls.autoRotateSpeed = 0.6;
-    this.request();
-  }
-
   private pick(e: PointerEvent): Quake3D | null {
     if (!this.points) return null;
     const r = this.renderer.domElement.getBoundingClientRect();
@@ -413,7 +403,7 @@ export class Scene3D {
     this.request();
   }
 
-  /** Render on demand; keeps going while damping or auto-rotate moves the camera. */
+  /** Render on demand; keeps going while damping or focus() moves the camera. */
   request() {
     if (this.frame) return;
     this.frame = requestAnimationFrame(() => {
@@ -443,7 +433,7 @@ export class Scene3D {
         s.el.style.transform = `translate(${((v.x + 1) / 2) * w + r + 2}px, ${((1 - v.y) / 2) * h - 10}px)`;
         s.el.hidden = v.z > 1;
       }
-      if (moving || f || this.controls.autoRotate) this.request();
+      if (moving || f) this.request();
     });
   }
 
