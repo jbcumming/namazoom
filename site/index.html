@@ -10,7 +10,7 @@
   <body>
     <header class="topbar">
       <h1 id="app-title">Japan earthquakes since 1919</h1>
-      <span class="source" id="source"></span>
+      <button type="button" id="sources-btn" class="sources-btn" aria-haspopup="dialog" aria-controls="sources">Sources</button>
       <button type="button" id="panel-toggle" aria-controls="panel" aria-expanded="true">Panel</button>
     </header>
 
@@ -51,7 +51,7 @@
               <option value="3">M3+</option>
             </select>
           </label>
-          <label>Trail
+          <label id="trail-wrap" hidden title="While playing, how long each quake stays on the map, fading as it gets older">Fade after
             <select id="trail">
               <option value="2592000">1 month</option>
               <option value="7776000">3 months</option>
@@ -118,7 +118,13 @@
         <section role="tabpanel" id="pane-3d" aria-labelledby="tab-3d" class="pane" hidden></section>
       </aside>
     </div>
-    <footer class="source-foot" id="source-foot"></footer>
+    <dialog id="sources" class="sources" aria-labelledby="sources-h">
+      <div class="sources-head">
+        <h2 id="sources-h">Sources</h2>
+        <button type="button" id="sources-close" aria-label="Close">✕</button>
+      </div>
+      <div id="sources-body"></div>
+    </dialog>
     <div class="tooltip" id="tooltip" hidden></div>
     <script type="module" src="./src/app.ts"></script>
   </body>

@@ -160,7 +160,7 @@ map.on("load", () => {
   // The container may have been sized before the panel layout settled.
   map.resize();
   // Compact attribution opens expanded; on a phone it covers the legend button, and the
-  // full credit is in the footer anyway. It stays one tap away behind its (i) button.
+  // full credit is behind the Sources button anyway. It stays one tap away behind its (i) button.
   if (narrow()) document.querySelector(".maplibregl-compact-show")?.classList.remove("maplibregl-compact-show");
   if (fromUrl.view) map.jumpTo({ center: [fromUrl.view.lon, fromUrl.view.lat], zoom: fromUrl.view.zoom });
   else fitJapan();
@@ -1145,6 +1145,7 @@ function syncTimeline() {
   }
   updateUrl();
   $("exit-play").hidden = !state.anim;
+  $("trail-wrap").hidden = !state.anim;
   if ($("map-legend").childElementCount) renderLegend(); // the shindo row hides during playback
   $("play").textContent = state.playing ? "❚❚" : "▶";
   $("play").setAttribute("aria-label", state.playing ? "Pause" : "Play through the period");
@@ -1233,6 +1234,7 @@ $("exit-play").addEventListener("click", stop);
 // Esc undoes the most recent kind of thing: a half-done map pick, then playback, then the selection.
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
+  if (document.querySelector("dialog[open]")) return; // the browser closes the dialog
   // Esc in a dropdown or text box only closes that control.
   if ((e.target as HTMLElement | null)?.closest?.("select, input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea")) return;
   if (sectionState.drawing || loc.picking) cancelMapModes();
@@ -1579,26 +1581,45 @@ renderIntro();
 syncTimeline();
 $<HTMLSelectElement>("min-mag").value = String(state.minMag);
 setTab(fromUrl.tab ?? "magnitudes");
-// Attribution as JMA's terms of use ask: source named and linked, and a note
-// that the data has been processed. (The map's attribution control repeats the
-// short form; on phones the line moves to a footer below the panel.)
-for (const src of [$("source"), $("source-foot")]) {
+// The Sources box (header button). Attribution as JMA's terms of use ask: the
+// source named and linked, and a note that the data has been processed. The
+// map's attribution control repeats the short form.
+{
   const link = (href: string, text: string) => {
     const a = document.createElement("a");
     a.href = href; a.textContent = text; a.target = "_blank"; a.rel = "noopener";
     return a;
   };
-  const final = store.index.prelimFrom
-    ? `${store.index.years[0]}–${yearOf(store.index.prelimFrom) - 1}`
-    : `${store.index.years[0]}–${store.index.years[1]}`;
-  src.replaceChildren(
-    "出典：", link(JMA_HOME, "気象庁ホームページ"), " (Japan Meteorological Agency): ",
-    link(JMA_BULLETIN, "Seismological Bulletin of Japan"), ` ${final}`,
-    ...(store.index.prelimFrom
-      ? [", ", link(JMA_DAILY, "daily hypocentre lists"), ", ", link(JMA_EQDB, "intensity database"), " and ",
-         link(JMA_LIVE, "earthquake information"),
-         ` to ${fmtDate(store.index.dataEnd)} (marked "Preliminary")`]
-      : []),
-    ". Processed for this site.",
+  const p = (...kids: (string | Node)[]) => { const x = el("p"); x.append(...kids); return x; };
+  const li = (...kids: (string | Node)[]) => { const x = el("li"); x.append(...kids); return x; };
+  const ul = (...items: HTMLElement[]) => { const x = el("ul"); x.append(...items); return x; };
+  const { years, prelimFrom, dataEnd } = store.index;
+  const final = prelimFrom ? `${years[0]}–${yearOf(prelimFrom) - 1}` : `${years[0]}–${years[1]}`;
+  $("sources-body").replaceChildren(
+    el("h3", "", "Earthquake data"),
+    p("出典：", link(JMA_HOME, "気象庁ホームページ"), " (Japan Meteorological Agency):"),
+    ul(
+      li(link(JMA_BULLETIN, "Seismological Bulletin of Japan"), ` (地震月報（カタログ編）), ${final}`),
+      ...(prelimFrom
+        ? [li(link(JMA_DAILY, "daily hypocentre lists"), ", the ", link(JMA_EQDB, "intensity database"),
+            " (震度データベース) and ", link(JMA_LIVE, "earthquake information"),
+            `, ${yearOf(prelimFrom)} to ${fmtDate(dataEnd)}, marked "Preliminary" on this site`)]
+        : []),
+    ),
+    p("地震月報（カタログ編）・震度データベース等（気象庁）を加工して作成。 The data has been processed for this site: " +
+      "the maps, counts, statistics and forecasts here are this site's own work, not JMA's."),
+    el("h3", "", "Map and overlays"),
+    ul(
+      li("Basemap: © ", link("https://www.openstreetmap.org/copyright", "OpenStreetMap contributors"),
+        " (ODbL), tiles made with ", link("https://protomaps.com", "Protomaps")),
+      li("Coastline when the map tiles are missing: ", link("https://www.naturalearthdata.com", "Natural Earth")),
+      li("Depth of the sinking plates: ", link("https://doi.org/10.5066/F7PV6JNV", "USGS Slab2"), " (Hayes, 2018)"),
+      li("Plate boundaries: ", link("https://doi.org/10.1029/2001GC000252", "PB2002"), " (Bird, 2003), ODC-By"),
+    ),
   );
+  const dlg = $<HTMLDialogElement>("sources");
+  $("sources-btn").addEventListener("click", () => dlg.showModal());
+  $("sources-close").addEventListener("click", () => dlg.close());
+  // A click on the backdrop (outside the box) closes it too.
+  dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
 }
