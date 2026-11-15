@@ -1,4 +1,4 @@
-// "How often quakes happen": a folded table on the Quake tab (while nothing is open) for the
+// "How often quakes happen": a folded table on the Quakes tab (while nothing is open) for the
 // visible map area and the timeline's years, from the finalised catalogue's counts (gr.json).
 import * as d3 from "d3";
 import { estimateMc, histogram, type GrData } from "./gr";

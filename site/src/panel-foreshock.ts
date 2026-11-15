@@ -1,4 +1,4 @@
-// Quake tab: "Could it have been a foreshock?" Base rates from earlier quakes only.
+// Quakes tab: "Could it have been a foreshock?" Base rates from earlier quakes only.
 import * as d3 from "d3";
 import { GAP_BANDS, baseRates, findRow, gapBand, type FsData } from "./foreshock";
 import { el, fmt } from "./ui";

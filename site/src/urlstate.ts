@@ -1,6 +1,6 @@
 // Shareable view state in the URL hash, e.g.
 //   #y=2010-2012&m=3&tab=quake&q=J2011031114461812_3810_14286&v=38.10,142.86,6.5
-// (3d=1: the Quake tab's 3D view.)
+// (3d=1: the Quakes tab's 3D view.)
 // Unknown or malformed parts are ignored, so old links degrade gracefully.
 
 export interface UrlState {
@@ -29,7 +29,7 @@ export function parseHash(hash: string, tabs: string[], years: [number, number])
   const tab = p.get("tab");
   if (tab && tabs.includes(tab)) out.tab = tab;
   else if (tab && MERGED[tab] && tabs.includes(MERGED[tab])) out.tab = MERGED[tab];
-  // 3D was a tab of its own before it became a view of the Quake tab.
+  // 3D was a tab of its own before it became a view of the Quakes tab.
   if (p.get("3d") === "1" || tab === "3d") { out.view3d = true; if (tabs.includes("quake")) out.tab = "quake"; }
   const q = p.get("q");
   if (q && /^[JUI]\d{16}_-?\d+_-?\d+$/.test(q)) out.quake = q;

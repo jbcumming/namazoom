@@ -1,4 +1,4 @@
-// Quake tab: details of the quake clicked on the map, its shindo footprint
+// Quakes tab: details of the quake clicked on the map, its shindo footprint
 // (station readings) and, when available, its aftershock sequence.
 import * as Plot from "@observablehq/plot";
 import * as d3 from "d3";

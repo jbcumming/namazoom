@@ -1,4 +1,4 @@
-// Aftershock section of the Quake tab.
+// Aftershock section of the Quakes tab.
 import * as Plot from "@observablehq/plot";
 import * as d3 from "d3";
 import { FORESHOCK_DAYS, MIN_MAINSHOCK, WINDOW_DAYS, fitOmoriP, rateBins, type Sequence, type Shock } from "./aftershocks";

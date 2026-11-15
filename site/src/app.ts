@@ -37,9 +37,9 @@ const state = {
   anim: false, // in playback view (playing or paused on a frame)
   playhead: 0, // seconds, UTC
   tab: "quake",
-  view3d: false, // the Quake tab shows the 3D view instead of the map
-  dmgOpen: false, // the Quake tab's Destructive quakes list is open (rings on the map)
-  howOpen: false, // the Quake tab's How often table is open
+  view3d: false, // the Quakes tab shows the 3D view instead of the map
+  dmgOpen: false, // the Quakes tab's Destructive quakes list is open (rings on the map)
+  howOpen: false, // the Quakes tab's How often table is open
   selected: null as { props: QuakeProps; coords: [number, number] } | null,
 };
 
@@ -165,7 +165,7 @@ map.on("load", () => {
 });
 
 /** Select a quake by catalogue id: find it in its year's data. A shared link keeps the tab it
- * was on (the selection chip shows above it); a quick pick opens the Quake tab. */
+ * was on (the selection chip shows above it); a quick pick opens the Quakes tab. */
 async function findQuake(id: string) {
   const y = yearFromId(id);
   if (!Number.isFinite(y)) return null;
@@ -173,7 +173,7 @@ async function findQuake(id: string) {
   return store.features(yearStart(y), yearEnd(y), 3).features.find((x) => x.properties.id === id) ?? null;
 }
 
-/** Set when a link names a quake the map data doesn't have (shown on the Quake tab). */
+/** Set when a link names a quake the map data doesn't have (shown on the Quakes tab). */
 let missingQuake: string | null = null;
 
 async function restoreQuake(id: string, openTab = false) {
@@ -184,7 +184,7 @@ async function restoreQuake(id: string, openTab = false) {
   setTab("quake");
 }
 
-/** Buttons that open well-known quakes (Quake tab empty state). */
+/** Buttons that open well-known quakes (Quakes tab empty state). */
 function quakeExamples(): HTMLElement {
   const row = el("div", "presets");
   for (const short of ["Kantō 1923", "Kobe 1995", "Tōhoku 2011", "Kumamoto 2016", "Noto 2024"]) {
@@ -517,7 +517,7 @@ async function select(sel: typeof state.selected, openTab = true) {
   showFootprint();
   // Picked from a list while the map looks elsewhere: bring the epicentre into view.
   if (sel && openTab && !map.getBounds().contains(sel.coords)) map.easeTo({ center: sel.coords, zoom: Math.max(map.getZoom(), 5) });
-  // Selecting opens the Quake tab; clearing stays on the current tab.
+  // Selecting opens the Quakes tab; clearing stays on the current tab.
   if (sel) missingQuake = null;
   if (sel && openTab) {
     setTab("quake");
@@ -630,7 +630,7 @@ function loadCoast(): Promise<void> {
 }
 const MAX_3D = 60000;
 
-/** Show the 3D scene instead of the map while the Quake tab is in 3D, with the map's quakes (timeline and magnitude). */
+/** Show the 3D scene instead of the map while the Quakes tab is in 3D, with the map's quakes (timeline and magnitude). */
 async function draw3d(resetCamera = false) {
   const on = in3d();
   $("view3d").hidden = !on;
@@ -683,13 +683,13 @@ async function draw3d(resetCamera = false) {
 
 function in3d() { return state.view3d && state.tab === "quake"; }
 
-/** Rings round destructive quakes: on the Quake tab's map while their list is open. */
+/** Rings round destructive quakes: on the Quakes tab's map while their list is open. */
 function destructiveShown() { return state.tab === "quake" && !state.selected && state.dmgOpen && !in3d(); }
 function syncDestructive() {
   if (map.getLayer("destructive")) map.setLayoutProperty("destructive", "visibility", destructiveShown() ? "visible" : "none");
 }
 
-/** The Quake tab's Map / 3D switch. */
+/** The Quakes tab's Map / 3D switch. */
 function setView3d(on: boolean) {
   state.view3d = on;
   hideTooltip();
@@ -1067,7 +1067,7 @@ async function setPlace(place: Place | null) {
   drawLocation(); renderPanel();
 }
 
-/** Open a quake from the felt list in the Quake tab (full catalogue details when loaded). */
+/** Open a quake from the felt list in the Quakes tab (full catalogue details when loaded). */
 let feltToken = 0;
 async function selectFelt(q: FeltQuake) {
   if (!q.id || q.lat === null || q.lon === null) return;
@@ -1096,7 +1096,7 @@ map.on("mousemove", "place-felt", (e) => {
     row(`Felt near ${loc.place?.name ?? "here"}`, (CLASSES[q.cls]?.label ?? "felt") + (q.instrumental !== null ? ` (${q.instrumental.toFixed(1)})` : ""));
     if (st) row("Strongest at", st.name[q.station] || st.id[q.station]);
     if (q.epiKm !== null) row("Epicentre", `${fmt(Math.round(q.epiKm))} km away`);
-    tip.append(el("div", "t-head", q.id ? "Click to open in the Quake tab" : "No catalogue entry"));
+    tip.append(el("div", "t-head", q.id ? "Click to open in the Quakes tab" : "No catalogue entry"));
   });
 });
 map.on("mouseleave", "place-felt", () => { map.getCanvas().style.cursor = ""; hideTooltip(); });
@@ -1156,6 +1156,8 @@ map.on("click", (e) => {
 
 function applyTimeFilter() {
   if (!map.getLayer("quakes")) return;
+  // With a place chosen on the Shaking tab its felt epicentres tell the story: the other quakes are hidden.
+  map.setLayoutProperty("quakes", "visibility", state.tab === "shaking" && loc.place ? "none" : "visible");
   // A selected quake's station dots belong to its own time, not the playback's (its ring stays).
   for (const id of ["footprint", "wavefront"]) {
     if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", state.anim ? "none" : "visible");
@@ -1312,7 +1314,7 @@ const TABS = ["quake", "shaking", "forecast"];
 
 function setTab(tab: string) {
   if (tab !== state.tab) cancelMapModes(); // a pick belongs to the tab that started it
-  if (tab !== "quake") state.view3d = false; // 3D is a view of the Quake tab only
+  if (tab !== "quake") state.view3d = false; // 3D is a view of the Quakes tab only
   state.tab = tab;
   updateUrl();
   document.body.classList.remove("panel-closed");
@@ -1337,7 +1339,7 @@ function setTab(tab: string) {
 }
 for (const t of TABS) $(`tab-${t}`).addEventListener("click", () => setTab(t));
 
-/** "Selected: M7.0 · 14 Jan 1978 ✕" above every tab but the Quake tab (which has its own clear button). */
+/** "Selected: M7.0 · 14 Jan 1978 ✕" above every tab but the Quakes tab (which has its own clear button). */
 function updateSelChip() {
   const s = state.selected;
   $("sel-chip").hidden = !s || state.tab === "quake";
@@ -1555,7 +1557,8 @@ function renderLegend() {
     k.append(dot, document.createTextNode(`M${m}`));
     size.append(k);
   }
-  const rows = [depth, size, layers];
+  // A place on the Shaking tab hides the depth-coloured quakes: only the shindo colours apply.
+  const rows = state.tab === "shaking" && loc.place ? [size, layers] : [depth, size, layers];
   if ((footprint.status === "ok" && !state.anim) || (state.tab === "shaking" && loc.place !== null)) {
     const shindo_ = shindoColors();
     const fr = el("div", "lg-row lg-shindo");

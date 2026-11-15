@@ -1,4 +1,4 @@
-// Destructive quakes: a folded list on the Quake tab (while nothing is open), ringed on the map
+// Destructive quakes: a folded list on the Quakes tab (while nothing is open), ringed on the map
 // while the list is open.
 import { type QuakeProps } from "./quakes";
 import { el, fmt, rowAction } from "./ui";

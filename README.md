@@ -125,7 +125,7 @@ Views are shareable: years, filter, tab, selected quake and map position are
 kept in the URL hash.
 
 **Tabs** (follow the visible map area and the timeline's years; the site opens on Quake):
-- *Quake* - the selected quake: details; shindo footprint (stations coloured
+- *Quakes* - the selected quake: details; shindo footprint (stations coloured
   by intensity, intensity vs distance, strongest readings); replay of the
   shaking at recorded station times beside model P/S wave fronts; aftershocks
   for M5.5+ (window from Wells & Coppersmith rupture length, Omori p fit,
