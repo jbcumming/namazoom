@@ -605,6 +605,15 @@ const v3d = { scene: null as Scene3D | null, loading: false, ex: 1, spin: false,
   area: "japan" as "japan" | "map" };
 let coastRings: [number, number][][] | null = null;
 let landPolys: [number, number][][][] = [];
+let coastPromise: Promise<void> | null = null;
+/** The coastline (for the 3D view and the land marks on the Depth chart), fetched once. */
+function loadCoast(): Promise<void> {
+  coastPromise ??= fetch("./data/coast.json").then((r) => r.json()).then((coast) => {
+    landPolys = coast.geometry.coordinates as [number, number][][][];
+    coastRings = landPolys.flat();
+  }).catch(() => { landPolys = []; coastRings = []; });
+  return coastPromise;
+}
 const MAX_3D = 60000;
 
 /** Show the 3D scene instead of the map on the 3D tab, with the map's quakes in its current view. */
@@ -616,14 +625,7 @@ async function draw3d(resetCamera = false) {
   if (!v3d.scene) {
     if (v3d.loading) return;
     v3d.loading = true;
-    const [{ Scene3D: S }, coast] = await Promise.all([
-      import("./view3d"),
-      coastRings ? null : fetch("./data/coast.json").then((r) => r.json()).catch(() => null),
-    ]);
-    if (coast) {
-      landPolys = coast.geometry.coordinates as [number, number][][][];
-      coastRings = landPolys.flat();
-    }
+    const [{ Scene3D: S }] = await Promise.all([import("./view3d"), loadCoast()]);
     v3d.scene = new S($("view3d"));
     v3d.scene.onHover = (q, x, y) => {
       if (!q) { hideTooltip(); return; }
@@ -1346,11 +1348,13 @@ function renderPanelBody() {
     renderMagnitudes(host, grData, { from: state.from, to: state.to, cells, areaLabel, mode: state.magMode });
   } else if (state.tab === "depth") {
     const years = state.from === state.to ? `${state.from}` : `${state.from}–${state.to}`;
+    if (!coastRings) loadCoast().then(() => { if (state.tab === "depth") renderPanel(); });
     renderDepth($("pane-depth"), {
       section: sectionState.section,
       quakes: state.anim ? [] : shownQuakes,
       slabs: (overlayData.slabs?.features ?? []) as never,
       plates: (overlayData.plates?.features ?? []) as never,
+      land: coastRings ? landPolys : null,
       drawing: sectionState.drawing,
       scopeNote: state.anim
         ? "Paused playback shows only part of the period; press \"✕ Whole period\" by the play button (or Esc) to return to the full range."

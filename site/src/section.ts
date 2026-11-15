@@ -73,3 +73,34 @@ export function crossings(s: Section, line: LonLat[]): number[] {
   }
   return out;
 }
+
+/** Stretches of the line over land, as [from, to] km along it. Land: polygons (outer ring, then holes). */
+export function landSpans(s: Section, polys: LonLat[][][], stepKm = 2): [number, number][] {
+  const f = frame(s);
+  const box = { w: Math.min(s.a[0], s.b[0]), e: Math.max(s.a[0], s.b[0]), s: Math.min(s.a[1], s.b[1]), n: Math.max(s.a[1], s.b[1]) };
+  // Only polygons whose bounding box meets the line's.
+  const near = polys.filter((poly) => {
+    const xs = poly[0].map((p) => p[0]), ys = poly[0].map((p) => p[1]);
+    return Math.min(...xs) <= box.e && Math.max(...xs) >= box.w && Math.min(...ys) <= box.n && Math.max(...ys) >= box.s;
+  });
+  const inRing = ([x, y]: LonLat, ring: LonLat[]) => {
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [xi, yi] = ring[i], [xj, yj] = ring[j];
+      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  };
+  const onLand = (p: LonLat) => near.some((poly) => inRing(p, poly[0]) && !poly.slice(1).some((hole) => inRing(p, hole)));
+  const n = Math.max(2, Math.ceil(f.length / stepKm));
+  const spans: [number, number][] = [];
+  let start: number | null = null;
+  for (let i = 0; i <= n; i++) {
+    const d = (i / n) * f.length;
+    const land = onLand(f.unproject(d));
+    if (land && start === null) start = d;
+    if (!land && start !== null) { spans.push([start, d]); start = null; }
+  }
+  if (start !== null) spans.push([start, f.length]);
+  return spans;
+}

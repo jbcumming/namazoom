@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { crossings, frame, inSection, sectionLengthKm, swath, type Section } from "./section";
+import { crossings, frame, inSection, landSpans, sectionLengthKm, swath, type Section } from "./section";
 
 // East-west line along 38°N, 2° of longitude.
 const ew: Section = { a: [140, 38], b: [142, 38], halfWidthKm: 50 };
@@ -47,4 +47,21 @@ describe("section geometry", () => {
     expect(s).toHaveLength(5);
     expect(s[0]).toEqual(s[4]);
   });
+
+  it("finds the stretches of the line over land, leaving out lakes", () => {
+    // An island from 140.5 to 141.5°E with a lake from 140.9 to 141.1°E, across the line.
+    const island: [number, number][][] = [
+      [[140.5, 37.5], [141.5, 37.5], [141.5, 38.5], [140.5, 38.5], [140.5, 37.5]],
+      [[140.9, 37.9], [141.1, 37.9], [141.1, 38.1], [140.9, 38.1], [140.9, 37.9]],
+    ];
+    const km = sectionLengthKm(ew) / 2; // km per degree of longitude here
+    const spans = landSpans(ew, [island], 0.5);
+    expect(spans).toHaveLength(2);
+    expect(spans[0][0]).toBeCloseTo(0.5 * km, -0.5);
+    expect(spans[0][1]).toBeCloseTo(0.9 * km, -0.5);
+    expect(spans[1][0]).toBeCloseTo(1.1 * km, -0.5);
+    expect(spans[1][1]).toBeCloseTo(1.5 * km, -0.5);
+    expect(landSpans(ew, [], 1)).toEqual([]);
+  });
 });
+

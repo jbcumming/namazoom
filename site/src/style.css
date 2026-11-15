@@ -448,3 +448,11 @@ tr.clickable:focus-visible { outline: 2px solid var(--focus); outline-offset: -2
 .v3d-labels span { position: absolute; left: 0; top: 0; white-space: nowrap; }
 .how { margin: 6px 0; padding-left: 1.2em; }
 .how li { margin: 3px 0; }
+/* Depth tab: how a slice works */
+.depth-diagram-wrap { margin: 4px 0 10px; }
+.depth-diagram { width: 100%; max-width: 420px; height: auto; display: block; font-family: inherit; }
+.depth-diagram .dg-t { font-size: 10px; fill: var(--text-secondary); text-anchor: middle; }
+.depth-diagram .dg-s { font-size: 8.5px; fill: var(--text-secondary); text-anchor: middle; }
+.depth-diagram .dg-ab { font-size: 8px; font-weight: 700; fill: var(--surface-1); text-anchor: middle; }
+.depth-diagram .dg-abt { font-size: 10px; font-weight: 700; fill: var(--text-primary); }
+.depth-diagram .dg-arrow { font-size: 18px; fill: var(--text-muted); text-anchor: middle; }
