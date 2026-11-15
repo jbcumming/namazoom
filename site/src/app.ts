@@ -15,10 +15,8 @@ import { DAY, FORESHOCK_DAYS, MIN_MAINSHOCK, WINDOW_DAYS, sequence, type Shock }
 import { PLACES, renderLocation, type Place } from "./panel-location";
 import { renderHistory } from "./panel-history";
 import { HOT_STEPS, fmtRate, hotColors, renderShaking, scaleRange } from "./panel-shaking";
-import { renderLfe } from "./panel-lfe";
 import { fcColors, renderForecast } from "./panel-forecast";
 import { P_EDGES, chance, fmtPct, fmtWindow, pClass, sumCells, type Forecast } from "./forecast";
-import type { LfeColumns } from "./lfe";
 import { CELL_DEG, grid, LEVELS, logClass, stationRates, type Cell, type StationCounts } from "./hotspots";
 import { formatHash, parseHash, yearFromId } from "./urlstate";
 import { LocationStore, type FeltQuake, type NearbyStation } from "./location";
@@ -49,7 +47,7 @@ const store = new QuakeStore();
 const [grData] = await Promise.all([fetch("./data/gr.json").then((r) => r.json() as Promise<GrData>), store.init()]);
 [state.from, state.to] = store.index.years;
 // A shared link may set the view; applied before the first render.
-const fromUrl = parseHash(location.hash, ["magnitudes", "quake", "location", "history", "shaking", "slow", "forecast", "3d"], store.index.years);
+const fromUrl = parseHash(location.hash, ["magnitudes", "quake", "location", "history", "shaking", "forecast", "3d"], store.index.years);
 if (fromUrl.from !== undefined) { state.from = fromUrl.from; state.to = fromUrl.to!; }
 if (fromUrl.minMag !== undefined) state.minMag = fromUrl.minMag;
 
@@ -128,7 +126,7 @@ function addQuakeLayers() {
   addFootprintLayer();
   addLocationLayers();
   addHotspotLayer();
-  addLfeLayer();
+  addTremorLayer(before);
   addForecastLayer();
   // Rings round destructive quakes (damage class 3+ or a damaging tsunami), on the History tab.
   map.addLayer({
@@ -147,7 +145,6 @@ function addQuakeLayers() {
   showFootprint(); // after a style change the source starts empty
   drawLocation();
   drawHotspots();
-  drawLfe();
   drawForecast();
 }
 
@@ -249,10 +246,11 @@ map.on("moveend", updateUrl);
 
 // ------------------------------------------------------------- overlays ---
 
-const overlays = { plates: true, slabs: true };
+const overlays = { plates: true, slabs: true, tremor: false };
 const OVERLAY_LAYERS: Record<keyof typeof overlays, string[]> = {
   plates: ["plates-other", "plates-sub", "plates-hit"],
   slabs: ["slabs", "slabs-label", "slabs-hit"],
+  tremor: ["tremor"],
 };
 const vis = (name: keyof typeof overlays) => (overlays[name] ? "visible" : "none") as "visible" | "none";
 
@@ -312,6 +310,7 @@ function setOverlay(name: keyof typeof overlays, on: boolean) {
   for (const id of OVERLAY_LAYERS[name]) {
     if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", vis(name));
   }
+  if (name === "tremor") { if (on) loadTremor(); return; } // map only, not in 3D
   if (state.tab === "3d") draw3d();
 }
 
@@ -321,7 +320,7 @@ const KIND_LABEL: Record<string, string> = {
 };
 const overQuake = (p: { x: number; y: number }) => map.queryRenderedFeatures([p.x, p.y], { layers: ["quakes"] }).length > 0;
 map.on("mousemove", "plates-hit", (e) => {
-  if (overQuake(e.point)) return; // quakes win
+  if (overQuake(e.point) || overTremor(e.point)) return; // quakes and tremor win
   const f = e.features?.[0];
   if (!f) return;
   const p = f.properties as { kind: string; label: string };
@@ -332,7 +331,7 @@ map.on("mousemove", "plates-hit", (e) => {
 });
 map.on("mouseleave", "plates-hit", hideTooltip);
 map.on("mousemove", "slabs-hit", (e) => {
-  if (overQuake(e.point) || map.queryRenderedFeatures([e.point.x, e.point.y], { layers: ["plates-hit"] }).length) return;
+  if (overQuake(e.point) || overTremor(e.point) || map.queryRenderedFeatures([e.point.x, e.point.y], { layers: ["plates-hit"] }).length) return;
   const f = e.features?.[0];
   if (!f) return;
   const p = f.properties as { depth: number; plate: string };
@@ -808,59 +807,56 @@ map.on("mousemove", "hotspots", (e) => {
 });
 map.on("mouseleave", "hotspots", hideTooltip);
 
-// ----------------------------------------------------------- slow slip ---
+// ---------------------------------------------------- slow-slip tremor ---
 
-let lfeData: LfeColumns | null = null;
-let lfeKey = ""; // years currently drawn on the map
-let lfePromise: Promise<LfeColumns> | null = null;
+// JMA's low-frequency earthquakes counted in 0.02° squares (data/tremor.json), shown when the
+// legend's "Slow-slip tremor" box is ticked: where they happen, all years together.
+interface TremorGrid { step: number; years: [number, number]; lat: number[]; lon: number[]; n: number[] }
+let tremor: { fc: GeoJSON.FeatureCollection<GeoJSON.Point, { n: number }>; years: [number, number] } | null = null;
+let tremorPromise: Promise<void> | null = null;
 
-function addLfeLayer() {
-  map.addSource("lfe", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+function addTremorLayer(before?: string) {
+  map.addSource("tremor", { type: "geojson", data: tremor?.fc ?? { type: "FeatureCollection", features: [] } });
   map.addLayer({
-    id: "lfe", type: "circle", source: "lfe",
+    id: "tremor", type: "circle", source: "tremor", layout: { visibility: vis("tremor") },
     paint: {
-      "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 1.2, 8, 2.5, 11, 4],
-      "circle-color": theme().series[1], "circle-opacity": 0.45,
+      // About the size of a square, so the belt reads as one band when zoomed out.
+      "circle-radius": ["interpolate", ["exponential", 2], ["zoom"], 4, 1.5, 7, 3.4, 10, 22],
+      "circle-color": theme().series[1],
+      "circle-opacity": ["interpolate", ["linear"], ["ln", ["get", "n"]], 0, 0.3, 4.6, 0.8], // 1 event to 100+
     },
+  }, before);
+}
+
+/** Fetch the squares the first time the layer is shown. */
+function loadTremor() {
+  tremorPromise ??= fetch("./data/tremor.json").then((r) => r.json()).then((g: TremorGrid) => {
+    tremor = {
+      years: g.years,
+      fc: { type: "FeatureCollection", features: g.n.map((n, i) => ({
+        type: "Feature", properties: { n }, geometry: { type: "Point", coordinates: [g.lon[i], g.lat[i]] } })) },
+    };
+    (map.getSource("tremor") as GeoJSONSource | undefined)?.setData(tremor.fc);
+  }).catch(() => { tremorPromise = null; }); // try again next time it's ticked
+  return tremorPromise;
+}
+
+const overTremor = (p: { x: number; y: number }) =>
+  overlays.tremor && !!map.getLayer("tremor") && map.queryRenderedFeatures([p.x, p.y], { layers: ["tremor"] }).length > 0;
+map.on("mousemove", "tremor", (e) => {
+  if (overQuake(e.point)) return; // quakes win
+  const n = Number(e.features?.[0]?.properties?.n);
+  if (!n || !tremor) return;
+  const [y0, y1] = tremor.years;
+  showTooltip(e.originalEvent.clientX, e.originalEvent.clientY, (tip) => {
+    tip.append(el("div", "t-head", "Slow-slip tremor"));
+    tip.append(el("div", "", `${fmt(n)} low-frequency ${n === 1 ? "quake" : "quakes"} here, ${y0}–${y1}`));
+    tip.append(el("div", "t-note", "Weak, deep tremor, too faint to feel. The belt under western Japan comes from the " +
+      "sinking plate slowly slipping, just below the part that breaks in Nankai Trough quakes; clusters elsewhere are " +
+      "under volcanoes."));
   });
-}
-
-/** Load the events once; draw those in the timeline's years while the tab is open. */
-async function drawLfe() {
-  const src = map.getSource("lfe") as GeoJSONSource | undefined;
-  if (!src) return;
-  if (state.tab !== "slow") { src.setData({ type: "FeatureCollection", features: [] }); lfeKey = ""; $("lfe-loading").hidden = true; return; }
-  const pill = $("lfe-loading");
-  pill.hidden = false; // the file is large and drawing ~180k points takes a few seconds
-  lfePromise ??= fetch("./data/lfe.json").then((r) => r.json());
-  const c = (lfeData = await lfePromise);
-  if (state.tab !== "slow") { pill.hidden = true; return; }
-  lfeKey = `${state.from}-${state.to}`;
-  const lo = yearStart(state.from), hi = yearEnd(state.to);
-  const features: GeoJSON.Feature<GeoJSON.Point>[] = [];
-  for (let i = 0; i < c.t.length; i++) {
-    if (c.t[i] < lo || c.t[i] > hi) continue;
-    features.push({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [c.lon[i], c.lat[i]] } });
-  }
-  src.setData({ type: "FeatureCollection", features });
-  map.once("idle", () => { pill.hidden = true; });
-  renderPanel();
-}
-
-/** Indices of low-frequency events in the visible area and the timeline's years. */
-function lfeInView(): number[] {
-  if (!lfeData) return [];
-  const b = map.getBounds();
-  const lo = yearStart(state.from), hi = yearEnd(state.to);
-  const out: number[] = [];
-  const c = lfeData;
-  for (let i = 0; i < c.t.length; i++) {
-    if (c.t[i] < lo || c.t[i] > hi) continue;
-    if (c.lon[i] < b.getWest() || c.lon[i] > b.getEast() || c.lat[i] < b.getSouth() || c.lat[i] > b.getNorth()) continue;
-    out.push(i);
-  }
-  return out;
-}
+});
+map.on("mouseleave", "tremor", hideTooltip);
 
 // -------------------------------------------------------------- forecast ---
 
@@ -1089,7 +1085,7 @@ function applyTimeFilter() {
     map.setPaintProperty("quakes", "circle-opacity", ["interpolate", ["linear"], ["get", "t"], lo, 0.08, hi, 0.95]);
   } else {
     map.setFilter("quakes", null);
-    const dim = footprint.status === "ok" || (state.tab === "location" && loc.place !== null) || state.tab === "shaking" || state.tab === "slow" || state.tab === "forecast";
+    const dim = footprint.status === "ok" || (state.tab === "location" && loc.place !== null) || state.tab === "shaking" || state.tab === "forecast";
     map.setPaintProperty("quakes", "circle-opacity", dim ? 0.15 : 0.7);
   }
 }
@@ -1230,7 +1226,7 @@ document.addEventListener("keydown", (e) => {
 
 // ---------------------------------------------------------------- panel ---
 
-const TABS = ["quake", "3d", "location", "history", "shaking", "slow", "forecast", "magnitudes"];
+const TABS = ["quake", "3d", "location", "history", "shaking", "forecast", "magnitudes"];
 
 function setTab(tab: string) {
   if (tab !== state.tab) cancelMapModes(); // a pick belongs to the tab that started it
@@ -1247,7 +1243,6 @@ function setTab(tab: string) {
   renderPanel();
   drawLocation();
   drawHotspots();
-  drawLfe();
   drawForecast();
   draw3d();
   if (map.getLayer("quakes")) applyTimeFilter();
@@ -1316,13 +1311,6 @@ function renderPanelBody() {
     if ($<HTMLDetailsElement>("mag-more").open) {
       renderMagnitudes(host, grData, { from: state.from, to: state.to, cells, areaLabel, mode: state.magMode });
     }
-  } else if (state.tab === "slow") {
-    if (!lfeData || lfeKey !== `${state.from}-${state.to}`) drawLfe();
-    renderLfe($("pane-slow"), {
-      status: lfeData ? "ok" : "loading", data: lfeData, idx: lfeInView(),
-      from: Math.max(yearStart(state.from), yearStart(1997)), to: yearEnd(state.to),
-      years: state.from === state.to ? `${state.from}` : `${Math.max(1997, state.from)}–${state.to}`,
-    });
   } else if (state.tab === "3d") {
     render3dPane();
   } else if (state.tab === "forecast") {
@@ -1441,7 +1429,7 @@ function renderLegend() {
   const t = theme();
   const host = $("map-legend");
   const layers = el("div", "lg-row lg-lines");
-  layers.append(el("span", "lg-title", "Lines"));
+  layers.append(el("span", "lg-title", "Layers"));
   const toggle = el("label", "lg-key lg-toggle");
   const cb = document.createElement("input");
   cb.type = "checkbox"; cb.checked = overlays.plates;
@@ -1455,7 +1443,14 @@ function renderLegend() {
   cb2.addEventListener("change", () => setOverlay("slabs", cb2.checked));
   const slabLine = el("span", "lg-line"); slabLine.style.borderTop = `2px solid ${t.depth[2]}`;
   slabToggle.append(cb2, document.createTextNode("Sinking plate depth "), slabLine);
-  layers.append(toggle, slabToggle);
+  const tremorToggle = el("label", "lg-key lg-toggle");
+  tremorToggle.title = "Weak, deep tremor from the plates slowly slipping (JMA's low-frequency earthquakes)";
+  const cb3 = document.createElement("input");
+  cb3.type = "checkbox"; cb3.checked = overlays.tremor;
+  cb3.addEventListener("change", () => setOverlay("tremor", cb3.checked));
+  const tremorDot = el("span", "lg-dot"); tremorDot.style.background = t.series[1];
+  tremorToggle.append(cb3, document.createTextNode("Slow-slip tremor "), tremorDot);
+  layers.append(toggle, slabToggle, tremorToggle);
   const depth = el("div", "lg-row lg-depth");
   depth.append(el("span", "lg-title", "Depth"));
   DEPTH_LABELS.forEach((label, i) => {

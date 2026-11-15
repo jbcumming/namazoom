@@ -13,8 +13,9 @@ map, columnar, tiered so the browser only loads what it shows:
 
 stations.json, shindo/{YYYY-MM}.json - station readings for felt quakes
 (see build_shindo). station_counts.json - felt counts per station, year and
-intensity, for the shaking map (see build_station_counts). lfe.json - low-frequency
-earthquakes for the slow-slip tab (see build_lfe). felt/{lat}_{lon}.json - every reading by place, for the
+intensity, for the shaking map (see build_station_counts). tremor.json - low-frequency
+earthquakes counted in small squares, for the map's slow-slip tremor layer (see build_tremor).
+felt/{lat}_{lon}.json - every reading by place, for the
 "My location" tab (see build_felt).
 
 gr.json - everything the magnitude-frequency tab needs, pre-aggregated:
@@ -322,28 +323,37 @@ def build_station_counts(interim: Path, out: Path) -> dict:
     return {"rows": len(rows), "readings": sum(data["n"]), "bytes": path.stat().st_size}
 
 
-def build_lfe(interim: Path, out: Path) -> dict:
-    """Low-frequency earthquakes (event class 5), for the slow-slip tab.
+TREMOR_STEP = 0.02  # degrees, about 2 km
 
-    lfe.json, columnar, time order:
-      t      seconds since the Unix epoch (UTC)
-      lat, lon, depth, mag
-      mf     located by the matched-filter (template matching) method, used
-             widely from 2018; its arrival multiplies the counts, so the site
-             shows the two detection methods separately.
+
+def build_tremor(interim: Path, out: Path) -> dict:
+    """Low-frequency earthquakes (event class 5) counted in TREMOR_STEP squares, for the
+    map's slow-slip tremor layer: where they happen, not when.
+
+    tremor.json, columnar:
+      step      cell size in degrees
+      years     [first, last] year (JST) of the events counted
+      lat, lon  cell centres
+      n         events in the cell (most from 2018 on, when JMA began finding
+                them by template matching)
     """
     con = duckdb.connect()
+    src = f"read_parquet('{interim / 'events' / '*.parquet'}')"
+    where = "agency = 'J' AND event_class = '5' AND lat IS NOT NULL"
+    s = TREMOR_STEP
     rows = con.execute(f"""
-        SELECT CAST(epoch(origin_utc) AS BIGINT), round(lat, 3), round(lon, 3), round(depth_km, 1), mag1,
-               location_precision = 'M'
-        FROM read_parquet('{interim / 'events' / '*.parquet'}')
-        WHERE agency = 'J' AND event_class = '5' AND lat IS NOT NULL
-        ORDER BY origin_utc
+        SELECT round(round(lat / {s}) * {s}, 2) AS clat, round(round(lon / {s}) * {s}, 2) AS clon, count(*) AS n
+        FROM {src} WHERE {where}
+        GROUP BY 1, 2 ORDER BY 1, 2
     """).fetchall()
-    names = ("t", "lat", "lon", "depth", "mag", "mf")
-    path = out / "lfe.json"
-    path.write_text(json.dumps({n: [r[i] for r in rows] for i, n in enumerate(names)}, separators=(",", ":")))
-    return {"events": len(rows), "bytes": path.stat().st_size}
+    y0, y1 = con.execute(f"""
+        SELECT min(year(origin_utc + INTERVAL 9 HOUR)), max(year(origin_utc + INTERVAL 9 HOUR)) FROM {src} WHERE {where}
+    """).fetchone()
+    data = {"step": s, "years": [y0, y1], "lat": [r[0] for r in rows], "lon": [r[1] for r in rows], "n": [r[2] for r in rows]}
+    path = out / "tremor.json"
+    path.write_text(json.dumps(data, separators=(",", ":")))
+    (out / "lfe.json").unlink(missing_ok=True)  # the old per-event file for the Slow slip tab
+    return {"events": sum(data["n"]), "cells": len(rows), "bytes": path.stat().st_size}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -361,8 +371,8 @@ def main(argv: list[str] | None = None) -> int:
     sc = build_station_counts(args.interim, args.out)
     print(f"station counts: {sc['readings']:,} readings in {sc['rows']:,} station-year-level rows "
           f"({sc['bytes'] / 1e6:.1f} MB)")
-    lf = build_lfe(args.interim, args.out)
-    print(f"low-frequency events: {lf['events']:,} ({lf['bytes'] / 1e6:.1f} MB)")
+    tr = build_tremor(args.interim, args.out)
+    print(f"tremor: {tr['events']:,} low-frequency events in {tr['cells']:,} cells ({tr['bytes'] / 1e3:.0f} KB)")
     fe = build_felt(args.interim, args.out)
     print(f"felt: {fe['readings']:,} readings in {fe['cells']} cell files ({fe['bytes'] / 1e6:.1f} MB)")
     return 0

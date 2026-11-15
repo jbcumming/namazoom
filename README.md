@@ -59,7 +59,7 @@ hour of that download instead of up to two days back. Only days after
 the last finalised year are used, so publishing `h2025.zip` replaces 2025's
 preliminary rows automatically. Limits: values are provisional; there is no
 event class (natural / low-frequency / artificial), so the magnitude statistics
-and the Slow slip tab leave these quakes out; readings have no instrumental
+and the slow-slip tremor layer leave these quakes out; readings have no instrumental
 intensity or arrival time. The site marks these quakes "Preliminary" and
 marks them on the timeline.
 
@@ -117,7 +117,10 @@ once for ranges of up to 10 years or year by year during playback. Smaller
 quakes appear only in the magnitude counts. Timeline: year range, play/pause
 (pause holds the frame), minimum magnitude, trail. Overlays: plate boundaries
 (Bird 2003 PB2002, ODC-By; trenches heavier) and depth to the top of the sinking
-plate (USGS Slab2, Hayes 2018), contoured at the quake colour boundaries.
+plate (USGS Slab2, Hayes 2018), contoured at the quake colour boundaries;
+and, off by default, slow-slip tremor: JMA's 182k low-frequency earthquakes
+(event class 5, 1997-2024) counted in 0.02° squares (`tremor.json`, 11 KB
+gzipped), showing the Nankai tremor belt and the volcanic clusters.
 Views are shareable: years, filter, tab, selected quake and map position are
 kept in the URL hash.
 
@@ -146,11 +149,6 @@ kept in the URL hash.
 - *Shaking* - hotspots of felt shaking: each station's yearly rate at a chosen
   intensity (shindo 1+ to 5-+), averaged on a 0.2° grid so dense networks don't
   look hotter; temporary (臨時) stations left out.
-- *Slow slip* - the 182k low-frequency earthquakes (event class 5): the Nankai
-  tremor belt and volcanic clusters on the map, weekly counts split by
-  detection method (template matching from 2018 multiplies the counts), and a
-  space-time density plot along the belt where episodic tremor-and-slip bursts
-  show as streaks.
 - *Forecast* - the chance of M5+/M6+/M7+ quakes in the 7 days after the data
   ends, for the visible area and per half-degree square on the map, against the
   long-term average; and how the same method did on every week since 2016

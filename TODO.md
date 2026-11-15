@@ -62,7 +62,9 @@ New features below wait until that's settled.
 
 ## Done since this list was written
 - [x] Shaking hotspots tab (felt rate per station, gridded average).
-- [x] Slow slip tab (low-frequency earthquakes, episodic tremor and slip).
+- [x] Slow slip tab (low-frequency earthquakes, episodic tremor and slip); later
+      cut to a map layer ("Slow-slip tremor" in the legend), since only the map
+      read well for a general audience.
 - [x] Hover/click on felt-quake epicentres in My location.
 
 ## More ideas discussed
@@ -72,7 +74,8 @@ New features below wait until that's settled.
       timeline since 684 and HERP's 30-year chances, in the Forecast tab
       (`site/src/trench-history.ts`, sources in `docs/references.md`).
   - [ ] Update the chances each January (HERP recalculates for 1 Jan).
-- [ ] Slow slip burst intervals per segment over time (Slow slip tab): detect
+- [ ] Slow slip burst intervals per segment over time (would need the per-event
+      data and a tab again, now the layer is only a grid): detect
       ETS episodes per tremor segment (western Shikoku, Kii, Tōkai), chart the
       interval between bursts and their along-dip/along-strike position, and flag
       changes (shortening intervals, up-dip migration, merging or quiet segments).

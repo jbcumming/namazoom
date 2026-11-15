@@ -169,13 +169,9 @@ for (const [name, hash, level] of [
     },
   });
 }
-await shot("22-slow-slip", {
-  hash: "#y=2004-2017&tab=slow&v=33.80,134.50,6.0",
-  act: async (p) => { await p.waitForSelector("#pane-slow svg", { timeout: 30000 }); await p.waitForTimeout(1500); },
-});
-await shot("23-slow-slip-shikoku-2019", {
-  hash: "#y=2019-2020&tab=slow&v=33.50,132.60,7.5",
-  act: async (p) => { await p.waitForSelector("#pane-slow svg", { timeout: 30000 }); await p.waitForTimeout(1500); },
+await shot("22-tremor-layer", {
+  hash: "#v=34.00,134.50,6.0",
+  act: async (p) => { await p.getByLabel(/Slow-slip tremor/).check(); await p.waitForTimeout(1500); },
 });
 // Preliminary data after the finalised catalogue: the 2026 Kumamoto M7.1 (shindo 7).
 await shot("24-prelim-kumamoto-2026", {
