@@ -604,6 +604,7 @@ const JAPAN_3D = { w: 120, s: 22, e: 152, n: 48 };
 const v3d = { scene: null as Scene3D | null, loading: false, ex: 1, spin: false, n: 0, capped: false, boundsKey: "",
   area: "japan" as "japan" | "map" };
 let coastRings: [number, number][][] | null = null;
+let landPolys: [number, number][][][] = [];
 const MAX_3D = 60000;
 
 /** Show the 3D scene instead of the map on the 3D tab, with the map's quakes in its current view. */
@@ -619,7 +620,10 @@ async function draw3d(resetCamera = false) {
       import("./view3d"),
       coastRings ? null : fetch("./data/coast.json").then((r) => r.json()).catch(() => null),
     ]);
-    if (coast) coastRings = (coast.geometry.coordinates as [number, number][][][]).flat();
+    if (coast) {
+      landPolys = coast.geometry.coordinates as [number, number][][][];
+      coastRings = landPolys.flat();
+    }
     v3d.scene = new S($("view3d"));
     v3d.scene.onHover = (q, x, y) => {
       if (!q) { hideTooltip(); return; }
@@ -656,10 +660,10 @@ async function draw3d(resetCamera = false) {
       lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], depth: f.properties.depth!, mag: f.properties.mag!,
       id: f.properties.id, label: [fmtDate(f.properties.t), quakePlace(f.properties)].filter(Boolean).join(", "),
     })),
-    coast: coastRings ?? [], plates: overlays.plates ? lines(overlayData.plates) : [],
+    coast: coastRings ?? [], land: landPolys, plates: overlays.plates ? lines(overlayData.plates) : [],
     slabs: (overlays.slabs ? overlayData.slabs?.features ?? [] : []).map((f) => ({ depthKm: Number(f.properties?.depth), lines: lines({ type: "FeatureCollection", features: [f] }) })),
     bounds, exaggeration: v3d.ex, depthEdges: DEPTH_EDGES,
-    colors: { background: t.surface, coast: t.secondary, plates: t.text, slab: t.series[0], box: t.axis, text: t.muted, depth: t.depth },
+    colors: { background: t.surface, coast: t.secondary, land: t.text, plates: t.text, slab: t.series[0], box: t.axis, text: t.muted, depth: t.depth },
   }, resetCamera);
   v3d.scene.autoRotate = v3d.spin;
   renderPanel();

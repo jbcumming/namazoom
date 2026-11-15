@@ -2,17 +2,21 @@
 // sinking-plate depth contours (Slab2). Loaded on demand (three.js is ~600 KB).
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
+import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 
 export interface Quake3D { lon: number; lat: number; depth: number; mag: number; id: string; label: string }
 export interface Lines3D { lines: [number, number][][]; depthKm: number }
 export interface Scene3DInput {
   quakes: Quake3D[];
   coast: [number, number][][];
+  land: [number, number][][][]; // polygons (outer ring, then holes), filled at sea level
   plates: [number, number][][];
   slabs: Lines3D[];
   bounds: { w: number; s: number; e: number; n: number };
   exaggeration: number;
-  colors: { background: string; coast: string; plates: string; slab: string; box: string; text: string; depth: string[] };
+  colors: { background: string; coast: string; land: string; plates: string; slab: string; box: string; text: string; depth: string[] };
   depthEdges: number[];
 }
 
@@ -61,6 +65,7 @@ export class Scene3D {
   private frame = 0;
   private span = 1000;
   private corners: THREE.Vector3[] = []; // the box's 8 corners, for framing
+  private fatLines: LineMaterial[] = []; // need the canvas size to draw their width in pixels
   private ro: ResizeObserver;
   onHover: (q: Quake3D | null, x: number, y: number) => void = () => {};
   onPick: (q: Quake3D) => void = () => {};
@@ -72,6 +77,7 @@ export class Scene3D {
     this.labelHost = document.createElement("div");
     this.labelHost.className = "v3d-labels";
     host.append(this.labelHost);
+    this.renderer.localClippingEnabled = true; // the land fill is cut to the box
     this.camera.up.set(0, 0, 1);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
@@ -128,7 +134,41 @@ export class Scene3D {
       const g = new THREE.BufferGeometry().setFromPoints(pts);
       this.group.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color, transparent: opacity < 1, opacity })));
     };
-    addLines(inp.coast, 0, inp.colors.coast, 1);
+    // Land: a faint fill at sea level, cut to the box, drawn first so quakes beneath show through;
+    // the coast on top as a 1.6 px line (plain WebGL lines are always 1 px).
+    const sw0 = P(b.w, b.s), ne0 = P(b.e, b.n);
+    const clip = [new THREE.Plane(new THREE.Vector3(1, 0, 0), -sw0.x), new THREE.Plane(new THREE.Vector3(-1, 0, 0), ne0.x),
+      new THREE.Plane(new THREE.Vector3(0, 1, 0), -sw0.y), new THREE.Plane(new THREE.Vector3(0, -1, 0), ne0.y)];
+    const shapes: THREE.Shape[] = [];
+    for (const poly of inp.land) {
+      if (!poly[0]?.some(([lon, lat]) => inBox(lon, lat, 3))) continue;
+      const ring = (r: [number, number][]) => r.map(([lon, lat]) => { const v = P(lon, lat); return new THREE.Vector2(v.x, v.y); });
+      const shape = new THREE.Shape(ring(poly[0]));
+      for (const hole of poly.slice(1)) shape.holes.push(new THREE.Path(ring(hole)));
+      shapes.push(shape);
+    }
+    if (shapes.length) {
+      const fill = new THREE.Mesh(new THREE.ShapeGeometry(shapes), new THREE.MeshBasicMaterial({
+        color: inp.colors.land, transparent: true, opacity: 0.1, depthWrite: false, side: THREE.DoubleSide, clippingPlanes: clip }));
+      fill.renderOrder = -1;
+      this.group.add(fill);
+    }
+    this.fatLines = [];
+    const coastPts: number[] = [];
+    for (const line of inp.coast) {
+      for (let i = 1; i < line.length; i++) {
+        const [a, c] = [line[i - 1], line[i]];
+        if (!inBox(a[0], a[1], 0.2) && !inBox(c[0], c[1], 0.2)) continue;
+        const u = P(a[0], a[1]), v = P(c[0], c[1]);
+        coastPts.push(u.x, u.y, u.z, v.x, v.y, v.z);
+      }
+    }
+    if (coastPts.length) {
+      const mat = new LineMaterial({ color: inp.colors.coast, linewidth: 1.6 }); // segments already cut to the box above
+      mat.resolution.set(this.host.clientWidth || 1, this.host.clientHeight || 1);
+      this.fatLines.push(mat);
+      this.group.add(new LineSegments2(new LineSegmentsGeometry().setPositions(coastPts), mat));
+    }
     addLines(inp.plates, 0, inp.colors.plates, 0.9);
     for (const s of inp.slabs) addLines(s.lines, -s.depthKm * ex, inp.colors.slab, 0.45);
 
@@ -189,7 +229,7 @@ export class Scene3D {
     // From the south-east, above sea level, looking north-west and down: the Pacific slab dips away from the viewer.
     // Step back until the whole box is in view, then centre it in the space above the legend; twice,
     // since centring changes what fits. Works for any screen shape.
-    const dir = new THREE.Vector3(0.9, -1.1, 0.55).normalize();
+    const dir = new THREE.Vector3(0.9, -1.1, 1.2).normalize(); // about 40° above the horizon
     const [X, YB, YT] = [0.94, -0.72, 0.9]; // allowed area in screen units (-1..1); the legend sits bottom left
     this.camera.near = s / 1000;
     this.camera.updateProjectionMatrix();
@@ -255,6 +295,7 @@ export class Scene3D {
     this.renderer.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    for (const m of this.fatLines) m.resolution.set(w, h);
     this.updateScale();
     this.request();
   }
