@@ -148,9 +148,10 @@ kept in the URL hash.
   (damage class 3+ or a damaging tsunami), ringed on the map while open.
 - *Shaking* - hotspots of felt shaking: each station's yearly rate at a chosen
   intensity (shindo 1+ to 5-+), averaged on a 0.2° grid so dense networks don't
-  look hotter; temporary (臨時) stations left out. Choosing a place (city
+  look hotter; instrumental era only (1997 onwards, within the timeline's
+  years); temporary (臨時) stations left out. Choosing a place (city
   presets, map pick, browser location or a click on a square) shows what was
-  felt near it instead: per year by strongest nearby intensity, strongest
+  felt at stations within 25 km of it instead: per year by strongest nearby intensity, strongest
   shakings, their epicentres on the map, stations operating nearby.
 - *Forecast* - the chance of M5+/M6+/M7+ quakes in the 7 days after the data
   ends, for the visible area and per half-degree square on the map, against the
