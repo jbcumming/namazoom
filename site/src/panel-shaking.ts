@@ -41,7 +41,6 @@ export interface HotspotInputs {
   range: [number, number];
   stations: Stations | null;
   onLevel(i: number): void;
-  onInstrumentalEra(): void;
   onCell(c: Cell): void; // choose the square as the place
 }
 
@@ -81,17 +80,12 @@ function levelButtons(level: number, onLevel: (i: number) => void, tip: string):
 }
 
 function hotspots(inp: HotspotInputs): HTMLElement[] {
-  const parts: HTMLElement[] = [el("p", "sub", "Or click a square on the map to see what was felt there.")];
-  const controls = el("div", "controls-row");
-  if (inp.from < 1997) {
-    const era = el("button", "", "Use 1997–" + inp.years[1]) as HTMLButtonElement;
-    era.type = "button";
-    era.title = "Instrumental intensity meters replaced human observers in 1996";
-    era.addEventListener("click", () => inp.onInstrumentalEra());
-    controls.append(era);
-  }
-  if (controls.childElementCount) parts.push(controls);
+  const parts: HTMLElement[] = [el("p", "sub", "Or click a square on the map to see what was felt there. Squares cover 1997 onwards, when instruments replaced people's reports.")];
 
+  if (inp.to < inp.from) {
+    return [...parts, el("p", "note", `The squares cover ${inp.from} onwards, when instruments replaced people's reports. ` +
+      `Move the end of the timeline to ${inp.from} or later.`)];
+  }
   if (inp.status === "loading" || !inp.stations) return [...parts, el("p", "sub", "Loading station records…")];
   const period = inp.from === inp.to ? `${inp.from}` : `${inp.from}–${inp.to}`;
 
@@ -133,8 +127,8 @@ function hotspots(inp: HotspotInputs): HTMLElement[] {
   notes.append(el("summary", "", "How this is counted"), el("p", "sub",
     `Each ${CELL_DEG}° square shows the average yearly count of its stations (each in operation at least ${MIN_YEARS} ` +
     "years of the period), so places with many stations don't look busier just for having them. Long periods are " +
-    "dominated by big sequences, above all 2011 off Tōhoku. Before 1996 intensities were reported by people, not " +
-    "instruments. Temporary stations (臨時) are left out. In station names, ＊ marks stations run by local governments " +
+    "dominated by big sequences, above all 2011 off Tōhoku. Only 1997 onwards is used: before 1996 intensities were " +
+    "reported by people, at far fewer places, so weak shaking was recorded much less often. Temporary stations (臨時) are left out. In station names, ＊ marks stations run by local governments " +
     "or NIED, and （旧） one that has since closed or moved."));
   parts.push(notes);
   return parts;

@@ -782,6 +782,12 @@ function addHotspotLayer() {
 }
 
 /** Recompute cells when the period or level changes, then draw them (only on the Shaking tab). */
+/** The squares use the instrumental era only (from 1997): before 1996 shindo was reported by people,
+ *  at far fewer places, so older years would make busy places look quieter than they were. */
+const HOT_FROM = 1997;
+const hotYears = (): [number, number] => [Math.max(HOT_FROM, state.from), state.to];
+const hotKey = () => `${hotYears().join("-")}-${hot.level}`;
+
 async function drawHotspots() {
   const src = map.getSource("hotspots") as GeoJSONSource | undefined;
   if (!src) return;
@@ -789,9 +795,10 @@ async function drawHotspots() {
   countsPromise ??= fetch("./data/station_counts.json").then((r) => r.json());
   const [counts, stations] = await Promise.all([countsPromise, shindo.loadStations()]);
   hot.counts = counts;
-  const key = `${state.from}-${state.to}-${hot.level}`;
+  const key = hotKey();
   if (key !== hot.key) {
-    hot.cells = grid(stationRates(counts, stations, state.from, state.to, LEVELS[hot.level].minClass), stations);
+    const [from, to] = hotYears();
+    hot.cells = to < from ? [] : grid(stationRates(counts, stations, from, to, LEVELS[hot.level].minClass), stations);
     hot.range = scaleRange(hot.cells);
     hot.key = key;
     renderPanel();
@@ -816,7 +823,8 @@ map.on("mousemove", "hotspots", (e) => {
   if (!c || !st) return;
   const busiest = c.stations.reduce((a, b) => (b.rate > a.rate ? b : a));
   showTooltip(e.originalEvent.clientX, e.originalEvent.clientY, (tip) => {
-    tip.append(el("div", "t-head", `${LEVELS[hot.level].label}, ${state.from === state.to ? state.from : `${state.from}–${state.to}`}`));
+    const [y0, y1] = hotYears();
+    tip.append(el("div", "t-head", `${LEVELS[hot.level].label}, ${y0 === y1 ? y0 : `${y0}–${y1}`}`));
     const row = (k: string, v: string) => { const r = el("div", "t-row"); r.append(el("span", "", k), el("strong", "", v)); tip.append(r); };
     row("Per year (average)", c.rate >= 10 ? fmt(Math.round(c.rate)) : c.rate.toPrecision(2));
     row("Stations", String(c.stations.length));
@@ -1412,11 +1420,10 @@ function renderPanelBody() {
     });
   } else if (state.tab === "shaking") {
     renderShaking($("pane-shaking"), {
-      status: hot.key === `${state.from}-${state.to}-${hot.level}` ? "ok" : "loading",
-      level: hot.level, from: state.from, to: state.to, years: store.index.years,
+      status: hot.key === hotKey() ? "ok" : "loading",
+      level: hot.level, from: hotYears()[0], to: hotYears()[1], years: store.index.years,
       cells: hot.cells, range: hot.range, stations: shindo.stations,
       onLevel: (i) => { hot.level = i; renderPanel(); drawHotspots(); drawLocation(); },
-      onInstrumentalEra: () => { state.from = 1997; state.to = store.index.years[1]; syncTimeline(); refreshData(); drawHotspots(); renderPanel(); },
       onCell: chooseCell,
     }, {
       ...loc,
@@ -1436,11 +1443,10 @@ function renderPanelBody() {
           { maximumAge: 600000, timeout: 10000 },
         );
       },
-      onRadius: (km) => { loc.radiusKm = km; setPlace(loc.place); },
       onSelectQuake: selectFelt,
       onClear: () => setPlace(null),
     });
-    if (!loc.place && hot.key !== `${state.from}-${state.to}-${hot.level}`) drawHotspots();
+    if (!loc.place && hot.key !== hotKey()) drawHotspots();
   } else if (state.tab === "quake") {
     // While nothing is open: the Start here card, or in 3D what the 3D view shows.
     $("intro-host").hidden = !!state.selected || in3d();

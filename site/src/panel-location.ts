@@ -30,14 +30,13 @@ export interface LocationInputs {
   onPlace(p: Place): void;
   onPick(): void;
   onGeolocate(): void;
-  onRadius(km: number): void;
   onSelectQuake(q: FeltQuake): void;
   onClear(): void;
 }
 
 const when = (t: number) => new Date((t + 9 * 3600) * 1000).toISOString().slice(0, 10);
 
-/** Cities, Pick on map, Use my location; with a place chosen, the distance and All of Japan. */
+/** Cities, Pick on map, Use my location; with a place chosen, All of Japan. */
 export function placeControls(inp: LocationInputs): HTMLElement {
   const controls = el("div", "controls-row");
   const presets = el("div", "presets");
@@ -50,17 +49,7 @@ export function placeControls(inp: LocationInputs): HTMLElement {
   controls.append(presets,
     button(inp.picking ? "Click a place on the map…" : "Pick on map", () => inp.onPick(), inp.picking),
     button("Use my location", () => inp.onGeolocate()));
-  if (inp.place) {
-    const radius = document.createElement("select");
-    radius.setAttribute("aria-label", "Distance from the place");
-    for (const r of [10, 25, 50]) {
-      const o = document.createElement("option");
-      o.value = String(r); o.textContent = `within ${r} km`; o.selected = r === inp.radiusKm;
-      radius.append(o);
-    }
-    radius.addEventListener("change", () => inp.onRadius(Number(radius.value)));
-    controls.append(radius, button("All of Japan", () => inp.onClear()));
-  }
+  if (inp.place) controls.append(button("All of Japan", () => inp.onClear()));
   return controls;
 }
 
@@ -69,7 +58,7 @@ export function placeBody(inp: LocationInputs, width: number): HTMLElement[] {
   const place = inp.place!;
   if (inp.status === "loading" || !inp.allStations) return [el("p", "sub", `Loading readings near ${place.name}…`)];
   if (!inp.stations.length) {
-    return [el("p", "note", `No intensity stations within ${inp.radiusKm} km of ${place.name}. Try a larger distance.`),
+    return [el("p", "note", `No intensity stations within ${inp.radiusKm} km of ${place.name}.`),
       lookingAhead(place)];
   }
   return summary(inp, width);
